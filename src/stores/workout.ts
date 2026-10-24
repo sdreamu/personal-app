@@ -220,10 +220,13 @@ export const useWorkoutStore = defineStore('workout', {
       ]);
       this.history = sortRecordsDesc(history);
       const persisted = rows[0] ?? null;
+      const sameDay = this.loadedDate === date;
       this.loadedDate = date;
       this.dayPersisted = persisted !== null;
       this.day = persisted ?? buildDraftForDate(date, this.week, this.history);
-      this.firstCheckAtMs = null;
+      // 同一日期重载（典型场景：每次保存后刷新当天记录）不能忘掉"首组勾选时刻"，
+      // 否则默认用时会退回 30 分钟。只有真正换到另一天才重置。
+      if (!sameDay) this.firstCheckAtMs = null;
     },
 
     /** 载入选中日期需要的全部数据（周计划 + 当天训练 + 历史列表）。 */

@@ -337,6 +337,28 @@ describe('完成训练与用时计算', () => {
     expect(finished.duration_min).toBe(5);
   });
 
+  it('同一日期重载（保存后刷新）不丢首勾时刻，仍按首勾到完成算默认用时', async () => {
+    await seedToday();
+    await store.toggleSet(TODAY, 0, 0);
+    expect(store.firstCheckAtMs).toBe(BASE);
+
+    // 模拟"每次保存后重新 loadDay"造成的重载：不得清空首勾时刻
+    await store.loadDay(TODAY);
+    expect(store.firstCheckAtMs).toBe(BASE);
+
+    vi.setSystemTime(BASE + 5 * 60_000);
+    expect((await store.finishWorkout(TODAY)).duration_min).toBe(5);
+  });
+
+  it('切到另一天会重置首勾时刻（不跨日期串用）', async () => {
+    await seedToday();
+    await store.toggleSet(TODAY, 0, 0);
+    expect(store.firstCheckAtMs).toBe(BASE);
+
+    await store.loadDay('2026-06-02');
+    expect(store.firstCheckAtMs).toBeNull();
+  });
+
   it('不足 1 分钟：默认 30 分钟', async () => {
     await seedToday();
     await store.toggleSet(TODAY, 0, 0);
