@@ -16,6 +16,7 @@ import {
 import { addDays, isBackupReminderDue, logicalToday, MINUTES_PER_DAY, minutesOfDay } from '@/utils/date';
 import { computeWaterState, useDietStore } from '@/stores/diet';
 import { addMitToPlan, sortPlansByOffset, usePlanStore } from '@/stores/plan';
+import { hasReviewContent } from '@/stores/review';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimerStore } from '@/stores/timer';
 import { REST_TYPE_NAME, weekdayOf } from '@/stores/workout';
@@ -298,7 +299,9 @@ export const useHomeStore = defineStore('home', {
         this.todayWorkoutTemplate = workouts.find((template) => template.weekday === todayWeekday) ?? null;
         this.todayWorkoutRecord = workoutRecords[0] ?? null;
         this.playRecords = playRecords;
-        this.yesterdayReviewed = reviews.length > 0;
+        // 与复盘页历史列表/灰点同一口径：只有真正写了内容才算已复盘，
+        // 空记录行（例如点了评分又取消留下的全 null 行）不算。
+        this.yesterdayReviewed = reviews.some(hasReviewContent);
         this.yesterdayReview = reviews.find((review) => (review.mit ?? '').trim() !== '') ?? null;
         this.rolloverCount = yesterdayPlans.filter((plan) => !plan.done && !plan.is_rolled_over).length;
         this.earliestDataAt = settings.lastBackupAt === null ? await getOldestDataCreatedAt() : null;

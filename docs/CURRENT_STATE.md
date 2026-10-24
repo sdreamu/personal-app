@@ -3,6 +3,8 @@
 > 本文档为**只读盘点**结果：未改动任何现有业务文件，仅新增本文件。
 > 盘点时间：2026-10-24 06:30（本地时区）　git HEAD：`31dceee`（分支 main；工作区有未提交改动，见 §17.5）
 > 验证方式：除静态阅读外，实际执行了 `pnpm run typecheck`、`pnpm run test`、`pnpm run test:e2e`，结果见 §16 与附录 B。
+>
+> **2026-10-24 更新（M1 复盘增加两栏）**：§5.2、§7.2、§12.1、§12.2 已同步为最新口径，交付记录见 §12.3。
 
 ---
 
@@ -363,7 +365,7 @@ test:e2e   playwright test
 - `weekTotal(date)`
 - `runWithSaveStatus(fn)`
 
-**`src/stores/review.ts`**（id `review`；另导出 `formatDiffText`、`computeMetrics`、`hasReviewContent`、`summarizeReview`、`sortReviewsDesc`、`normalizeReviewPatch`、常量 `REVIEW_TEXT_DEBOUNCE_MS=300`、`REVIEW_TEXT_FIELDS`）
+**`src/stores/review.ts`**（id `review`；另导出 `formatDiffText`、`computeMetrics`、`hasReviewContent`、`summarizeReview`、`sortReviewsDesc`、`normalizeReviewPatch`、常量 `REVIEW_TEXT_DEBOUNCE_MS=300`、`REVIEW_TEXT_FIELDS`（good/improve/mit/record_worthy/day_summary）、`DAY_SUMMARY_MAX_LENGTH=100`）
 - `load(date)`
 - `reload()`
 - `upsertReview(date, patch)`
@@ -475,7 +477,7 @@ test:e2e   playwright test
 
 | 区域 | 有无 300ms 防抖 | 实现 |
 |---|---|---|
-| 复盘三栏文字（good/improve/mit） | **有** | `reviewStore.debouncedSaveText(date, patch)`：`clearTimeout` 重置 → 合并 `pendingTextPatch` → `setTimeout(flush, REVIEW_TEXT_DEBOUNCE_MS=300)`（`src/stores/review.ts`） |
+| 复盘文字栏（record_worthy / day_summary / good / improve / mit） | **有** | `reviewStore.debouncedSaveText(date, patch)`：`clearTimeout` 重置 → 合并 `pendingTextPatch` → `setTimeout(flush, REVIEW_TEXT_DEBOUNCE_MS=300)`（`src/stores/review.ts`）。"一句话总结"另有 `maxlength=100` 与右下角字数计数 |
 | 复盘评分/心情/精力 | 无（点击即写） | `ReviewView.vue` 的 `onRatingChange/onMoodChange/onEnergyChange` → `reviewStore.upsertReview()` |
 | 设置页每日目标 | **有**（300ms） | `SettingsView.vue`：`watch(goals)` → `window.setTimeout(commitGoals, 300)`；输入框另绑 `@change="commitGoals"` 立即提交 |
 | 设置页一天起点 | 无 | `watch([dayStartHour, dayStartMinute])` → `settings.update({ day_start })` |
@@ -648,21 +650,33 @@ test:e2e   playwright test
 | 要改进的 | `improve` | `string \| null` |
 | 明天最重要的一件事 | `mit` | `string \| null` |
 | 最重要一件事是否已加入次日待办 | `mit_added_to_plan` | `boolean`（默认 false） |
-| 今天一件值得记录的事（v2 新增，**无 UI**） | `record_worthy` | `string \| null \| undefined` |
-| 一句话总结今天（v2 新增，**无 UI**） | `day_summary` | `string \| null \| undefined` |
+| 今天一件值得记录的事（v2 新增；M1 起有 UI，多行文本框） | `record_worthy` | `string \| null \| undefined` |
+| 一句话总结今天（v2 新增；M1 起有 UI，单行文本框，限 100 字） | `day_summary` | `string \| null \| undefined` |
 
-写入接口：`reviewStore.upsertReview(date, patch)`（按 date upsert；`ReviewPatch` 只允许 `rating/mood/energy/good/improve/mit/mit_added_to_plan`，**不包含 `record_worthy`/`day_summary`**）。
+写入接口：`reviewStore.upsertReview(date, patch)`（按 date upsert；`ReviewPatch` 现已包含 `rating/mood/energy/good/improve/mit/record_worthy/day_summary/mit_added_to_plan`）。新增两栏与其他文字栏一样走 `debouncedSaveText`（300ms 防抖，切日期/卸载前 flush）；`normalizeReviewPatch` 统一 trim（空白存 null），并把 `day_summary` 截到 `DAY_SUMMARY_MAX_LENGTH=100`。
 
 ### 12.2 "已复盘"状态是怎么判断的
-**当前有两套不一致的口径：**
+**M1 起已统一为单一口径（`hasReviewContent`），此前"两套标准"的问题已修复。**
 
-1. 首页提示条 P2（"昨天还没复盘"）：`src/stores/home.ts` 的 `load()` 里 `this.yesterdayReviewed = reviews.length > 0;` —— **只看昨天有没有 `reviews` 行**，内容全空也算已复盘。
-2. 复盘页历史列表 / 最近 14 天灰点：`src/stores/review.ts` 的 `hasReviewContent(review)` —— `rating/mood/energy` 任一非 null，或 `good/improve/mit` 任一 trim 后非空。`historyItems` 与 `last14Dots` 都用它。
-
-后果：在复盘页点一下评分再点一次取消（写入 `null`）会留下一条全空行 → 首页认为"已复盘"、复盘页灰点仍标未填写。相关代码：`doUpsert()` 无条件 `createRecord("reviews", {...全 null...})`。
+- 判定函数：`src/stores/review.ts` 的 `hasReviewContent(review)` —— `rating/mood/energy` 任一非 null，或 `good/improve/mit/record_worthy/day_summary` 任一 trim 后非空即算已复盘（只填"值得记录"或"一句话总结"也算）。
+- 使用方（同一口径）：
+  1. 复盘页历史列表 `historyItems` 与最近 14 天灰点 `last14Dots`；
+  2. 首页提示条 P2（"昨天还没复盘"）：`src/stores/home.ts` 的 `load()` 里 `this.yesterdayReviewed = reviews.some(hasReviewContent)` —— **不再仅凭存在空记录行判定**（点了评分又取消留下的全空行不算已复盘）。
+- 历史列表的一句话摘要（`summarizeReview`）：优先 `day_summary`；为空时取"做得好的"首行前 30 字；都为空显示"（无摘要）"。
 
 补充：`mit_added_to_plan` 由 `addMitToPlan()`（`src/stores/plan.ts`）在把 MIT 加进今日待办时置 true；首页/计划页据此把按钮切成"已加入今日待办 ✓"并禁用。
 
+### 12.3 M1 交付记录（复盘增加两栏，2026-10-24）
+
+| 项 | 内容 |
+|---|---|
+| 数据 | **未改表结构、未改 `DB_VERSION`（仍为 2）**，只使用已存在的 `record_worthy`、`day_summary` |
+| Store | `ReviewPatch` 增加 `record_worthy?: string \| null`、`day_summary?: string \| null`；两字段并入 `REVIEW_TEXT_FIELDS`，沿用 `debouncedSaveText` 的 300ms 防抖与 `flush`（切日期/卸载前立即写入）；新增常量 `DAY_SUMMARY_MAX_LENGTH=100` |
+| 界面 | `src/views/ReviewView.vue` 在三栏文字**上方**新增「今天一件值得记录的事」（多行 textarea）与「一句话总结今天」（单行 input，`maxlength=100`，右下角 `n/100` 字数计数）；输入即触发自动保存，顶栏 `SaveStatus` 显示「已自动保存 ✓」 |
+| 联动 | `hasReviewContent` 纳入两个新字段；`summarizeReview` 改为优先 `day_summary`、回退"做得好的"前 30 字；`homeStore.load()` 改用 `hasReviewContent` 判断昨日是否已复盘 |
+| 测试 | `src/stores/review.spec.ts`（新增两栏防抖保存 / `hasReviewContent` / 摘要回退 / 100 字截断）、`src/stores/home.spec.ts`（空记录行不算已复盘）、`src/views/review-view.spec.ts`（两栏渲染与字数计数） |
+
+本次实跑：`pnpm run typecheck` 0 错误；`pnpm run test` 46 个文件 / 355 个用例全部通过。
 
 ---
 

@@ -20,12 +20,27 @@ import { useToastStore } from './toast';
 
 /** 复盘可写字段（不包含 BaseFields 与 date；date 由 upsert 参数定位）。 */
 export type ReviewPatch = Partial<
-  Pick<Review, 'rating' | 'mood' | 'energy' | 'good' | 'improve' | 'mit' | 'mit_added_to_plan'>
+  Pick<
+    Review,
+    | 'rating'
+    | 'mood'
+    | 'energy'
+    | 'good'
+    | 'improve'
+    | 'mit'
+    | 'record_worthy'
+    | 'day_summary'
+    | 'mit_added_to_plan'
+  >
 >;
 
-export const REVIEW_TEXT_FIELDS = ['good', 'improve', 'mit'] as const;
+/** 走 300ms 防抖自动保存的文字字段：三栏文字 + 新增两栏（值得记录 / 一句话总结）。 */
+export const REVIEW_TEXT_FIELDS = ['good', 'improve', 'mit', 'record_worthy', 'day_summary'] as const;
 export type ReviewTextField = (typeof REVIEW_TEXT_FIELDS)[number];
 export type ReviewTextPatch = Partial<Pick<Review, ReviewTextField>>;
+
+/** “一句话总结今天”的最大长度（输入框 maxlength 与字数计数共用同一常量）。 */
+export const DAY_SUMMARY_MAX_LENGTH = 100;
 
 export interface ReviewSettingsInput {
   daily_study_min: number;
@@ -178,7 +193,7 @@ export function computeMetrics(input: ReviewMetricsInput): ReviewMetrics {
   };
 }
 
-/** 是否算“已填写复盘”（任一评分/心情/精力/三栏文字非空即算）。 */
+/** 是否算“已填写复盘”（任一评分/心情/精力/文字栏非空即算，含新增的值得记录与一句话总结）。 */
 export function hasReviewContent(review: Review): boolean {
   return (
     review.rating !== null ||
@@ -186,16 +201,18 @@ export function hasReviewContent(review: Review): boolean {
     review.energy !== null ||
     (review.good ?? '').trim() !== '' ||
     (review.improve ?? '').trim() !== '' ||
-    (review.mit ?? '').trim() !== ''
+    (review.mit ?? '').trim() !== '' ||
+    (review.record_worthy ?? '').trim() !== '' ||
+    (review.day_summary ?? '').trim() !== ''
   );
 }
 
-/** 一句话摘要：优先 mit，其次“做得好的”首行；都为空返回空串。 */
+/** 一句话摘要：优先 day_summary；为空时回退“做得好的”首行前 30 字；都为空返回空串。 */
 export function summarizeReview(review: Review): string {
-  const mit = (review.mit ?? '').trim();
-  if (mit !== '') return mit.split('\n')[0];
+  const summary = (review.day_summary ?? '').trim();
+  if (summary !== '') return summary.split('\n')[0];
   const good = (review.good ?? '').trim();
-  if (good !== '') return good.split('\n')[0];
+  if (good !== '') return good.split('\n')[0].slice(0, 30);
   return '';
 }
 
@@ -215,6 +232,9 @@ export function normalizeReviewPatch(patch: ReviewPatch): ReviewPatch {
       const trimmed = value.trim();
       next[key] = trimmed === '' ? null : trimmed;
     }
+  }
+  if (typeof next.day_summary === 'string' && next.day_summary.length > DAY_SUMMARY_MAX_LENGTH) {
+    next.day_summary = next.day_summary.slice(0, DAY_SUMMARY_MAX_LENGTH);
   }
   for (const key of ['rating', 'mood', 'energy'] as const) {
     const value = patch[key];
@@ -244,7 +264,7 @@ const upsertChains = new Map<string, Promise<unknown>>();
  * 复盘模块 store（4b）：
  * load(date) 载入选中日期复盘 + 各表当天数据并计算 7 项指标，同时载入全部复盘历史；
  * upsertReview(date, patch) 按 date 定位 reviews 行（存在则更新、不存在则新增）；
- * debouncedSaveText(date, patch) 对三栏文字做 300ms 防抖自动保存；
+ * debouncedSaveText(date, patch) 对三栏文字 + 值得记录 + 一句话总结做 300ms 防抖自动保存；
  * flush() 立即保存尚未落库的文字（切日期/卸载前调用）。
  */
 export const useReviewStore = defineStore('review', {
@@ -365,6 +385,8 @@ export const useReviewStore = defineStore('review', {
           good: null,
           improve: null,
           mit: null,
+          record_worthy: null,
+          day_summary: null,
           mit_added_to_plan: false,
           ...normalized,
         });
@@ -379,7 +401,7 @@ export const useReviewStore = defineStore('review', {
       if (this.loadedDate === updated.date) this.review = updated;
     },
 
-    /** 三栏文字 300ms 防抖自动保存（重复调用重置计时，合并 patch）。 */
+    /** 文字栏 300ms 防抖自动保存（重复调用重置计时，合并 patch，含新增两栏）。 */
     debouncedSaveText(date: string, patch: ReviewTextPatch): void {
       if (this.textTimer !== null) clearTimeout(this.textTimer);
       this.pendingTextDate = date;

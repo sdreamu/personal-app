@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import { createRecord, resetDbForTests } from '@/db';
+import { createRecord, listAliveByDate, resetDbForTests } from '@/db';
 import { useDateStore } from '@/stores/date';
 import { useReviewStore } from '@/stores/review';
 import { useSettingsStore } from '@/stores/settings';
@@ -54,6 +54,42 @@ describe('ReviewView 复盘页', () => {
     expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe('专注');
     expect((wrapper.find('[data-test="review-mit"]').element as HTMLTextAreaElement).value).toBe('晨跑');
     expect(wrapper.find('[data-test="review-history"]').exists()).toBe(true);
+  });
+
+  it('新增两栏：回显 store 值、一句话总结 100 字上限与字数计数、输入后自动保存', async () => {
+    await createRecord('reviews', {
+      date: TODAY,
+      rating: null,
+      mood: null,
+      energy: null,
+      good: null,
+      improve: null,
+      mit: null,
+      record_worthy: '跑完 5 公里',
+      day_summary: '状态不错',
+      mit_added_to_plan: false,
+    });
+    const wrapper = mountView();
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-test="review-metrics"]').exists()).toBe(true);
+    });
+
+    const worth = wrapper.find('[data-test="review-record-worthy"]');
+    const summary = wrapper.find('[data-test="review-day-summary"]');
+    expect((worth.element as HTMLTextAreaElement).value).toBe('跑完 5 公里');
+    expect((summary.element as HTMLInputElement).value).toBe('状态不错');
+    expect(summary.attributes('maxlength')).toBe('100');
+    expect(wrapper.find('[data-test="review-day-summary-counter"]').text()).toBe('4/100');
+
+    await worth.setValue('第一次跑完 5 公里');
+    await summary.setValue('今天很稳');
+    expect(wrapper.find('[data-test="review-day-summary-counter"]').text()).toBe('4/100');
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const rows = await listAliveByDate('reviews', TODAY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.record_worthy).toBe('第一次跑完 5 公里');
+    expect(rows[0]?.day_summary).toBe('今天很稳');
   });
 
   it('灰点点击把 selectedDate 切到该日期并载入补写', async () => {

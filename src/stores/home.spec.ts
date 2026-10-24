@@ -4,6 +4,7 @@ import {
   createRecord,
   listAliveByDate,
   resetDbForTests,
+  updateRecord,
   type ActiveTimer,
   type Book,
   type Plan,
@@ -502,6 +503,33 @@ describe('首页 store 聚合与动作', () => {
     expect(home.workout).toEqual({ isRest: false, typeName: '胸', done: true });
     expect(home.yesterdayReviewed).toBe(false);
     expect(home.rolloverCount).toBe(1);
+  });
+
+  it('yesterdayReviewed 与复盘页同口径：空记录行不算已复盘，只填一句话总结也算', async () => {
+    await createRecord('reviews', {
+      date: YESTERDAY,
+      rating: null,
+      mood: null,
+      energy: null,
+      good: null,
+      improve: null,
+      mit: null,
+      record_worthy: null,
+      day_summary: null,
+      mit_added_to_plan: false,
+    });
+    const home = useHomeStore();
+    await home.load();
+    expect(home.yesterdayReviewed).toBe(false);
+    expect(home.hints.some((hint) => hint.kind === 'review')).toBe(true);
+
+    const emptyRow = (await listAliveByDate('reviews', YESTERDAY))[0];
+    expect(emptyRow).toBeDefined();
+    await updateRecord('reviews', emptyRow!.id, { day_summary: '状态不错' });
+
+    await home.load();
+    expect(home.yesterdayReviewed).toBe(true);
+    expect(home.hints.some((hint) => hint.kind === 'review')).toBe(false);
   });
 
   it('store.hints 在计时进行中且昨日未复盘时取计时+复盘两条', async () => {
