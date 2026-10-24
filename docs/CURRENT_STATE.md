@@ -109,6 +109,8 @@ test:e2e   playwright test
 
 导航入口（`navItems`）：首页、计划、学习（读书/科目/计时器）、生活（饮食/健身/娱乐）、复盘、设置 —— 共 10 个一级项，覆盖上面 11 条路由；`bottomTabs` 去掉「设置」用于手机底部导航。
 
+顶栏日期控件（前一天 / 日期标签 / 后一天 / 回到今天）的显示范围唯一来源：`src/config/nav.ts` 的 `dateSwitchPaths` + `showsDateSwitch(path)` —— 只在 `#/plan`、`#/life/diet`、`#/life/workout`、`#/life/play`、`#/review` 显示；`#/home`、`#/study/books`、`#/study/books/:id`、`#/study/subjects`、`#/study/timer`、`#/settings` 完全不显示。快捷键 ← / → / T / Home 不受影响，仍全局生效（见 §6.3）。
+
 ---
 
 ## 4. 数据库（IndexedDB）
@@ -216,6 +218,10 @@ test:e2e   playwright test
 - `summarizeBackup(backup)`
 - `importBackupObject(backup)`
 - `importBackupFromJson(text)`
+
+**`src/db/dateStats.ts`**（月历小点；未加入 `index.ts` barrel，`MonthCalendar.vue` 按路径直接导入）
+- `datesWithData(year, month)`：只查 plans / study_records / workout_records / play_records / reviews 五张表，`deleted_at !== null` 一律忽略；返回该月 `YYYY-MM-DD` 升序去重。water / meals / excerpts 不参与。
+- 另导出常量 `DATE_STAT_TABLES`（五张表的唯一口径）。
 
 **`src/db/exportText.ts`**（纯函数，把各表整理成 Markdown 文本；**目前只有单测调用，UI 无入口**）
 - `emptyExportSource(start, end)`
@@ -449,6 +455,14 @@ test:e2e   playwright test
 
 > 另外：**测试文件**里也有大量 `Date.now()` / `new Date()`（17 个 `*.spec.ts`，其中 `src/db/db.spec.ts` 12 处），属测试造数，不逐一列举。
 > 结论：项目**没有**统一的"时钟注入"层 —— 只有 `nowMs()` 和 `logicalToday(dayStart, nowMs)` 支持注入参数，多数 store 直接调 `Date.now()`（单测靠 `vi.setSystemTime` 覆盖）。
+
+### 6.3 M2 交付记录：日期月历（2026-10-24）
+
+- `src/utils/calendar.ts`（纯函数，不读时钟、不碰数据库）：`daysInMonth`、`monthOfDateKey`、`shiftMonth`、`monthLabel`、`buildMonthGrid(year, month, { today, selected?, recordDates? })`。周一为一周起点；格子数一定是 7 的倍数（28~42），每格含 `date` / `day` / `in_month` / `is_today` / `is_selected` / `has_record`；所有“今天”由调用方注入。
+- `src/db/dateStats.ts`：`datesWithData(year, month)`，只查 plans / study_records / workout_records / play_records / reviews 五张表，忽略 `deleted_at !== null`；water / meals / excerpts 不参与。
+- `src/components/MonthCalendar.vue`：月历网格 + 上/下月 + 「今天」；今天与选中日分别高亮（同一天时叠加内描边区分）；有主动记录的日期格子下方带小点；点某天 emit `select`，翻月只改查看月份、不改变选中日。小点数据异步加载，快速翻月用 token 丢弃过期结果。
+- `src/components/DateJumpPopover.vue`：月历放在顶部，原生 `<input type="date">` 与「今天/昨天/前天/一周前」快捷按钮完整保留在下方。
+- 显示范围：见 §3 的 `dateSwitchPaths` / `showsDateSwitch`（只在 5 个日期相关页面显示；快捷键仍全局生效）。
 
 ---
 
@@ -763,35 +777,35 @@ test:e2e   playwright test
 
 ## 16. 测试
 
-### 16.1 单元/组件测试文件（46 个，`src/**/*.spec.ts`，Vitest）
+### 16.1 单元/组件测试文件（50 个，`src/**/*.spec.ts`，Vitest）
 
-`src/components/`（22）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`water-tracker.spec.ts`
+`src/components/`（24）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`month-calendar.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`top-bar.spec.ts`、`water-tracker.spec.ts`
 
-`src/db/`（4）：`db.spec.ts`、`migration.spec.ts`、`backup-v2.spec.ts`、`exportText.spec.ts`
+`src/db/`（5）：`db.spec.ts`、`migration.spec.ts`、`backup-v2.spec.ts`、`exportText.spec.ts`、`dateStats.spec.ts`
 
 `src/router/`（1）：`router.spec.ts`
 
 `src/stores/`（8）：`diet.spec.ts`、`home.spec.ts`、`library.spec.ts`、`plan.spec.ts`、`play.spec.ts`、`review.spec.ts`、`timer.spec.ts`、`workout.spec.ts`
 
-`src/utils/`（2）：`date.spec.ts`、`image.spec.ts`
+`src/utils/`（3）：`date.spec.ts`、`image.spec.ts`、`calendar.spec.ts`
 
 `src/views/`（8）：`life-play-view.spec.ts`、`life-workout-view.spec.ts`、`plan-view.spec.ts`、`review-view.spec.ts`、`study-book-detail-view.spec.ts`、`study-books-view.spec.ts`、`study-subjects-view.spec.ts`、`study-timer-view.spec.ts`
 
 `src/test/`（1）：`start-app-script.spec.ts`（校验 `start-app.bat` 的 CRLF 行尾与运行时回退）
 
 ### 16.2 端到端测试（Playwright，`e2e/`）
-`books.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`review.spec.ts`、`study.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 逐条对应）。
+`books.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`review.spec.ts`、`study.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 逐条对应）。
 
-### 16.3 运行命令与当前结果（本机实跑，2026-10-24）
+### 16.3 运行命令与当前结果（M2 交付后实跑，2026-10-24）
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **未全部通过**：46 文件 / 344 用例，**342 通过、2 失败** | 失败：`src/components/date-jump-popover.spec.ts > 日期输入选到合法日期时抛出 select，清空不抛`（`setValue` 会同时触发 `@input` 与 `@change`，组件 emit 了 2 次，测试期望 1 次）；`src/db/exportText.spec.ts > 摘录按 created_at 换算日期归档`（测试造数 `new Date(2026, 5, 31)` 溢出成 2026-07-01，断言期望 2026-05-31） |
-| `pnpm run typecheck`（`vue-tsc --noEmit`） | **失败（7 个 TS 错误）** | 全部集中在未完成的"错题本/文本导出"：`Mistake` 类型没有 `note` 字段，但 `src/db/exportText.ts:361-362`、`src/db/exportText.spec.ts:88/223`、`src/db/backup-v2.spec.ts:158` 都在用；另有 `src/db/exportText.spec.ts:138` 的 settings 造数缺 `id` |
-| `pnpm run build` | **失败**（在 `vue-tsc --noEmit` 阶段中断，未产出新 `dist/`） | 同上 7 个错误 |
-| `pnpm run test:e2e`（`playwright test`） | **全部通过：54 passed（2.9 分钟）** | 覆盖 AC-01~AC-53（其中 AC-39 另有"12 小时恢复"辅助用例）；`perf.spec.ts` 打印的页面打开耗时：home 414ms / plan 483ms / review 523ms / books 437ms / subjects 499ms / diet 452ms / workout 461ms / play 508ms / settings 480ms；`AC-53 控制台无红色报错` 通过 |
+| `pnpm run test`（`vitest run`） | **全部通过：50 文件 / 393 用例，0 failed** | M2 新增 `calendar.spec.ts` / `dateStats.spec.ts` / `month-calendar.spec.ts` / `top-bar.spec.ts`；基线为 46 文件 / 359 用例 |
+| `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | 上一版盘点里的 7 个 TS 错误已在基线 v1.0 收尾修复 |
+| `e2e/calendar.spec.ts`（Playwright） | **3 passed** | AC-57 / AC-58 / AC-59 逐条覆盖 |
+| `pnpm run test:e2e`（全量） | **58 passed（2.7m）** | AC-01~AC-53 + AC-57~AC-59 全绿；M2 收窄日期控件后，AC-12/13/19/20/41/24 已把日期控件操作挪到日期相关页面（plan / life-diet / review），断言未改 |
 
-补充：`pnpm run test` 第一次运行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 也失败过一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**。
+补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 
 ---
 
@@ -800,9 +814,10 @@ test:e2e   playwright test
 > 基准文档：`docs/PRD_v1.2.md`（562 行，仓库内唯一 PRD）。下文的"未完成"= PRD 明确要求但代码没有或只做了一半；"不一致" = 行为/命名/数值与 PRD 描述不同。
 
 ### 17.1 会直接阻断验收的现状（应先修）
-1. **类型检查不通过**：`vue-tsc --noEmit` 报 7 个错误（见 §16.3），`pnpm run build` 因此失败。根因是 `src/db/schema.ts` 的 `Mistake` 接口缺 `note` 字段，而 `src/db/exportText.ts`（`formatMistake()`）与两个 spec 已在用 —— 说明"错题本"这条线只写了一半。
-2. **单元测试不全绿**：2 个确定性失败 + 1 个偶发失败（见 §16.3），与 `AGENTS.md`「交付前所有测试和验证全部通过」不符。
-3. e2e 全绿（54 passed），说明 UI 行为层面目前是自洽的；问题集中在 v2 未收尾的代码与两个测试本身。
+当前无阻断项（M2 交付时已全部修复）：
+1. ~~类型检查不通过~~ **已解决**：`vue-tsc --noEmit` 0 错误（基线 v1.0 收尾已修复 `Mistake.note` 等 7 个错误）。
+2. ~~单元测试不全绿~~ **已解决**：`pnpm run test` 50 文件 / 393 用例全部通过（M2 交付时实跑）。
+3. ~~全量 e2e 有既有用例在首页操作日期控件~~ **已解决**：AC-12 / AC-13 / AC-19 / AC-20 / AC-41 / AC-24 已把日期控件操作挪到日期相关页面（plan / life-diet / review），断言未改；全量 e2e 58 passed。
 
 ### 17.2 功能缺口（PRD 要求、代码未做完）
 1. **书架页不能改页码**。PRD §5.2 规则 2 写的是"在书架**或**书详情页直接手动修改当前页"，但 `src/views/StudyBooksView.vue` / `src/components/BookCard.vue` 没有任何页码输入，只有 `src/views/StudyBookDetailView.vue` 的 `savePage()`。
@@ -832,12 +847,12 @@ test:e2e   playwright test
 - `src/utils/image.ts`（图片压缩成 base64 data URL）——为错题本图片准备。
 - `reviews.record_worthy` / `day_summary` 两个字段。
 - 备份对 `schema_version: 1` 的向后兼容与 `normalizeRow()` 补默认值。
-- 首页 Hero/Tiles、日期跳转弹窗、方向键快捷键、移动端底部导航。
+- 首页 Hero/Tiles、日期跳转弹窗（M2 增加月历与日期控件显示范围）、方向键快捷键、移动端底部导航。
 
 ### 17.5 文档与流程漂移
 - `DECISIONS.md` 仍写「库名 `evan_personal_app_db`，schema_version **1**」「**16 张表**」，与代码（v2 / 18 表）不符。
-- `DECISIONS.md` 写「每个阶段结束时必须做一次全量回归，测试全绿才进入下一阶段」；当前 `typecheck` 与 2 个单测不绿。
-- `AGENTS.md` 要求「每次改动完成都必须 Git commit」；`git status` 显示 **12 个已修改 + 16 个未跟踪**（合计 28 项，不含本次新增的 `docs/CURRENT_STATE.md`）文件未提交（`src/App.vue`、`src/assets/main.css`、`src/components/SideNav.vue`、`src/components/TopBar.vue`、`src/db/*`、`src/views/HomeView.vue`、`start-app.bat`，以及新增的 `HomeHero/HomeTiles/BottomNav/DateJumpPopover`、`src/config/`、`exportText*`、`migration.spec.ts`、`image*` 等）。
+- `DECISIONS.md` 写「每个阶段结束时必须做一次全量回归，测试全绿才进入下一阶段」；M1 收尾后 `typecheck` 与单测已全绿（见 §16.3），全量 e2e 已全绿（58 passed，见 §16.3）。
+- `AGENTS.md` 要求「每次改动完成都必须 Git commit」；M2 按协调者要求**不执行 git add / commit / push**，工作区里是 M2 新增/修改的文件加上之前遗留的未提交改动，提交由协调者复核后统一做。
 - `docs/` 下（除本文件外）只有 `PRD_v1.2.md`，没有 v2 的需求文档 —— 因此"错题本/训练项目库/文本导出"到底要什么形态，代码里无法确认。
 
 ---
@@ -852,6 +867,8 @@ test:e2e   playwright test
 6. **工作区 28 项未提交改动（12 改 + 16 新增）的意图/是否可回滚**：只能看到 `git status`，原因 —— **未确认**。
 
 ## 附录 B：本次实跑记录（可复现）
+
+> 下列为阶段 A3 的基线实跑记录（历史快照）；M2 交付后的当前结果见 §16.3。
 
 ```
 # 环境：Node v24.21.0；node/pnpm 均走 DSH 内置运行时（系统 PATH 无 node）

@@ -41,9 +41,10 @@ test('AC-11 十一路由导航与高亮', async ({ page }) => {
 test('AC-12 凌晨2点记录归属前一天', async ({ page }) => {
   await page.clock.install({ time: new Date('2030-06-15T02:00:00') });
   await clearApp(page);
+  // 日期控件只在日期相关页面显示：先到饮食页再断言逻辑日期。
+  await gotoHash(page, 'life/diet');
   await expect(page.locator('[data-test="date-label"]')).toContainText('6月14日');
 
-  await gotoHash(page, 'life/diet');
   await page.locator('[data-test="water-tracker"] [data-test="water-plus"]').click();
   await expect(page.locator('[data-test="water-total"]')).toHaveText('250 ml');
 
@@ -62,8 +63,9 @@ test('AC-12 凌晨2点记录归属前一天', async ({ page }) => {
 
 /** AC-13：点顶栏“前一天”，添加一条喝水——记录归到前一天，回到今天后不计入今天。 */
 test('AC-13 前一天补记喝水', async ({ page }) => {
-  await page.click('[data-test="prev-day"]');
+  // 日期控件只在日期相关页面显示：先到饮食页再切前一天。
   await gotoHash(page, 'life/diet');
+  await page.click('[data-test="prev-day"]');
   await page.locator('[data-test="water-tracker"] [data-test="water-plus"]').click();
   await expect(page.locator('[data-test="water-total"]')).toHaveText('250 ml');
 

@@ -41,6 +41,43 @@ describe('日期跳转弹窗', () => {
     expect((input.element as HTMLInputElement).value).toBe('2026-01-10');
   });
 
+  it('弹窗顶部出现月历，原生日期输入与四个快捷按钮完整保留在下面', async () => {
+    const wrapper = mountPopover('2026-01-10');
+    await flushPromises();
+
+    expect(wrapper.find('[data-test="month-calendar"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-test="calendar-day"]').length).toBeGreaterThanOrEqual(28);
+    expect(wrapper.find('[data-test="calendar-month-label"]').text()).toBe('2026年1月');
+
+    const input = wrapper.find('[data-test="date-input"]');
+    expect(input.exists()).toBe(true);
+    expect(input.attributes('type')).toBe('date');
+    for (const test of ['popover-today', 'quick-yesterday', 'quick-day-before', 'quick-week-ago']) {
+      expect(wrapper.find(`[data-test="${test}"]`).exists(), test).toBe(true);
+    }
+
+    // 月历在原生日期输入上方（月历网格 → 当前选中 → 原生输入 → 快捷按钮）
+    const calendarEl = wrapper.find('[data-test="month-calendar"]').element;
+    const inputEl = input.element;
+    expect(calendarEl.compareDocumentPosition(inputEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('点月历里的某一天直接 emit select（弹窗由父组件关闭并跳转）', async () => {
+    const wrapper = mountPopover('2026-01-10');
+    await flushPromises();
+
+    await wrapper.find('[data-test="calendar-day"][data-date="2026-01-03"]').trigger('click');
+    expect(wrapper.emitted('select')?.[0]).toEqual(['2026-01-03']);
+  });
+
+  it('月历里点「今天」也 emit 今天的日期', async () => {
+    const wrapper = mountPopover('2026-01-10');
+    await flushPromises();
+
+    await wrapper.find('[data-test="calendar-today"]').trigger('click');
+    expect(wrapper.emitted('select')?.[0]).toEqual([logicalToday()]);
+  });
+
   it('快捷按钮相对“今天”计算：今天/昨天/前天/一周前', async () => {
     const today = logicalToday();
     const cases: Array<[string, string]> = [

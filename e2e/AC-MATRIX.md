@@ -64,3 +64,11 @@
 - AC-49b 自评草稿未确认时切日期二次确认（e2e/review.spec.ts）
 
 覆盖完整性：AC-01~AC-53 共 53 条，全部有对应测试；无 skip / only。
+
+## M2 日期月历（AC-57 ~ AC-59）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-57 | AC-57 顶栏日期弹窗月历：格数、今天与选中日高亮、点选跳转、翻月不改选中日 | e2e/calendar.spec.ts |
+| AC-58 | AC-58 月历小点只认五张主动记录表，忽略软删除与 water/meals | e2e/calendar.spec.ts |
+| AC-59 | AC-59 日期控件只在 5 个日期相关页面显示，原生日期输入仍可用 | e2e/calendar.spec.ts |

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { showsDateSwitch } from '@/config/nav';
 import { useDateStore } from '@/stores/date';
 import { useModalStore } from '@/stores/modal';
 import { useTimerStore } from '@/stores/timer';
@@ -11,9 +13,18 @@ import TimerCapsule from './TimerCapsule.vue';
 const dateStore = useDateStore();
 const modalStore = useModalStore();
 const timerStore = useTimerStore();
+const route = useRoute();
 
 const dateLabel = computed(() => formatDateCNWeekday(dateStore.selectedDate));
 const jumpOpen = ref(false);
+
+/** 日期控件（前一天/日期标签/后一天/回到今天）只在日期相关页面显示，唯一来源见 config/nav.ts。 */
+const showDateControls = computed(() => showsDateSwitch(route.path));
+
+// 离开日期相关页面时关掉还开着的日期弹窗，避免快捷键/弹窗残留在无关页面上。
+watch(showDateControls, (visible) => {
+  if (!visible) jumpOpen.value = false;
+});
 
 function onJumpSelect(date: string): void {
   dateStore.setSelected(date);
@@ -79,7 +90,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 <template>
   <div class="topbar">
     <div class="brand">Evan的专属APP</div>
-    <div class="date-switch">
+    <div v-if="showDateControls" class="date-switch" data-test="date-switch">
       <button class="icon-btn" data-test="prev-day" title="前一天（←）" @click="dateStore.prevDay()">◀</button>
       <button
         type="button"

@@ -25,6 +25,8 @@ test('AC-18 计划完成数同步首页', async ({ page }) => {
 
 /** AC-19：未结束计时、昨天未复盘、昨天有未完成项同时存在——提示条最多 2 条，按计时>复盘>顺延>备份排序。 */
 test('AC-19 首页提示条最多2条且按优先级', async ({ page }) => {
+  // 日期控件只在日期相关页面显示：先到计划页再切到昨天。
+  await gotoHash(page, 'plan');
   // 昨天留 1 项未完成
   await page.click('[data-test="prev-day"]');
   await addPlan(page, { title: 'AC19昨日未完成' });
@@ -44,8 +46,9 @@ test('AC-19 首页提示条最多2条且按优先级', async ({ page }) => {
 
 /** AC-20：昨天写下“明天最重要的一件事”——今天首页和计划页顶部显示，加入今日待办后按钮禁用不可重复添加。 */
 test('AC-20 昨天MIT今天显示并防重复加入', async ({ page }) => {
-  await page.click('[data-test="prev-day"]');
+  // 日期控件只在日期相关页面显示：先到复盘页再切到昨天。
   await gotoHash(page, 'review');
+  await page.click('[data-test="prev-day"]');
   await page.locator('[data-test="rating-star"]').nth(4).click();
   await page.fill('[data-test="review-mit"]', 'AC20最重要的一件事');
   await page.click('[data-test="review-confirm"]');

@@ -46,6 +46,7 @@ test('AC-23 移到明天', async ({ page }) => {
 
 /** AC-24：昨天留 2 项未完成，今天一键顺延——今天新增2项带顺延标记；昨天原记录保留、复盘分母不变。 */
 test('AC-24 一键顺延昨日未完成且分母不变', async ({ page }) => {
+  await gotoHash(page, 'plan');
   await page.click('[data-test="prev-day"]');
   await addPlan(page, { title: 'AC24昨日A' });
   await addPlan(page, { title: 'AC24昨日B' });

@@ -49,6 +49,8 @@ test('AC-40 常吃快捷项前8且不串餐次', async ({ page }) => {
 
 /** AC-41：点“复制昨天的这一餐”——昨天该餐次的内容复制到今天。 */
 test('AC-41 复制昨天这一餐', async ({ page }) => {
+  // 日期控件只在日期相关页面显示：先到饮食页再切到昨天。
+  await gotoHash(page, 'life/diet');
   await page.click('[data-test="prev-day"]');
   await addMealItem(page, 'breakfast', 'AC41昨天早餐');
   await page.click('[data-test="go-today"]');

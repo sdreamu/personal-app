@@ -3,9 +3,10 @@ import { computed } from 'vue';
 import { addDays, formatDateCNWeekday, logicalToday, parseDateKey } from '@/utils/date';
 import { useSettingsStore } from '@/stores/settings';
 import BaseModal from './BaseModal.vue';
+import MonthCalendar from './MonthCalendar.vue';
 
 /**
- * 顶栏日期跳转弹窗：原生 <input type="date"> 选任意一天 + 常用快捷。
+ * 顶栏日期跳转弹窗：顶部月历（MonthCalendar）+ 原生 <input type="date"> 选任意一天 + 常用快捷。
  * Esc 与点击遮罩关闭复用 BaseModal（注册进 modal store）→ App.vue 的
  * useEscToCloseModal 一次性监听，不另造一套 Esc 机制。
  */
@@ -48,6 +49,7 @@ function onDateInput(event: Event): void {
 <template>
   <BaseModal id="date-jump" title="跳转到某一天" @close="emit('close')">
     <div class="date-jump" data-test="date-jump-popover">
+      <MonthCalendar :selected-date="selectedDate" @select="pick" />
       <p class="date-jump-current" data-test="popover-current">
         当前：<strong>{{ currentLabel }}</strong>
       </p>

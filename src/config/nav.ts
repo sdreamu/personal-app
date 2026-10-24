@@ -89,3 +89,15 @@ export function isGroupActive(currentPath: string, group: NavGroupItem): boolean
 export function isItemActive(currentPath: string, item: NavItem): boolean {
   return item.kind === 'group' ? isGroupActive(currentPath, item) : isActivePath(currentPath, item.to);
 }
+
+/**
+ * 顶栏日期控件（前一天 / 日期标签 / 后一天 / 回到今天）的显示范围唯一来源。
+ * 只有“和日期有关”的页面显示：计划、饮食、健身、娱乐、复盘；
+ * 首页、读书/书详情、科目、计时器、设置不显示。快捷键不受此限制，仍全局生效。
+ */
+export const dateSwitchPaths: readonly string[] = ['/plan', '/life/diet', '/life/workout', '/life/play', '/review'];
+
+/** 当前路由是否显示顶栏日期控件（子路由按 isActivePath 规则归属）。 */
+export function showsDateSwitch(currentPath: string): boolean {
+  return dateSwitchPaths.some((path) => isActivePath(currentPath, path));
+}

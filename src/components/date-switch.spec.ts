@@ -14,11 +14,12 @@ function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', redirect: '/home' },
+      { path: '/', redirect: '/plan' },
       { path: '/home', component: Stub },
+      { path: '/plan', component: Stub },
       { path: '/study/timer', component: Stub },
       { path: '/life/play', component: Stub },
-      { path: '/:pathMatch(.*)*', redirect: '/home' },
+      { path: '/:pathMatch(.*)*', redirect: '/plan' },
     ],
   });
 }
@@ -46,12 +47,14 @@ afterEach(() => {
   unmount = null;
 });
 
-async function mountTopBar() {
+/** 默认挂在计划页：日期控件只在日期相关页面显示（见 config/nav.ts）。 */
+async function mountTopBar(path = '/plan') {
   const router = makeRouter();
+  await router.push(path);
+  await router.isReady();
   const wrapper = mount(Host, {
     global: { plugins: [pinia, router], stubs: { Teleport: true } },
   });
-  await router.isReady();
   unmount = () => wrapper.unmount();
   return wrapper;
 }
