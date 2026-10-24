@@ -71,7 +71,7 @@ const deadlineText = computed(() => {
 .subject-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 14px 16px;
   margin-bottom: 12px;
 }

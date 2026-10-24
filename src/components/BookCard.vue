@@ -75,7 +75,7 @@ const percent = computed(() => {
   gap: 12px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 12px;
   cursor: pointer;
 }
@@ -88,7 +88,7 @@ const percent = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--hero-ink);
   font-size: 34px;
   font-weight: 700;
 }

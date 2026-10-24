@@ -849,19 +849,29 @@ test:e2e   playwright test
 - **写法：原生手写 CSS**，没有 Tailwind、没有 CSS Modules、没有 Sass/Less，也没有任何 UI 组件库。
   - 全局：`src/assets/main.css`（557 行，布局/顶栏/侧栏/弹窗/toast/表格/按钮/移动底部导航等公共类）。
   - 组件内：每个 `.vue` 的 `<style scoped>`（样式与模板同文件）。
-- **CSS 变量：有，且是主要的主题机制。** `:root` 定义 `--bg`、`--panel`、`--panel-2`、`--text`、`--muted`、`--border`、`--accent`、`--accent-soft`、`--danger`、`--danger-soft`、`--success`、`--success-soft`、`--warning`、`--warning-soft`、`--shadow`、`--shadow-up`、`--radius`、`--on-accent`、`--overlay`、`--nav-active-bar/bg/text`、`--bottom-nav-bg`、`--bottom-nav-h`、`--touch`；`[data-theme="dark"]` 覆盖同名变量。
+- **CSS 变量：有，且是主要的主题机制。** `:root` 定义 `--bg`、`--panel`、`--panel-2`、`--text`、`--muted`、`--border`、`--accent`、`--accent-soft`、`--danger`、`--danger-soft`、`--success`、`--success-soft`、`--warning`、`--warning-soft`、`--shadow`、`--shadow-up`、`--radius`、`--on-accent`、`--overlay`、`--nav-active-bar/bg/text`、`--bottom-nav-bg`、`--bottom-nav-h`、`--touch`；`[data-theme="dark"]` 覆盖同名变量。第二轮 UI 改造新增 UI_GUIDE 命名令牌作既有变量别名：`--surface`(=--panel)、`--surface-2`(=--panel-2)、`--ink`(=--text)、`--line`(=--border)、`--accent-ink`(=--on-accent)、`--good`(=--success)、`--warn`(=--warning)、`--warn-soft`(=--warning-soft)，以及首页问候大块专用 `--hero-bg`/`--hero-ink`/`--hero-sub`（深色在 `[data-theme="dark"]` 覆盖）；圆角拆三档 `--radius`(10px 列表行)/`--radius-card`(16px 卡片)/`--radius-pill`(999px 按钮胶囊)。
 - **深浅色切换**：
   - 变量作用在 `<html data-theme="light|dark">`（`index.html` 初始 `data-theme="light"`）。
   - 设置页"外观"两个按钮 → `SettingsView.setTheme()` → `settingsStore.update({ theme })`；`src/stores/settings.ts` 的 `applyTheme(theme)` 设 `document.documentElement.dataset.theme = theme`，`load()` / `update()` 后都会调用。
   - 主题值持久化在 `settings.theme`（数据库），刷新后由 `settings.load()` 重新应用（e2e AC-51 覆盖）。
 - 响应式：`main.css` 两条媒体查询（`max-width: 768px` 显示底部导航/隐藏侧栏、`769~1023px` 侧栏收窄），个别页面另有 `@media (max-width: 860px)`（`PlanView` 两栏改单栏）。
-- 字体：系统字体栈（`system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC"`）；数字用 `font-variant-numeric: tabular-nums`（时钟、时间轴）。
+- 字体：正文用 UI_GUIDE §3 中文栈（`"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif`），**不引入 Outfit / 任何外部字体或 CDN**；数字对齐统一靠 `font-variant-numeric: tabular-nums`（时钟、时间轴、计时）。
+
+### 15.1 第二轮 UI 改造 · 第 1 步交付记录：样式令牌对齐（2026-10-26）
+
+- **依据**：`docs/UI_GUIDE.md`（唯一依据）。**只改样式令牌与纯样式，不改任何业务逻辑 / 模板结构 / store / db**。
+- **`src/assets/main.css`**：`:root`（浅色）与 `[data-theme='dark']`（深色）**保留既有变量名**，取值改为 UI_GUIDE §2 的浅色/深色表；新增 UI_GUIDE 命名令牌（`--surface`/`--surface-2`/`--ink`/`--line`/`--accent-ink`/`--good`/`--warn`/`--warn-soft`）作为既有变量的别名，另加问候大块专用 `--hero-bg`/`--hero-ink`/`--hero-sub`（在 `[data-theme='dark']` 里覆盖）。圆角拆三档：`--radius`(10px)/`--radius-card`(16px)/`--radius-pill`(999px)；`.settings-card`/`.empty-state` 卡片改 `--radius-card`，`.timer-capsule`/`.badge`/`.primary-btn`/`.ghost-btn`/`.danger-btn`/`.toast-undo` 改 `--radius-pill`；`body` 字体改 UI_GUIDE §3 正文栈，`.content` 内边距对齐 24px。
+- **`src/components/HomeHero.vue`**：问候大块真正用上 `--hero-bg`（底色）/ `--hero-ink`（主文字）/ `--hero-sub`（次要文字）；圆角 `--radius-card`、内边距 28px、去边框与阴影（UI_GUIDE §4）。
+- **消除硬编码颜色**：`BookCard.vue:91` 与 `StudyBookDetailView.vue:355` 的 `color: #fff` → `var(--hero-ink)`（书封底色为 `BOOK_COLORS` 的饱和色块，`--hero-ink` 在浅/深两套都保持近白，保证对比度）。
+- **卡片圆角切换（逐处判断，仅卡片容器）**：`HomeTiles.vue`(.home-tile)、`HomeCards.vue`(.home-card)、`SubjectCard.vue`(.subject-card)、`BookCard.vue`(.book-card) 由 `var(--radius)` → `var(--radius-card)`；`PlanView.vue`(.todo-item)、`WorkoutHistory.vue`(.history-item)、`WorkoutDay.vue`(.exercise-item) 属**列表行，保持 10px 不动**。
+- **守护测试**：新增 `src/assets/styleTokens.spec.ts`（9 条）：断言 `:root`/`[data-theme='dark']` 关键令牌取值等于 UI_GUIDE（别名递归解析）、圆角三档、扫描 `src/**/*.vue` 不含 `#hex`/`rgb(`/`hsl(`。
+- **实跑**：typecheck 0 错；`run test` 55 文件 / 473 用例全绿（基线 54/464，+9）；全量 e2e 71 passed / 0 failed。
 
 ---
 
 ## 16. 测试
 
-### 16.1 单元/组件测试文件（54 个，`src/**/*.spec.ts`，Vitest）
+### 16.1 单元/组件测试文件（55 个，`src/**/*.spec.ts`，Vitest）
 
 `src/components/`（25）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`exercise-library.spec.ts`（M5）、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`month-calendar.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`top-bar.spec.ts`、`water-tracker.spec.ts`
 
@@ -877,6 +887,8 @@ test:e2e   playwright test
 
 `src/test/`（1）：`start-app-script.spec.ts`（校验 `start-app.bat` 的 CRLF 行尾与运行时回退）
 
+`src/assets/`（1）：`styleTokens.spec.ts`（第二轮 UI 第 1 步·样式令牌守护：颜色/圆角取值对齐 `docs/UI_GUIDE.md` + 扫描 `.vue` 无硬编码颜色）
+
 ### 16.2 端到端测试（Playwright，`e2e/`）
 `books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`text-export.spec.ts`（M8）、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 + M8 的 AC-66 逐条对应）。
 
@@ -884,14 +896,14 @@ test:e2e   playwright test
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **全部通过：54 文件 / 464 用例，0 failed** | M8 新增 16 个用例（`exportSource.spec.ts` 11 条、`download.spec.ts` 2 条、`settings-form.spec.ts` 3→6 的 3 条）；基线为 M5 的 52 文件 / 448 用例 |
+| `pnpm run test`（`vitest run`） | **全部通过：55 文件 / 473 用例，0 failed** | 第二轮 UI 第 1 步新增 `styleTokens.spec.ts` 9 条（基线 54 文件 / 464 用例）；M8 阶段为 54/464（`exportSource.spec.ts` 11 条、`download.spec.ts` 2 条、`settings-form.spec.ts` 3→6 的 3 条） |
 | `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | M8 改动后重跑 |
 | `e2e/text-export.spec.ts`（Playwright） | **1 passed（7.3s）** | AC-66：最近 7 天 → 一次下载，文件名 `evan-text-YYYYMMDD-YYYYMMDD.md`（区间 = 今天往前 6 天 ~ 今天），内容断言 `### 计划`/`AC66计划`、`### 饮食`/`- 早：AC66早餐`、汇总与当天段落的喝水行；导出前后 `settings.last_backup_at`（固定值 1700000000000）相等 |
 | `e2e/workout-library.spec.ts`（Playwright） | **2 passed（11.6s）** | AC-64 / AC-65 逐条覆盖（项目库自动维护/最近使用排序/点选加入与幂等；备注写入/刷新保留/清空存 null/不影响组数与默认用时） |
 | `e2e/play-countdown.spec.ts`（Playwright） | **6 passed（18.6s）** | AC-60 / AC-61 逐条覆盖（名称必填、快捷 30 分钟、自定义 25 分钟与非法值、按剩余额度、到点超时封顶、再来一轮不自动开始） |
 | `e2e/life.spec.ts`（Playwright） | **7 passed** | AC-40 ~ AC-46 回归（含 AC-46 娱乐超额变红） |
 | `e2e/study.spec.ts`（Playwright） | **11 passed** | AC-04 / AC-31 ~ AC-39 + AC-39辅助 回归（含 AC-39 倒计时到点提示与再来一轮） |
-| `pnpm run test:e2e`（全量） | **71 passed / 0 failed（2.9m）** | AC-01~AC-66 全绿（M5 的 70 条 + M8 新增 AC-66）；备份相关的 AC-05 / AC-06 / AC-07 / AC-09 未改动仍通过（回归 `triggerDownload` 提取）。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑 |
+| `pnpm run test:e2e`（全量） | **71 passed / 0 failed（2.9m）** | AC-01~AC-66 全绿（M5 的 70 条 + M8 新增 AC-66）；备份相关的 AC-05 / AC-06 / AC-07 / AC-09 未改动仍通过（回归 `triggerDownload` 提取）。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑。第二轮 UI 改造·第 1 步（样式令牌对齐）后重跑：全量 e2e 仍 **71 passed / 0 failed（3.0m）**，含 AC-51 深色模式刷新保持 |
 
 补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 

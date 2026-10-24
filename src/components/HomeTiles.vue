@@ -98,7 +98,7 @@ function go(route: string): void {
   text-align: left;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow);
   cursor: pointer;
 }

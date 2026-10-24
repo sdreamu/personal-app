@@ -63,19 +63,17 @@ onUnmounted(() => {
 .home-hero {
   position: relative;
   overflow: hidden;
-  padding: 26px 30px 28px;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) + 6px);
-  background:
-    radial-gradient(120% 150% at 100% 0%, var(--accent-soft) 0%, transparent 60%),
-    linear-gradient(135deg, var(--accent-soft) 0%, var(--panel) 55%, var(--panel) 100%);
-  box-shadow: var(--shadow);
+  padding: 28px;
+  border: none;
+  border-radius: var(--radius-card);
+  background: var(--hero-bg);
+  color: var(--hero-ink);
 }
 .hero-kicker {
   margin: 0 0 4px;
   font-size: 13px;
   letter-spacing: 0.18em;
-  color: var(--muted);
+  color: var(--hero-sub);
 }
 .hero-greeting {
   margin: 0 0 12px;
@@ -83,6 +81,7 @@ onUnmounted(() => {
   line-height: 1.2;
   font-weight: 800;
   letter-spacing: 0.02em;
+  color: var(--hero-ink);
 }
 .hero-meta {
   display: flex;
@@ -92,16 +91,16 @@ onUnmounted(() => {
 }
 .hero-date {
   font-size: 15px;
-  color: var(--muted);
+  color: var(--hero-sub);
   font-weight: 600;
 }
 .hero-divider {
-  color: var(--border);
+  color: var(--hero-sub);
 }
 .hero-time {
   font-size: 20px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--hero-ink);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }
@@ -112,7 +111,7 @@ onUnmounted(() => {
   width: 172px;
   height: 172px;
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--hero-ink);
   stroke-width: 2.5;
   stroke-linecap: round;
   opacity: 0.18;
@@ -120,7 +119,7 @@ onUnmounted(() => {
 }
 @media (max-width: 720px) {
   .home-hero {
-    padding: 20px 18px 22px;
+    padding: 20px;
   }
   .hero-deco {
     width: 132px;

@@ -1,22 +1,22 @@
 /* Evan的专属APP —— 手写样式，无第三方 UI 库；浅色/深色通过 CSS 变量切换 */
 :root {
-  --bg: #f4f6fa;
+  /* ===== 颜色令牌（唯一依据 docs/UI_GUIDE.md §2 · 浅色表） ===== */
+  --bg: #eef2f4;
   --panel: #ffffff;
-  --panel-2: #eef1f7;
-  --text: #1c2330;
-  --muted: #64708a;
-  --border: #e2e6ef;
-  --accent: #4a6cf7;
-  --accent-soft: #e8eeff;
+  --panel-2: #f5f8f9;
+  --text: #12222b;
+  --muted: #5d717c;
+  --border: #dae3e8;
+  --accent: #2a4bd7;
+  --accent-soft: #e3e9fd;
   --danger: #d64545;
   --danger-soft: #fdecec;
-  --success: #2e9e5b;
+  --success: #1e8e5a;
   --success-soft: #e7f7ee;
-  --warning: #d98b2b;
-  --warning-soft: #fdf3e2;
+  --warning: #c77a0a;
+  --warning-soft: #fbefd9;
   --shadow: 0 2px 10px rgba(20, 30, 60, 0.08);
   --shadow-up: 0 -2px 10px rgba(20, 30, 60, 0.08);
-  --radius: 10px;
   /* 强调色块上的前景色（深色模式换深底字保证对比度） */
   --on-accent: #ffffff;
   /* 弹窗与底部面板的遮罩 */
@@ -29,34 +29,59 @@
   --bottom-nav-h: 56px;
   /* 触摸目标最小尺寸 */
   --touch: 44px;
+
+  /* ===== UI_GUIDE 命名的令牌：作为既有变量的别名，避免两套语义打架 ===== */
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+  --ink: var(--text);
+  --line: var(--border);
+  --accent-ink: var(--on-accent);
+  --good: var(--success);
+  --warn: var(--warning);
+  --warn-soft: var(--warning-soft);
+
+  /* ===== 首页问候大块（UI_GUIDE §2 · hero-*） ===== */
+  --hero-bg: #2a4bd7;
+  --hero-ink: #ffffff;
+  --hero-sub: rgba(255, 255, 255, 0.74);
+
+  /* ===== 圆角（UI_GUIDE §4：列表行 10 / 卡片 16 / 按钮胶囊 999） ===== */
+  --radius: 10px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
 }
 [data-theme='dark'] {
-  --bg: #10141b;
-  --panel: #181e28;
-  --panel-2: #1f2733;
-  --text: #e7ebf3;
-  --muted: #8b96ab;
-  --border: #2a3342;
-  --accent: #6d8dff;
-  --accent-soft: #223054;
+  /* UI_GUIDE §2 · 深色表：只重定义颜色变量，不写组件样式 */
+  --bg: #0c1317;
+  --panel: #151e24;
+  --panel-2: #1b262d;
+  --text: #e6eef2;
+  --muted: #8da2ad;
+  --border: #26343c;
+  --accent: #8ea4ff;
+  --accent-soft: #222c55;
   --danger: #e06a6a;
   --danger-soft: #3a2226;
-  --success: #4cbb7c;
+  --success: #52c48c;
   --success-soft: #1d3327;
-  --warning: #e2a24c;
-  --warning-soft: #3a2f1d;
+  --warning: #e9a23b;
+  --warning-soft: #3a2d14;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   --shadow-up: 0 -2px 10px rgba(0, 0, 0, 0.5);
-  --on-accent: #10141b;
+  --on-accent: #0c1317;
   --overlay: rgba(0, 0, 0, 0.62);
   --nav-active-bg: #212c44;
   --nav-active-text: #aebfff;
   --bottom-nav-bg: #151b25;
+  /* 首页问候大块深色覆盖 */
+  --hero-bg: #23346f;
+  --hero-ink: #f2f5ff;
+  --hero-sub: rgba(242, 245, 255, 0.72);
 }
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -103,7 +128,7 @@ input, select { font: inherit; color: inherit; }
   border: 1px solid var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px 14px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -214,7 +239,7 @@ input, select { font: inherit; color: inherit; }
 .nav-link-child .nav-icon { width: 16px; height: 16px; }
 .chevron { color: var(--muted); font-size: 12px; }
 
-.content { flex: 1; min-width: 0; overflow-y: auto; padding: 20px 24px; }
+.content { flex: 1; min-width: 0; overflow-y: auto; padding: 24px; }
 
 .viewing-banner {
   background: var(--accent-soft);
@@ -231,7 +256,7 @@ input, select { font: inherit; color: inherit; }
 .settings-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 16px 18px;
   margin-bottom: 14px;
   box-shadow: var(--shadow);
@@ -264,14 +289,14 @@ input, select { font: inherit; color: inherit; }
   border: none;
   background: var(--accent);
   color: var(--on-accent);
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   padding: 8px 16px;
 }
 .primary-btn:hover { opacity: 0.9; }
 .ghost-btn {
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   padding: 7px 14px;
 }
 .ghost-btn:hover { background: var(--panel-2); }
@@ -279,7 +304,7 @@ input, select { font: inherit; color: inherit; }
   border: 1px solid var(--danger);
   background: var(--danger-soft);
   color: var(--danger);
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   padding: 7px 14px;
 }
 .danger-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -304,7 +329,7 @@ input, select { font: inherit; color: inherit; }
   font-size: 12px;
   color: var(--muted);
   background: var(--panel-2);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 1px 8px;
 }
 .category-ops { display: inline-flex; gap: 6px; }
@@ -346,7 +371,7 @@ input, select { font: inherit; color: inherit; }
   border: 1px solid var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   padding: 3px 12px;
   white-space: nowrap;
 }
@@ -384,7 +409,7 @@ input, select { font: inherit; color: inherit; }
   text-align: center;
   background: var(--panel);
   border: 1px dashed var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 42px 20px;
   color: var(--muted);
 }

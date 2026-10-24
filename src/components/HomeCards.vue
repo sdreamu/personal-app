@@ -146,7 +146,7 @@ async function completeNext(): Promise<void> {
 .home-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 16px 18px;
   box-shadow: var(--shadow);
   cursor: pointer;

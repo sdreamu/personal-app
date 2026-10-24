@@ -135,3 +135,15 @@
 
 覆盖完整性：AC-66 逐条有对应测试，无 skip / only。
 
+## 第二轮 UI 改造 · 第 1 步 样式令牌对齐（AC-67）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-67 | 样式令牌与 UI_GUIDE 一致 + .vue 无硬编码颜色 | src/assets/styleTokens.spec.ts |
+
+补充（端到端 / 回归层）：
+- AC-51 深色模式刷新保持仍通过：主题变量（含新增 --hero-*）在深色下生效，首页问候大块用 --hero-bg/--hero-ink/--hero-sub —— e2e/review.spec.ts
+- 全站令牌换值（颜色/圆角）后布局与交互零回归 —— 全量 e2e 71 passed / 0 failed
+
+覆盖完整性：AC-67 有对应测试（src/assets/styleTokens.spec.ts 共 9 条断言），无 skip / only。
+
