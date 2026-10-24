@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.spec.ts'],
+      // 这些用例走真实 IndexedDB(fake-indexeddb) + 组件挂载，全量并行跑时单测耗时波动很大。
+      // 默认 5s 会在机器负载高时误伤（表现为 "Test timed out in 5000ms"，断言本身没失败）。
+      // 放宽到 15s：不放宽任何断言，只是不让环境抖动被当成功能回归。
+      testTimeout: 15000,
+      hookTimeout: 15000,
     },
   };
 });

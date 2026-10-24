@@ -19,6 +19,10 @@ const TODAY = '2026-06-01';
 const YESTERDAY = '2026-05-31';
 const TOMORROW = '2026-06-02';
 
+/** 全量并行跑时 IndexedDB 写 + DOM 刷新可能超过 vitest waitFor 默认 1s 上限；
+ *  这里只放宽等待上限，断言与期望值一律不变。 */
+const WAIT_OPTS = { timeout: 5000 } as const;
+
 let pinia: Pinia;
 let wrapper: VueWrapper;
 
@@ -83,12 +87,12 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAlive('workout_templates');
       if (rows[0]?.type_name !== '胸') throw new Error('模板类型未保存');
-    });
+    }, WAIT_OPTS);
     await vi.waitFor(() => {
       if (wrapper.findAll('[data-test="exercise-add-input"]').length === 0) {
         throw new Error('动作输入未出现');
       }
-    });
+    }, WAIT_OPTS);
 
     const addInput = wrapper.findAll('[data-test="exercise-add-input"]')[0]!;
     await addInput.setValue('卧推，飞鸟');
@@ -98,12 +102,12 @@ describe('健身页 #/life/workout', () => {
       if ((rows[0]?.exercise_names ?? []).join(',') !== '卧推,飞鸟') {
         throw new Error('模板动作未保存');
       }
-    });
+    }, WAIT_OPTS);
 
     const day = wrapper.find('[data-test="day-editor"]');
     await vi.waitFor(() => {
       if (!day.text().includes('卧推')) throw new Error('当天训练未带出模板动作');
-    });
+    }, WAIT_OPTS);
     expect(day.text()).toContain('胸');
     expect(day.text()).toContain('卧推');
     expect(wrapper.find('[data-test="day-editor"]').findAll('[data-test="set-row"]')).toHaveLength(6);
@@ -117,7 +121,7 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (rows[0]?.exercises[0]?.sets[0]?.done !== true) throw new Error('勾选未写入');
-    });
+    }, WAIT_OPTS);
 
     wrapper.unmount();
     wrapper = await mountPage();
@@ -133,13 +137,13 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (rows[0]?.exercises[0]?.sets[0]?.weight_kg !== 80) throw new Error('重量未保存');
-    });
+    }, WAIT_OPTS);
 
     await wrapper.find('[data-test="set-reps"]').setValue('8');
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (rows[0]?.exercises[0]?.sets[0]?.reps !== 8) throw new Error('次数未保存');
-    });
+    }, WAIT_OPTS);
   });
 
   it('临时动作增删即时保存', async () => {
@@ -151,7 +155,7 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (!rows[0]?.exercises.some((e) => e.name === '飞鸟')) throw new Error('临时动作未添加');
-    });
+    }, WAIT_OPTS);
     const dayEditor = wrapper.find('[data-test="day-editor"]');
     const items = dayEditor.findAll('[data-test="exercise-item"]');
     expect(items).toHaveLength(2);
@@ -160,7 +164,7 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (rows[0]?.exercises.some((e) => e.name === '飞鸟')) throw new Error('临时动作未删除');
-    });
+    }, WAIT_OPTS);
     expect((await listAliveByDate('workout_records', TODAY))[0]?.exercises.map((e) => e.name)).toEqual([
       '卧推',
     ]);
@@ -178,7 +182,7 @@ describe('健身页 #/life/workout', () => {
     await wrapper.find('[data-test="start-temporary"]').trigger('click');
     await vi.waitFor(() => {
       if (!wrapper.find('[data-test="day-editor"]').exists()) throw new Error('临时训练未开始');
-    });
+    }, WAIT_OPTS);
     const rows = await listAliveByDate('workout_records', TODAY);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.type_name).toBe('临时训练');
@@ -193,21 +197,21 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (rows[0]?.exercises[0]?.sets[0]?.done !== true) throw new Error('勾选未写入');
-    });
+    }, WAIT_OPTS);
     // vi.waitFor 会推进假 Date，这里按当前假时刻再前进 5 分钟，避免依赖具体毫秒数
     vi.setSystemTime(Date.now() + 5 * 60_000);
     await wrapper.find('[data-test="finish-workout"]').trigger('click');
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TODAY);
       if (rows[0]?.done !== true || rows[0]?.duration_min !== 5) throw new Error('完成未写入');
-    });
+    }, WAIT_OPTS);
     await vi.waitFor(() => {
       if (!wrapper.find('[data-test="done-badge"]').text().includes('已完成')) {
         throw new Error('当天完成标记未刷新');
       }
       const item = wrapper.find('[data-test="history-item"]');
       if (!item.exists() || !item.text().includes('已完成')) throw new Error('历史列表未刷新');
-    });
+    }, WAIT_OPTS);
     expect(wrapper.find('[data-test="done-badge"]').text()).toContain('已完成');
     expect(wrapper.find('[data-test="history-item"]').text()).toContain('已完成');
   });
@@ -232,7 +236,7 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', YESTERDAY);
       if (rows[0]?.exercises[0]?.sets[0]?.done !== true) throw new Error('历史勾选未写入');
-    });
+    }, WAIT_OPTS);
     expect((await listAliveByDate('workout_records', YESTERDAY))[0]?.exercises[0]?.sets[0]?.done).toBe(true);
   });
 
@@ -247,7 +251,7 @@ describe('健身页 #/life/workout', () => {
       if (!wrapper.find('[data-test="day-editor"]').text().includes('引体')) {
         throw new Error('周二训练未显示');
       }
-    });
+    }, WAIT_OPTS);
     expect(wrapper.find('[data-test="day-editor"]').text()).toContain('背');
 
     await wrapper.find('[data-test="add-exercise-input"]').setValue('划船');
@@ -255,7 +259,7 @@ describe('健身页 #/life/workout', () => {
     await vi.waitFor(async () => {
       const rows = await listAliveByDate('workout_records', TOMORROW);
       if (!rows[0]?.exercises.some((e) => e.name === '划船')) throw new Error('周二补记未写入');
-    });
+    }, WAIT_OPTS);
     expect((await listAliveByDate('workout_records', TOMORROW))[0]?.type_name).toBe('背');
     expect(await listAliveByDate('workout_records', TODAY)).toHaveLength(0);
   });
