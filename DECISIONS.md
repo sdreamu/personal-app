@@ -15,7 +15,9 @@
 - pnpm：用 node 执行 C:\Users\admin\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pnpm\bin\pnpm.mjs
 - npm 源：https://registry.npmjs.org（已验证可达）
 
-## 数据库契约（Dexie，库名 evan_personal_app_db，schema_version 1）
+## 数据库契约（Dexie，库名 evan_personal_app_db，schema_version **2**，共 **18 张表**）
+
+> 2026-10-24 校准：v1 为 16 张表；v2 新增 `exercises`（训练项目库）与 `mistakes`（错题本），并给 `reviews` 补 `record_worthy`/`day_summary`。备份结构版本同步升为 2，导出写 2，导入接受 1 与 2（旧备份仍可导入）。
 通用字段：id(UUID 字符串主键)、created_at(ms)、updated_at(ms)、deleted_at(ms|null 软删除)。
 索引：需要按逻辑日期(date)查询的表建 date 索引；book_id、target_id、weekday 等按需建索引。
 1. settings：单行 key='app'。daily_study_min=120, daily_water_ml=2000, cup_ml=250, daily_play_min=60, day_start='04:00'(整点/半点), theme='light'|'dark', last_backup_at=null
@@ -33,7 +35,9 @@
 13. workout_templates：weekday(1=周一~7=周日), type_name(快照), exercise_names(string[])
 14. workout_records：date, type_name(快照), exercises:[{name, sets:[{weight_kg(number|null), reps(number|null), done(bool)}]}], duration_min(int|null), done(bool)
 15. play_records：date, content, minutes(int>0), source('timer'|'manual')
-16. reviews：date, rating(1-5|null), mood(1-5|null), energy(1-5|null), good(string|null), improve(string|null), mit(string|null), mit_added_to_plan(bool 默认false)
+16. reviews：date, rating(1-5|null), mood(1-5|null), energy(1-5|null), good(string|null), improve(string|null), mit(string|null), mit_added_to_plan(bool 默认false), record_worthy(string|null, v2), day_summary(string|null, v2, 限 100 字)
+17. exercises（v2）：name（训练项目库，动作名）
+18. mistakes（v2）：date, subject_name, question_text, question_images(base64 dataURL[]), correction_text, correction_images(base64 dataURL[]), reasons(string[]), difficulty(1-5), mastered(bool)
 
-备份 JSON：{ app:'evan-app', schema_version:1, exported_at(ms), tables:{<表名>:[有效记录...]} }；导出前与启动时执行 GC（物理删除 deleted_at 早于 1 小时前的记录）。导入校验失败不改动现有数据；导入事务性覆盖并保留原 id。
+备份 JSON：{ app:'evan-app', schema_version:2, exported_at(ms), tables:{<表名>:[有效记录...]} }；导出前与启动时执行 GC（物理删除 deleted_at 早于 1 小时前的记录）。导入校验失败不改动现有数据；导入事务性覆盖并保留原 id。
 首次运行种子：内置分类/餐次 + 默认 settings。
