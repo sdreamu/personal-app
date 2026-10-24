@@ -21,6 +21,13 @@ function writePersistedDate(date: string): void {
   }
 }
 
+/** 切日期守卫：返回 false 表示拦截本次切换（复盘页有未确认草稿时用），确认丢弃后用 force 绕过。 */
+let dateChangeGuard: ((next: string) => boolean) | null = null;
+
+export function setDateChangeGuard(guard: ((next: string) => boolean) | null): void {
+  dateChangeGuard = guard;
+}
+
 /**
  * 顶栏“当前选中的逻辑日期”：默认今天（按设置的一天起点计算），
  * 切换后写入 localStorage，刷新后停留在当前选中的逻辑日期。
@@ -37,7 +44,16 @@ export const useDateStore = defineStore('date', {
     isToday: (state) => state.selectedDate === logicalToday(useSettingsStore().dayStartMin),
   },
   actions: {
-    setSelected(date: string) {
+    /** force=true 跳过守卫（用户在确认弹窗里选择丢弃草稿后使用）。 */
+    setSelected(date: string, options: { force?: boolean } = {}) {
+      if (
+        options.force !== true &&
+        date !== this.selectedDate &&
+        dateChangeGuard !== null &&
+        !dateChangeGuard(date)
+      ) {
+        return;
+      }
       this.selectedDate = date;
       this.persisted = true;
       writePersistedDate(date);

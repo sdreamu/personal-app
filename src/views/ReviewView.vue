@@ -1,29 +1,35 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import BaseModal from '@/components/BaseModal.vue';
 import ReviewHistory from '@/components/ReviewHistory.vue';
 import ReviewMetrics from '@/components/ReviewMetrics.vue';
 import ReviewMoodPicker from '@/components/ReviewMoodPicker.vue';
 import { errorMessage } from '@/db';
-import { useDateStore } from '@/stores/date';
-import { DAY_SUMMARY_MAX_LENGTH, useReviewStore, type ReviewTextPatch } from '@/stores/review';
+import { setDateChangeGuard, useDateStore } from '@/stores/date';
+import { DAY_SUMMARY_MAX_LENGTH, useReviewStore } from '@/stores/review';
+import { useSettingsStore } from '@/stores/settings';
 import { useToastStore } from '@/stores/toast';
+import { logicalToday } from '@/utils/date';
 
 /**
  * 复盘页 #/review（PRD §5.8 / AC-47~49）：
  * 上半部分 7 项自动汇总（只读，实时按 selectedDate 聚合）；
- * 下半部分自评（评分/心情/精力点击选中、再点取消；三栏文字 + 值得记录 + 一句话总结
- * 都走 300ms 防抖自动保存，切日期/卸载前立即 flush）；历史复盘列表与最近 14 天未复盘灰点。
- * 读/写全部跟随 dateStore.selectedDate（可回看/补写任意日期）。
+ * 下半部分自评：输入先留在本地草稿，点「确认」才一次性写入当天复盘
+ * （未确认的修改不落库，也不会出现在历史复盘里）；
+ * 有未确认草稿时切日期会被守卫拦下并弹确认，确认丢弃后才切；
+ * 历史复盘按时间区间查看，看详情不改变全局日期，只有「编辑这一天」才切换日期。
  */
 const dateStore = useDateStore();
 const reviewStore = useReviewStore();
+const settingsStore = useSettingsStore();
 const toast = useToastStore();
 
 const selectedDate = computed(() => dateStore.selectedDate);
-const rating = computed(() => reviewStore.review?.rating ?? null);
-const mood = computed(() => reviewStore.review?.mood ?? null);
-const energy = computed(() => reviewStore.review?.energy ?? null);
+const todayKey = computed(() => logicalToday(settingsStore.dayStartMin));
 
+const rating = ref<number | null>(null);
+const mood = ref<number | null>(null);
+const energy = ref<number | null>(null);
 const recordWorthyText = ref('');
 const daySummaryText = ref('');
 const goodText = ref('');
@@ -31,19 +37,55 @@ const improveText = ref('');
 const mitText = ref('');
 
 const daySummaryCount = computed(() => daySummaryText.value.length);
+const saving = ref(false);
+/** 被守卫拦下的目标日期：非 null 时显示「还有未确认的修改」确认弹窗。 */
+const pendingSwitchDate = ref<string | null>(null);
 
-function syncTextFromReview(): void {
-  recordWorthyText.value = reviewStore.review?.record_worthy ?? '';
-  daySummaryText.value = reviewStore.review?.day_summary ?? '';
-  goodText.value = reviewStore.review?.good ?? '';
-  improveText.value = reviewStore.review?.improve ?? '';
-  mitText.value = reviewStore.review?.mit ?? '';
+function syncFromReview(): void {
+  const review = reviewStore.review;
+  rating.value = review?.rating ?? null;
+  mood.value = review?.mood ?? null;
+  energy.value = review?.energy ?? null;
+  recordWorthyText.value = review?.record_worthy ?? '';
+  daySummaryText.value = review?.day_summary ?? '';
+  goodText.value = review?.good ?? '';
+  improveText.value = review?.improve ?? '';
+  mitText.value = review?.mit ?? '';
 }
+
+function sameText(draft: string, saved: string | null | undefined): boolean {
+  return draft.trim() === (saved ?? '').trim();
+}
+
+/** 草稿与已保存内容有差异时才允许点「确认」。 */
+const dirty = computed(() => {
+  const saved = reviewStore.review;
+  if (saved === null) {
+    return (
+      rating.value !== null ||
+      mood.value !== null ||
+      energy.value !== null ||
+      [recordWorthyText.value, daySummaryText.value, goodText.value, improveText.value, mitText.value].some(
+        (text) => text.trim() !== '',
+      )
+    );
+  }
+  return (
+    rating.value !== saved.rating ||
+    mood.value !== saved.mood ||
+    energy.value !== saved.energy ||
+    !sameText(recordWorthyText.value, saved.record_worthy) ||
+    !sameText(daySummaryText.value, saved.day_summary) ||
+    !sameText(goodText.value, saved.good) ||
+    !sameText(improveText.value, saved.improve) ||
+    !sameText(mitText.value, saved.mit)
+  );
+});
 
 async function load(): Promise<void> {
   try {
     await reviewStore.load(selectedDate.value);
-    syncTextFromReview();
+    syncFromReview();
   } catch (err) {
     toast.error(`加载复盘数据失败：${errorMessage(err)}`);
   }
@@ -52,62 +94,84 @@ async function load(): Promise<void> {
 watch(
   () => dateStore.selectedDate,
   async () => {
-    try {
-      await reviewStore.flush();
-    } catch {
-      // 保存失败已由 store 置红条并 toast，继续载入新日期
-    }
+    // 未确认的草稿按产品约定直接丢弃：切到新日期后以该日已保存的复盘为准。
     await load();
   },
 );
 
+/** 切日期前守卫：有未确认草稿就拦下并弹确认。 */
+function guardDateChange(next: string): boolean {
+  if (!dirty.value) return true;
+  pendingSwitchDate.value = next;
+  return false;
+}
+
+/** 确认丢弃草稿后强制切到目标日期；页面 watcher 会以该日已保存的复盘重载草稿。 */
+function discardDraftAndSwitch(): void {
+  const next = pendingSwitchDate.value;
+  pendingSwitchDate.value = null;
+  if (next !== null) dateStore.setSelected(next, { force: true });
+}
+
+function cancelSwitch(): void {
+  pendingSwitchDate.value = null;
+}
+
 onMounted(() => {
+  setDateChangeGuard(guardDateChange);
   void load();
 });
 
-onBeforeUnmount(() => {
-  void reviewStore.flush().catch(() => undefined);
-});
+onUnmounted(() => setDateChangeGuard(null));
 
 function onRatingChange(value: number | null): void {
-  void reviewStore.upsertReview(selectedDate.value, { rating: value }).catch(() => undefined);
+  rating.value = value;
 }
 function onMoodChange(value: number | null): void {
-  void reviewStore.upsertReview(selectedDate.value, { mood: value }).catch(() => undefined);
+  mood.value = value;
 }
 function onEnergyChange(value: number | null): void {
-  void reviewStore.upsertReview(selectedDate.value, { energy: value }).catch(() => undefined);
-}
-
-function saveText(patch: ReviewTextPatch): void {
-  reviewStore.debouncedSaveText(selectedDate.value, patch);
+  energy.value = value;
 }
 
 function onRecordWorthyInput(event: Event): void {
-  const value = (event.target as HTMLTextAreaElement).value;
-  recordWorthyText.value = value;
-  saveText({ record_worthy: value });
+  recordWorthyText.value = (event.target as HTMLTextAreaElement).value;
 }
 function onDaySummaryInput(event: Event): void {
-  const value = (event.target as HTMLInputElement).value.slice(0, DAY_SUMMARY_MAX_LENGTH);
-  daySummaryText.value = value;
-  saveText({ day_summary: value });
+  daySummaryText.value = (event.target as HTMLInputElement).value.slice(0, DAY_SUMMARY_MAX_LENGTH);
 }
-
 function onGoodInput(event: Event): void {
-  const value = (event.target as HTMLTextAreaElement).value;
-  goodText.value = value;
-  saveText({ good: value });
+  goodText.value = (event.target as HTMLTextAreaElement).value;
 }
 function onImproveInput(event: Event): void {
-  const value = (event.target as HTMLTextAreaElement).value;
-  improveText.value = value;
-  saveText({ improve: value });
+  improveText.value = (event.target as HTMLTextAreaElement).value;
 }
 function onMitInput(event: Event): void {
-  const value = (event.target as HTMLTextAreaElement).value;
-  mitText.value = value;
-  saveText({ mit: value });
+  mitText.value = (event.target as HTMLTextAreaElement).value;
+}
+
+/** 点「确认」才把当天自评一次性写入数据库（历史复盘随之出现/更新）。 */
+async function confirmReview(): Promise<void> {
+  if (!dirty.value || saving.value) return;
+  saving.value = true;
+  try {
+    await reviewStore.upsertReview(selectedDate.value, {
+      rating: rating.value,
+      mood: mood.value,
+      energy: energy.value,
+      record_worthy: recordWorthyText.value,
+      day_summary: daySummaryText.value,
+      good: goodText.value,
+      improve: improveText.value,
+      mit: mitText.value,
+    });
+    syncFromReview();
+    toast.success('今日复盘已保存');
+  } catch {
+    // 保存失败已由 store 置顶栏状态、toast 与红条；草稿保留可继续修改后重试。
+  } finally {
+    saving.value = false;
+  }
 }
 
 function onSelectDate(date: string): void {
@@ -195,20 +259,58 @@ function onSelectDate(date: string): void {
             />
           </label>
         </div>
+
+        <div class="review-actions">
+          <span class="review-actions-hint" data-test="review-confirm-hint">
+            {{ dirty ? '有未确认的修改，点「确认」后才会保存并出现在历史复盘' : '修改后点「确认」才会保存' }}
+          </span>
+          <button
+            type="button"
+            class="primary-btn"
+            data-test="review-confirm"
+            :disabled="!dirty || saving"
+            @click="confirmReview"
+          >
+            {{ saving ? '保存中…' : '确认' }}
+          </button>
+        </div>
       </div>
 
       <ReviewHistory
         :items="reviewStore.historyItems"
-        :dots="reviewStore.last14Dots"
+        :today="todayKey"
         @select-date="onSelectDate"
       />
     </template>
+
+    <BaseModal
+      v-if="pendingSwitchDate !== null"
+      id="review-leave-guard"
+      title="还有未确认的修改"
+      @close="cancelSwitch"
+    >
+      <p data-test="review-leave-modal">自评区的内容还没点「确认」，切走会丢弃这些修改。</p>
+      <template #footer>
+        <button type="button" class="ghost-btn" data-test="review-leave-cancel" @click="cancelSwitch">
+          继续编辑
+        </button>
+        <button type="button" class="primary-btn" data-test="review-leave-discard" @click="discardDraftAndSwitch">
+          丢弃并切换
+        </button>
+      </template>
+    </BaseModal>
   </section>
 </template>
 
 <style scoped>
 .review-self h2 {
   margin-bottom: 14px;
+}
+.review-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
 }
 .review-texts {
   display: grid;
@@ -224,12 +326,6 @@ function onSelectDate(date: string): void {
 .review-field-label {
   color: var(--muted);
   font-size: 13px;
-}
-.review-highlights {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
 }
 .review-field textarea,
 .review-field input {
@@ -255,5 +351,19 @@ function onSelectDate(date: string): void {
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+.review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.review-actions-hint {
+  color: var(--muted);
+  font-size: 12px;
 }
 </style>

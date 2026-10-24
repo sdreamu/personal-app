@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import { createRecord, listAliveByDate, resetDbForTests } from '@/db';
 import { useDateStore } from '@/stores/date';
@@ -31,7 +31,25 @@ afterEach(() => {
 });
 
 function mountView() {
-  return mount(ReviewView, { global: { plugins: [pinia] } });
+  return mount(ReviewView, { global: { plugins: [pinia], stubs: { Teleport: true } } });
+}
+
+async function waitFor(check: () => boolean | Promise<boolean>, label: string): Promise<void> {
+  await vi.waitFor(
+    async () => {
+      if (!(await check())) throw new Error(label);
+    },
+    { timeout: 3000, interval: 20 },
+  );
+}
+
+async function mountLoaded() {
+  const wrapper = mountView();
+  await waitFor(
+    () => wrapper.find('[data-test="review-metrics"]').exists(),
+    '复盘页未加载完成',
+  );
+  return wrapper;
 }
 
 describe('ReviewView 复盘页', () => {
@@ -46,53 +64,59 @@ describe('ReviewView 复盘页', () => {
       mit: '晨跑',
       mit_added_to_plan: false,
     });
-    const wrapper = mountView();
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="review-metrics"]').exists()).toBe(true);
-    });
+    const wrapper = await mountLoaded();
     expect(wrapper.find('[data-test="review-self"]').exists()).toBe(true);
     expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe('专注');
     expect((wrapper.find('[data-test="review-mit"]').element as HTMLTextAreaElement).value).toBe('晨跑');
     expect(wrapper.find('[data-test="review-history"]').exists()).toBe(true);
   });
 
-  it('新增两栏：回显 store 值、一句话总结 100 字上限与字数计数、输入后自动保存', async () => {
-    await createRecord('reviews', {
-      date: TODAY,
-      rating: null,
-      mood: null,
-      energy: null,
-      good: null,
-      improve: null,
-      mit: null,
-      record_worthy: '跑完 5 公里',
-      day_summary: '状态不错',
-      mit_added_to_plan: false,
-    });
-    const wrapper = mountView();
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="review-metrics"]').exists()).toBe(true);
-    });
+  it('输入只留在草稿：不写库、不进历史；点「确认」才保存并出现在历史复盘', async () => {
+    const wrapper = await mountLoaded();
+    const confirm = wrapper.find('[data-test="review-confirm"]');
+    expect(confirm.attributes('disabled')).toBeDefined();
 
-    const worth = wrapper.find('[data-test="review-record-worthy"]');
-    const summary = wrapper.find('[data-test="review-day-summary"]');
-    expect((worth.element as HTMLTextAreaElement).value).toBe('跑完 5 公里');
-    expect((summary.element as HTMLInputElement).value).toBe('状态不错');
-    expect(summary.attributes('maxlength')).toBe('100');
-    expect(wrapper.find('[data-test="review-day-summary-counter"]').text()).toBe('4/100');
-
-    await worth.setValue('第一次跑完 5 公里');
-    await summary.setValue('今天很稳');
-    expect(wrapper.find('[data-test="review-day-summary-counter"]').text()).toBe('4/100');
-
+    await wrapper.find('[data-test="review-record-worthy"]').setValue('跑完 5 公里');
+    await wrapper.find('[data-test="review-day-summary"]').setValue('状态不错');
+    await wrapper.find('[data-test="review-good"]').setValue('专注');
     await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(await listAliveByDate('reviews', TODAY)).toHaveLength(0);
+    // 未确认的草稿不出现在历史复盘里：没写过的日期根本不占行
+    expect(wrapper.find('[data-date="' + TODAY + '"]').exists()).toBe(false);
+
+    await confirm.trigger('click');
+    await waitFor(
+      async () => (await listAliveByDate('reviews', TODAY)).length === 1,
+      '确认后未写入复盘',
+    );
+
     const rows = await listAliveByDate('reviews', TODAY);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.record_worthy).toBe('第一次跑完 5 公里');
-    expect(rows[0]?.day_summary).toBe('今天很稳');
+    expect(rows[0]?.record_worthy).toBe('跑完 5 公里');
+    expect(rows[0]?.day_summary).toBe('状态不错');
+    expect(rows[0]?.good).toBe('专注');
+
+    await waitFor(
+      () => wrapper.find('[data-date="' + TODAY + '"]').exists(),
+      '历史复盘未刷新',
+    );
+    expect(wrapper.find('[data-date="' + TODAY + '"]').find('[data-test="history-summary"]').text()).toBe('状态不错');
   });
 
-  it('灰点点击把 selectedDate 切到该日期并载入补写', async () => {
+  it('评分同样先存草稿，点「确认」后才落库', async () => {
+    const wrapper = await mountLoaded();
+    await wrapper.findAll('[data-test="rating-star"]')[3]?.trigger('click');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(await listAliveByDate('reviews', TODAY)).toHaveLength(0);
+
+    await wrapper.find('[data-test="review-confirm"]').trigger('click');
+    await waitFor(
+      async () => (await listAliveByDate('reviews', TODAY)).length === 1,
+      '确认后未写入评分',
+    );
+    expect((await listAliveByDate('reviews', TODAY))[0]?.rating).toBe(4);
+  });
+
+  it('历史区间查看不改变全局日期；「编辑这一天」才切日期', async () => {
     await createRecord('reviews', {
       date: YESTERDAY,
       rating: 5,
@@ -100,26 +124,64 @@ describe('ReviewView 复盘页', () => {
       energy: 3,
       good: '专注',
       improve: null,
+      record_worthy: '跑完 5 公里',
+      day_summary: '状态不错',
       mit: '晨跑',
       mit_added_to_plan: false,
     });
+    const wrapper = await mountLoaded();
     const dateStore = useDateStore();
+    const reviewStore = useReviewStore();
     expect(dateStore.selectedDate).toBe(TODAY);
 
-    const wrapper = mountView();
-    await vi.waitFor(() => {
-      expect(wrapper.find('[data-test="review-metrics"]').exists()).toBe(true);
-    });
+    const row = wrapper.find('[data-date="' + YESTERDAY + '"]');
+    expect(row.attributes('data-filled')).toBe('yes');
+    await row.find('[data-test="history-row"]').trigger('click');
 
-    const reviewStore = useReviewStore();
-    const missingDot = wrapper.find('[data-date="2026-05-30"]');
-    expect(missingDot.exists()).toBe(true);
-    expect(missingDot.classes()).toContain('missing');
-    await missingDot.trigger('click');
+    expect(wrapper.find('[data-test="history-detail"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="history-detail-day-summary"]').text()).toBe('状态不错');
+    expect(dateStore.selectedDate).toBe(TODAY);
+    expect(reviewStore.loadedDate).toBe(TODAY);
 
-    expect(dateStore.selectedDate).toBe('2026-05-30');
-    await vi.waitFor(() => {
-      expect(reviewStore.loadedDate).toBe('2026-05-30');
-    });
+    await wrapper.find('[data-test="history-edit-date"]').trigger('click');
+    expect(dateStore.selectedDate).toBe(YESTERDAY);
+    await waitFor(() => reviewStore.loadedDate === YESTERDAY, '未载入所选日期复盘');
+  });
+
+  it('有未确认草稿时切日期被拦下，确认丢弃后才切换', async () => {
+    const wrapper = await mountLoaded();
+    const dateStore = useDateStore();
+
+    await wrapper.find('[data-test="review-good"]').setValue('没点确认的草稿');
+
+    dateStore.prevDay();
+    await flushPromises();
+    expect(dateStore.selectedDate).toBe(TODAY);
+    expect(wrapper.find('[data-test="review-leave-modal"]').exists()).toBe(true);
+
+    await wrapper.find('[data-test="review-leave-cancel"]').trigger('click');
+    expect(wrapper.find('[data-test="review-leave-modal"]').exists()).toBe(false);
+    expect(dateStore.selectedDate).toBe(TODAY);
+    expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe(
+      '没点确认的草稿',
+    );
+
+    dateStore.prevDay();
+    await flushPromises();
+    await wrapper.find('[data-test="review-leave-discard"]').trigger('click');
+    expect(dateStore.selectedDate).toBe(YESTERDAY);
+    await waitFor(() => useReviewStore().loadedDate === YESTERDAY, '未载入所选日期复盘');
+    expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('没有草稿时切日期不弹确认', async () => {
+    const wrapper = await mountLoaded();
+    const dateStore = useDateStore();
+
+    dateStore.prevDay();
+    await flushPromises();
+    expect(wrapper.find('[data-test="review-leave-modal"]').exists()).toBe(false);
+    expect(dateStore.selectedDate).toBe(YESTERDAY);
+    await waitFor(() => useReviewStore().loadedDate === YESTERDAY, '未载入所选日期复盘');
   });
 });

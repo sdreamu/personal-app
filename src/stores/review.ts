@@ -13,7 +13,7 @@ import {
   type Water,
   type WorkoutRecord,
 } from '@/db';
-import { addDays, formatDuration, logicalToday } from '@/utils/date';
+import { formatDuration } from '@/utils/date';
 import { useSaveStatusStore } from './saveStatus';
 import { useSettingsStore } from './settings';
 import { useToastStore } from './toast';
@@ -92,15 +92,14 @@ export interface ReviewHistoryItem {
   rating: number | null;
   mood: number | null;
   energy: number | null;
+  /** 一句话摘要：只取 day_summary 首行；没有就为空串（列表留空）。 */
   summary: string;
+  record_worthy: string;
+  day_summary: string;
+  good: string;
+  improve: string;
+  mit: string;
 }
-
-export interface ReviewDateDot {
-  date: string;
-  filled: boolean;
-}
-
-export const REVIEW_TEXT_DEBOUNCE_MS = 300;
 
 /** 计划学习时长与实际差值文案（纯函数）。 */
 export function formatDiffText(diffMinutes: number): string {
@@ -207,13 +206,10 @@ export function hasReviewContent(review: Review): boolean {
   );
 }
 
-/** 一句话摘要：优先 day_summary；为空时回退“做得好的”首行前 30 字；都为空返回空串。 */
+/** 一句话摘要：只取 day_summary 首行；没有则返回空串（历史列表留空，不回退其它字段）。 */
 export function summarizeReview(review: Review): string {
   const summary = (review.day_summary ?? '').trim();
-  if (summary !== '') return summary.split('\n')[0];
-  const good = (review.good ?? '').trim();
-  if (good !== '') return good.split('\n')[0].slice(0, 30);
-  return '';
+  return summary === '' ? '' : summary.split('\n')[0];
 }
 
 /** 复盘历史按日期倒序（同日按创建时间倒序）。 */
@@ -264,8 +260,8 @@ const upsertChains = new Map<string, Promise<unknown>>();
  * 复盘模块 store（4b）：
  * load(date) 载入选中日期复盘 + 各表当天数据并计算 7 项指标，同时载入全部复盘历史；
  * upsertReview(date, patch) 按 date 定位 reviews 行（存在则更新、不存在则新增）；
- * debouncedSaveText(date, patch) 对三栏文字 + 值得记录 + 一句话总结做 300ms 防抖自动保存；
- * flush() 立即保存尚未落库的文字（切日期/卸载前调用）。
+ * 自评内容不再自动保存：页面在本地维护草稿，用户点「确认」时一次性调用 upsertReview 落库，
+ * 未确认的修改不写库、也不会出现在历史复盘里。
  */
 export const useReviewStore = defineStore('review', {
   state: () => ({
@@ -279,12 +275,9 @@ export const useReviewStore = defineStore('review', {
     workoutRecords: [] as WorkoutRecord[],
     playRecords: [] as PlayRecord[],
     metrics: null as ReviewMetrics | null,
-    pendingTextDate: null as string | null,
-    pendingTextPatch: null as ReviewTextPatch | null,
-    textTimer: null as ReturnType<typeof setTimeout> | null,
   }),
   getters: {
-    /** 历史复盘列表（日期倒序，只含有内容的复盘）。 */
+    /** 历史复盘列表（日期倒序，只含有内容的复盘；详情直接取本结构，不再二次查库）。 */
     historyItems(state): ReviewHistoryItem[] {
       return sortReviewsDesc(state.reviews)
         .filter(hasReviewContent)
@@ -294,18 +287,12 @@ export const useReviewStore = defineStore('review', {
           mood: review.mood,
           energy: review.energy,
           summary: summarizeReview(review),
+          record_worthy: review.record_worthy ?? '',
+          day_summary: review.day_summary ?? '',
+          good: review.good ?? '',
+          improve: review.improve ?? '',
+          mit: review.mit ?? '',
         }));
-    },
-    /** 最近 14 天的过去日期（昨天起向前 14 天，升序），未填写复盘为灰点。 */
-    last14Dots(state): ReviewDateDot[] {
-      const today = logicalToday(useSettingsStore().dayStartMin);
-      const filled = new Set(state.reviews.filter(hasReviewContent).map((review) => review.date));
-      const dots: ReviewDateDot[] = [];
-      for (let offset = 1; offset <= 14; offset++) {
-        const date = addDays(today, -offset);
-        dots.push({ date, filled: filled.has(date) });
-      }
-      return dots;
     },
   },
   actions: {
@@ -313,7 +300,6 @@ export const useReviewStore = defineStore('review', {
     async load(date: string): Promise<void> {
       this.loading = true;
       try {
-        await this.flushPending({ silent: true });
         const [reviews, plans, studyRecords, waterRecords, workoutRecords, playRecords] =
           await Promise.all([
             listAlive('reviews'),
@@ -346,7 +332,6 @@ export const useReviewStore = defineStore('review', {
 
     /** 重新载入当前选中日期。 */
     async reload(): Promise<void> {
-      await this.flush();
       if (this.loadedDate !== null) await this.load(this.loadedDate);
     },
 
@@ -399,39 +384,6 @@ export const useReviewStore = defineStore('review', {
     replaceReview(updated: Review): void {
       this.reviews = this.reviews.map((row) => (row.id === updated.id ? updated : row));
       if (this.loadedDate === updated.date) this.review = updated;
-    },
-
-    /** 文字栏 300ms 防抖自动保存（重复调用重置计时，合并 patch，含新增两栏）。 */
-    debouncedSaveText(date: string, patch: ReviewTextPatch): void {
-      if (this.textTimer !== null) clearTimeout(this.textTimer);
-      this.pendingTextDate = date;
-      this.pendingTextPatch = { ...this.pendingTextPatch, ...patch };
-      this.textTimer = setTimeout(() => {
-        this.textTimer = null;
-        void this.flush().catch(() => undefined);
-      }, REVIEW_TEXT_DEBOUNCE_MS);
-    },
-
-    /** 立即保存尚未落库的文字（切日期/卸载前调用）。 */
-    async flush(): Promise<void> {
-      await this.flushPending({ silent: false });
-    },
-
-    async flushPending(options: { silent?: boolean } = {}): Promise<void> {
-      if (this.textTimer !== null) {
-        clearTimeout(this.textTimer);
-        this.textTimer = null;
-      }
-      const date = this.pendingTextDate;
-      const patch = this.pendingTextPatch;
-      if (date === null || patch === null) return;
-      this.pendingTextDate = null;
-      this.pendingTextPatch = null;
-      try {
-        await this.upsertReview(date, patch);
-      } catch (err) {
-        if (!options.silent) throw err;
-      }
     },
 
     /** 写库动作统一包保存状态；失败置红条并 toast 后继续抛出。 */

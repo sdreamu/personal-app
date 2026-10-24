@@ -318,12 +318,12 @@ describe('hasReviewContent / summarizeReview / normalizeReviewPatch', () => {
     expect(hasReviewContent(reviewRow({ record_worthy: null, day_summary: undefined }))).toBe(false);
   });
 
-  it('summarizeReview：优先 day_summary，其次“做得好的”首行前 30 字，都为空返回空串', () => {
+  it('summarizeReview：只取 day_summary 首行；为空返回空串，不回退其它字段', () => {
     const review = reviewRow({ day_summary: '状态不错\n心情好', good: '专注\n高效', mit: '晨跑' });
     expect(summarizeReview(review)).toBe('状态不错');
-    expect(summarizeReview({ ...review, day_summary: '  ' })).toBe('专注');
-    expect(summarizeReview({ ...review, day_summary: null, good: '一'.repeat(40) })).toBe('一'.repeat(30));
-    expect(summarizeReview({ ...review, day_summary: null, good: null })).toBe('');
+    expect(summarizeReview({ ...review, day_summary: '  ' })).toBe('');
+    expect(summarizeReview({ ...review, day_summary: null, good: '做得再好也不当摘要' })).toBe('');
+    expect(summarizeReview({ ...review, day_summary: null, good: null, mit: '晨跑' })).toBe('');
   });
 
   it('normalizeReviewPatch：文字 trim 后保存，空白存 null；评分只接受 null 或 1~5', () => {
@@ -352,7 +352,7 @@ describe('hasReviewContent / summarizeReview / normalizeReviewPatch', () => {
   });
 });
 
-describe('upsertReview / debouncedSaveText / flush', () => {
+describe('upsertReview / 历史列表', () => {
   it('upsertReview 按 date 定位：不存在新增、存在更新，且不产生重复行', async () => {
     const first = await store.upsertReview(TODAY, { rating: 4 });
     expect(first.date).toBe(TODAY);
@@ -386,44 +386,7 @@ describe('upsertReview / debouncedSaveText / flush', () => {
     expect((await listAliveByDate('reviews', YESTERDAY))[0]?.rating).toBe(1);
   });
 
-  it('debouncedSaveText：300ms 后自动保存，重复调用合并 patch；flush 立即保存', async () => {
-    store.debouncedSaveText(TODAY, { good: '专注' });
-    store.debouncedSaveText(TODAY, { improve: '少刷手机' });
-    expect(await listAliveByDate('reviews', TODAY)).toHaveLength(0);
-
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    const rows = await listAliveByDate('reviews', TODAY);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.good).toBe('专注');
-    expect(rows[0]?.improve).toBe('少刷手机');
-
-    store.debouncedSaveText(TODAY, { mit: '读完一章' });
-    await store.flush();
-    const afterFlush = await listAliveByDate('reviews', TODAY);
-    expect(afterFlush).toHaveLength(1);
-    expect(afterFlush[0]?.mit).toBe('读完一章');
-  });
-
-  it('debouncedSaveText：新增两栏 300ms 防抖保存，未到时间就切日期/卸载时 flush 立即落库', async () => {
-    store.debouncedSaveText(TODAY, { record_worthy: '第一次跑完 5 公里' });
-    store.debouncedSaveText(TODAY, { day_summary: '状态不错' });
-    expect(await listAliveByDate('reviews', TODAY)).toHaveLength(0);
-
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    const rows = await listAliveByDate('reviews', TODAY);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.record_worthy).toBe('第一次跑完 5 公里');
-    expect(rows[0]?.day_summary).toBe('状态不错');
-
-    store.debouncedSaveText(TODAY, { day_summary: '今天很稳' });
-    await store.flush();
-    const afterFlush = await listAliveByDate('reviews', TODAY);
-    expect(afterFlush).toHaveLength(1);
-    expect(afterFlush[0]?.record_worthy).toBe('第一次跑完 5 公里');
-    expect(afterFlush[0]?.day_summary).toBe('今天很稳');
-  });
-
-  it('历史列表摘要优先 day_summary，为空时回退“做得好的”前 30 字', async () => {
+  it('历史列表摘要只显示 day_summary；为空则留空，不回退“做得好的”', async () => {
     await createRecord('reviews', makeReviewData({ date: '2026-05-30', rating: 5, good: '一'.repeat(40) }));
     await createRecord(
       'reviews',
@@ -433,10 +396,34 @@ describe('upsertReview / debouncedSaveText / flush', () => {
     const items = store.historyItems;
     expect(items.map((item) => item.date)).toEqual([YESTERDAY, '2026-05-30']);
     expect(items[0]?.summary).toBe('状态不错');
-    expect(items[1]?.summary).toBe('一'.repeat(30));
+    expect(items[1]?.summary).toBe('');
   });
 
-  it('load 聚合当天数据并生成历史列表与最近 14 天灰点', async () => {
+  it('历史列表项带上复盘全文，供区间详情只读展示', async () => {
+    await createRecord(
+      'reviews',
+      makeReviewData({
+        date: YESTERDAY,
+        rating: 4,
+        record_worthy: '跑完 5 公里',
+        day_summary: '状态不错',
+        good: '专注',
+        improve: '早睡',
+        mit: '读完一章',
+      }),
+    );
+    await store.load(TODAY);
+    expect(store.historyItems[0]).toMatchObject({
+      date: YESTERDAY,
+      record_worthy: '跑完 5 公里',
+      day_summary: '状态不错',
+      good: '专注',
+      improve: '早睡',
+      mit: '读完一章',
+    });
+  });
+
+  it('load 聚合当天数据并生成历史列表', async () => {
     await createRecord('plans', makePlanData({ title: '学习块', start_min: 60, end_min: 120, done: true }));
     await createRecord('study_records', makeStudyData({ duration_sec: 3600, pages_read: 12 }));
     await createRecord('water', { date: TODAY, ml: 500, at: BASE });
@@ -469,12 +456,6 @@ describe('upsertReview / debouncedSaveText / flush', () => {
     expect(store.historyItems).toHaveLength(1);
     expect(store.historyItems[0]?.date).toBe(YESTERDAY);
     expect(store.historyItems[0]?.summary).toBe('状态不错');
-
-    const dots = store.last14Dots;
-    expect(dots).toHaveLength(14);
-    expect(dots[0]?.date).toBe(YESTERDAY); // 昨天在前
-    expect(dots[13]?.date).toBe('2026-05-18');
-    expect(dots.find((d) => d.date === YESTERDAY)?.filled).toBe(true);
-    expect(dots.find((d) => d.date === '2026-05-30')?.filled).toBe(false);
+    expect(store.historyItems[0]?.record_worthy).toBe('跑完 5 公里');
   });
 });

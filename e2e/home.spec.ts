@@ -48,6 +48,8 @@ test('AC-20 昨天MIT今天显示并防重复加入', async ({ page }) => {
   await gotoHash(page, 'review');
   await page.locator('[data-test="rating-star"]').nth(4).click();
   await page.fill('[data-test="review-mit"]', 'AC20最重要的一件事');
+  await page.click('[data-test="review-confirm"]');
+  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
   await page.click('[data-test="go-today"]');
 
   await gotoHash(page, 'home');

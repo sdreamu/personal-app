@@ -53,7 +53,7 @@
 | AC-46 | AC-46 娱乐超额变红仍可保存 | e2e/life.spec.ts |
 | AC-47 | AC-47 复盘7项汇总与各模块一致 | e2e/review.spec.ts |
 | AC-48 | AC-48 复盘评分文字刷新保留与再点取消 | e2e/review.spec.ts |
-| AC-49 | AC-49 未复盘灰点与点击补写 | e2e/review.spec.ts |
+| AC-49 | AC-49 未写日期不占行，顶栏切过去补写后进入区间列表 | e2e/review.spec.ts |
 | AC-50 | AC-50 设置目标立即生效与内置分类保护 | e2e/review.spec.ts |
 | AC-51 | AC-51 深色模式刷新保持 | e2e/review.spec.ts |
 | AC-52 | AC-52 导入1年模拟数据后页面切换不卡顿 | e2e/perf.spec.ts |
@@ -61,5 +61,6 @@
 
 辅助（不属于 AC，但覆盖 PRD §5.4 的 12 小时恢复规则）：
 - AC-39辅助 计时12小时恢复（e2e/study.spec.ts）
+- AC-49b 自评草稿未确认时切日期二次确认（e2e/review.spec.ts）
 
 覆盖完整性：AC-01~AC-53 共 53 条，全部有对应测试；无 skip / only。

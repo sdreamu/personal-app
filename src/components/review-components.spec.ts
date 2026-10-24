@@ -4,7 +4,6 @@ import ReviewHistory from './ReviewHistory.vue';
 import ReviewMetrics from './ReviewMetrics.vue';
 import ReviewMoodPicker from './ReviewMoodPicker.vue';
 import type {
-  ReviewDateDot,
   ReviewHistoryItem,
   ReviewMetrics as ReviewMetricsModel,
 } from '@/stores/review';
@@ -122,74 +121,112 @@ describe('ReviewMoodPicker 三项打分', () => {
   });
 });
 
+const TODAY = '2026-06-01';
+
 const items: ReviewHistoryItem[] = [
-  { date: '2026-06-01', rating: 5, mood: 4, energy: 3, summary: '晨跑' },
-  { date: '2026-05-30', rating: null, mood: null, energy: null, summary: '' },
+  {
+    date: '2026-06-01',
+    rating: 5,
+    mood: 4,
+    energy: 3,
+    summary: '状态不错',
+    record_worthy: '跑完 5 公里',
+    day_summary: '状态不错',
+    good: '专注',
+    improve: '早睡',
+    mit: '读完一章',
+  },
+  {
+    date: '2026-05-10',
+    rating: null,
+    mood: null,
+    energy: null,
+    summary: '',
+    record_worthy: '',
+    day_summary: '',
+    good: '只写了做得好的',
+    improve: '',
+    mit: '',
+  },
 ];
 
-const dots: ReviewDateDot[] = [
-  { date: '2026-05-18', filled: false },
-  { date: '2026-05-19', filled: false },
-  { date: '2026-05-20', filled: false },
-  { date: '2026-05-21', filled: false },
-  { date: '2026-05-22', filled: false },
-  { date: '2026-05-23', filled: false },
-  { date: '2026-05-24', filled: false },
-  { date: '2026-05-25', filled: false },
-  { date: '2026-05-26', filled: false },
-  { date: '2026-05-27', filled: false },
-  { date: '2026-05-28', filled: false },
-  { date: '2026-05-29', filled: false },
-  { date: '2026-05-30', filled: false },
-  { date: '2026-05-31', filled: true },
-];
+function mountHistory(list: ReviewHistoryItem[] = items) {
+  return mount(ReviewHistory, { props: { items: list, today: TODAY } });
+}
 
-describe('ReviewHistory 历史列表与灰点', () => {
-  it('历史列表按传入顺序渲染日期、星级、心情、精力与摘要', () => {
-    const wrapper = mount(ReviewHistory, { props: { items, dots } });
+describe('ReviewHistory 区间历史列表', () => {
+  it('默认近 30 天：只列有复盘的日期（倒序），摘要只显示 day_summary（为空则留空）', () => {
+    const wrapper = mountHistory();
     const rows = wrapper.findAll('[data-test="history-item"]');
     expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.attributes('data-date'))).toEqual(['2026-06-01', '2026-05-10']);
+    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 2 / 30 天');
 
     const first = rows[0];
-    expect(first?.attributes('data-date')).toBe('2026-06-01');
     expect(first?.text()).toContain('6月1日 周一');
     expect(first?.find('[data-test="history-rating"]').text()).toBe('★★★★★');
     expect(first?.find('[data-test="history-mood"]').text()).toBe('🙂');
     expect(first?.find('[data-test="history-energy"]').text()).toBe('▮▮▮▯▯');
-    expect(first?.find('[data-test="history-summary"]').text()).toBe('晨跑');
+    expect(first?.find('[data-test="history-summary"]').text()).toBe('状态不错');
 
-    const second = rows[1];
-    expect(second?.find('[data-test="history-rating"]').text()).toBe('—');
-    expect(second?.find('[data-test="history-mood"]').text()).toBe('—');
-    expect(second?.find('[data-test="history-energy"]').text()).toBe('—');
-    expect(second?.find('[data-test="history-summary"]').text()).toBe('（无摘要）');
+    const noSummary = wrapper.find('[data-date="2026-05-10"]');
+    expect(noSummary.find('[data-test="history-summary"]').text()).toBe('');
+    expect(noSummary.text()).not.toContain('（无摘要）');
+    expect(noSummary.text()).not.toContain('只写了做得好的');
   });
 
-  it('最近 14 天灰点：未填写日期标 missing，已填写标 filled', () => {
-    const wrapper = mount(ReviewHistory, { props: { items, dots } });
-    const dotButtons = wrapper.findAll('[data-test="history-dot"]');
-    expect(dotButtons).toHaveLength(14);
+  it('快捷区间：近 7 天只留区间内的复盘，全部从最早一条起算', async () => {
+    const wrapper = mountHistory();
+    await wrapper.find('[data-test="history-preset-7"]').trigger('click');
+    expect(wrapper.findAll('[data-test="history-item"]')).toHaveLength(1);
+    expect(wrapper.find('[data-date="2026-05-10"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 1 / 7 天');
 
-    const filled = wrapper.find('[data-date="2026-05-31"]');
-    expect(filled.exists()).toBe(true);
-    expect(filled.classes()).toContain('filled');
-    expect(filled.attributes('data-filled')).toBe('yes');
-
-    const missing = wrapper.find('[data-date="2026-05-30"]');
-    expect(missing.exists()).toBe(true);
-    expect(missing.classes()).toContain('missing');
-    expect(missing.attributes('data-filled')).toBe('no');
+    await wrapper.find('[data-test="history-preset-all"]').trigger('click');
+    expect(wrapper.findAll('[data-test="history-item"]')).toHaveLength(2);
+    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 2 / 23 天'); // 05-10 ~ 06-01
   });
 
-  it('点击灰点发出 select-date 事件', async () => {
-    const wrapper = mount(ReviewHistory, { props: { items, dots } });
-    await wrapper.find('[data-date="2026-05-30"]').trigger('click');
-    expect(wrapper.emitted('select-date')?.at(-1)).toEqual(['2026-05-30']);
+  it('手动改起止日期：只显示区间内已写的日期，未填写日期不占行', async () => {
+    const wrapper = mountHistory();
+    await wrapper.find('[data-test="history-start"]').setValue('2026-05-09');
+    await wrapper.find('[data-test="history-end"]').setValue('2026-05-11');
+    const rows = wrapper.findAll('[data-test="history-item"]');
+    expect(rows.map((row) => row.attributes('data-date'))).toEqual(['2026-05-10']);
+    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 1 / 3 天');
+    expect(wrapper.find('[data-test="history-supplement"]').exists()).toBe(false);
   });
 
-  it('历史为空时显示空提示', () => {
-    const wrapper = mount(ReviewHistory, { props: { items: [], dots } });
+  it('结束日期不会超过今天', async () => {
+    const wrapper = mountHistory();
+    await wrapper.find('[data-test="history-end"]').setValue('2026-06-30');
+    const rows = wrapper.findAll('[data-test="history-item"]');
+    expect(rows[0]?.attributes('data-date')).toBe('2026-06-01');
+    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 2 / 30 天');
+  });
+
+  it('点有复盘的日期展开只读详情，不发 select-date；点「编辑这一天」才发', async () => {
+    const wrapper = mountHistory();
+    const row = wrapper.find('[data-date="2026-06-01"]');
+    await row.find('[data-test="history-row"]').trigger('click');
+
+    const detail = wrapper.find('[data-test="history-detail"]');
+    expect(detail.exists()).toBe(true);
+    expect(detail.find('[data-test="history-detail-record-worthy"]').text()).toBe('跑完 5 公里');
+    expect(detail.find('[data-test="history-detail-day-summary"]').text()).toBe('状态不错');
+    expect(detail.find('[data-test="history-detail-good"]').text()).toBe('专注');
+    expect(detail.find('[data-test="history-detail-improve"]').text()).toBe('早睡');
+    expect(detail.find('[data-test="history-detail-mit"]').text()).toBe('读完一章');
+    expect(wrapper.emitted('select-date')).toBeUndefined();
+
+    await detail.find('[data-test="history-edit-date"]').trigger('click');
+    expect(wrapper.emitted('select-date')?.at(-1)).toEqual(['2026-06-01']);
+  });
+
+  it('区间内没有任何复盘时显示空提示，且不渲染任何行', () => {
+    const wrapper = mountHistory([]);
     expect(wrapper.find('[data-test="history-empty"]').exists()).toBe(true);
-    expect(wrapper.find('[data-test="history-list"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-test="history-item"]')).toHaveLength(0);
+    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 0 / 30 天');
   });
 });

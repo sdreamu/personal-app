@@ -97,7 +97,8 @@ test('AC-48 复盘评分文字刷新保留与再点取消', async ({ page }) => 
   const stars = page.locator('[data-test="rating-star"]');
   await stars.nth(3).click();
   await page.fill('[data-test="review-good"]', 'AC48做得好');
-  await page.waitForTimeout(500);
+  await page.click('[data-test="review-confirm"]');
+  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
 
   await page.reload();
   await expect(page.locator('[data-test="review-view"]')).toBeVisible();
@@ -108,22 +109,52 @@ test('AC-48 复盘评分文字刷新保留与再点取消', async ({ page }) => 
   await page.locator('[data-test="rating-star"]').nth(3).click();
   await expect(page.locator('[data-test="rating-star"]').nth(0)).toHaveText('☆');
   await expect(page.locator('[data-test="rating-star"]').nth(3)).toHaveText('☆');
+
+  await page.click('[data-test="review-confirm"]');
+  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
+  await page.reload();
+  await expect(page.locator('[data-test="rating-star"]').nth(0)).toHaveText('☆');
+  await expect(page.locator('[data-test="review-good"]')).toHaveValue('AC48做得好');
 });
 
-/** AC-49：隔几天没写复盘后查看历史——未复盘的日期有灰点，点击可补写。 */
-test('AC-49 未复盘灰点与点击补写', async ({ page }) => {
+/** AC-49：历史复盘按区间查看——未填写的日期不占行，用顶栏切到该日补写并确认后才进入区间列表。 */
+test('AC-49 未复盘日期用顶栏切过去补写，确认后才出现在区间列表', async ({ page }) => {
   await gotoHash(page, 'review');
   const yesterday = addDays(logicalToday(), -1);
-  const dot = page.locator('[data-test="history-dot"][data-date="' + yesterday + '"]');
-  await expect(dot).toBeVisible();
-  await expect(dot).toHaveAttribute('data-filled', 'no');
+  const row = page.locator('[data-test="history-item"][data-date="' + yesterday + '"]');
 
-  await dot.click();
+  // 没写过复盘的日期不占行，漏写量由「已写 X / Y 天」体现
+  await expect(row).toHaveCount(0);
+  await expect(page.locator('[data-test="history-range-stats"]')).toContainText('已写 0 / 30 天');
+
+  await page.click('[data-test="prev-day"]');
   const [, m, d] = yesterday.split('-').map(Number);
   await expect(page.locator('[data-test="date-label"]')).toContainText(m + '月' + d + '日');
 
   await page.locator('[data-test="rating-star"]').nth(2).click();
-  await expect(page.locator('[data-test="history-dot"][data-date="' + yesterday + '"]')).toHaveAttribute('data-filled', 'yes');
+  await page.click('[data-test="review-confirm"]');
+  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
+  await expect(page.locator('[data-test="history-item"][data-date="' + yesterday + '"]')).toBeVisible();
+  await expect(page.locator('[data-test="history-range-stats"]')).toContainText('已写 1 / 30 天');
+});
+
+/** AC-49b：自评草稿守卫——有未确认内容时切日期弹确认，可继续编辑或丢弃后切换。 */
+test('AC-49b 自评草稿切日期二次确认', async ({ page }) => {
+  await gotoHash(page, 'review');
+  const todayLabel = (await page.locator('[data-test="date-label"]').innerText()).trim();
+  await page.fill('[data-test="review-good"]', '未确认草稿');
+
+  await page.click('[data-test="prev-day"]');
+  await expect(page.locator('[data-test="review-leave-modal"]')).toBeVisible();
+  await expect(page.locator('[data-test="date-label"]')).toHaveText(todayLabel);
+
+  await page.click('[data-test="review-leave-cancel"]');
+  await expect(page.locator('[data-test="review-leave-modal"]')).toHaveCount(0);
+  await expect(page.locator('[data-test="review-good"]')).toHaveValue('未确认草稿');
+
+  await page.click('[data-test="prev-day"]');
+  await page.click('[data-test="review-leave-discard"]');
+  await expect(page.locator('[data-test="date-label"]')).not.toHaveText(todayLabel);
 });
 
 /** AC-50：修改每日目标、杯量、娱乐额度立即生效；内置分类不可删除，自定义分类可增删改。 */
