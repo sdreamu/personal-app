@@ -569,7 +569,7 @@ test:e2e   playwright test
 - `src/components/PlayTimerPanel.vue`：模式分段按钮 + 快捷 15/30/45/60 + 自定义分钟 + "按剩余额度（N 分钟）"（额度 0 时 disabled + "今日娱乐额度已用完"）；运行中显示模式徽章与剩余时间；接收 `prefill` prop（`prefill-applied` 回抛给父页清空）；娱乐计时结束/丢弃后自动 `playStore.reload()` 刷新记录与额度。
 - `src/components/PlayRecordList.vue`：每行新增"再来一轮"（emit `play-again`，内容名称 + `DEFAULT_PLAY_COUNTDOWN_MINUTES=30`）。
 - `src/views/LifePlayView.vue`：持有 `prefill` state，把"再来一轮"接到计时面板。
-- `src/components/SettlementModal.vue`：娱乐计时的"折算分钟数"预填改为复用 `capEntertainmentMinutes()`（预填值 == 落库值）：娱乐倒计时 30 分钟挂到 45 分钟 → 预填 30 而不是 45；娱乐正计时仍按实际时长向上取整；学习计时（含学习倒计时超时）完全不经过这条分支，"本次有效时长"仍如实显示实际值。
+- `src/components/SettlementModal.vue`（coordinator 授权放开）：娱乐计时的"折算分钟数"预填改为复用 `capEntertainmentMinutes()`（预填值 == 落库值）：娱乐倒计时 30 分钟挂到 45 分钟 → 预填 30 而不是 45；娱乐正计时仍按实际时长向上取整；学习计时（含学习倒计时超时）完全不经过这条分支，"本次有效时长"仍如实显示实际值。
 
 ---
 
@@ -812,12 +812,12 @@ test:e2e   playwright test
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **全部通过：50 文件 / 410 用例，0 failed** | M3 未新增测试文件，在 `timer.spec.ts`（15→19）/ `play.spec.ts`（8→13）/ `play-timer-panel.spec.ts`（3→9）/ `play-record-list.spec.ts`（3→4）/ `life-play-view.spec.ts`（1→2）内新增 17 个用例；基线为 50 文件 / 393 用例 |
+| `pnpm run test`（`vitest run`） | **全部通过：50 文件 / 412 用例，0 failed** | M3 未新增测试文件，在 `timer.spec.ts`（15→19）/ `play.spec.ts`（8→13）/ `play-timer-panel.spec.ts`（3→9）/ `play-record-list.spec.ts`（3→4）/ `life-play-view.spec.ts`（1→2）/ `settlement-modal.spec.ts`（9→11）内新增 19 个用例；基线为 50 文件 / 393 用例 |
 | `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | 上一版盘点里的 7 个 TS 错误已在基线 v1.0 收尾修复 |
 | `e2e/play-countdown.spec.ts`（Playwright） | **6 passed（18.6s）** | AC-60 / AC-61 逐条覆盖（名称必填、快捷 30 分钟、自定义 25 分钟与非法值、按剩余额度、到点超时封顶、再来一轮不自动开始） |
 | `e2e/life.spec.ts`（Playwright） | **7 passed** | AC-40 ~ AC-46 回归（含 AC-46 娱乐超额变红） |
 | `e2e/study.spec.ts`（Playwright） | **11 passed** | AC-04 / AC-31 ~ AC-39 + AC-39辅助 回归（含 AC-39 倒计时到点提示与再来一轮） |
-| `pnpm run test:e2e`（全量） | **64 passed（2.7m）** | AC-01~AC-61 全绿（M2 的 58 条 + M3 新增 6 条）；AC-34/35/36/39 等学习计时用例未改动仍通过 |
+| `pnpm run test:e2e`（全量） | **64 passed / 0 failed（3.7m）** | AC-01~AC-61 全绿（M2 的 58 条 + M3 新增 6 条）；AC-34/35/36/39 等学习计时用例未改动仍通过。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑 |
 
 补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 
