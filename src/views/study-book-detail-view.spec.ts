@@ -160,6 +160,8 @@ describe('书详情页 #/study/books/:id', () => {
     const wrapper = await mountDetail(book.id);
 
     async function add(page: string, content: string): Promise<void> {
+      // 上一条保存后父组件重新渲染存在一帧延迟，先等按钮真的回到 DOM 再点，避免空 DOMWrapper 竞态。
+      await waitFor(() => wrapper.find('[data-test="excerpt-add"]').exists(), '新增摘录按钮未出现');
       await wrapper.find('[data-test="excerpt-add"]').trigger('click');
       await flushPromises();
       await wrapper.find('[data-test="excerpt-form-page"]').setValue(page);
@@ -182,8 +184,9 @@ describe('书详情页 #/study/books/:id', () => {
     expect(pages).toEqual([12, 45, 90]);
 
     // 编辑第一条（12 → 20）
+    await waitFor(() => wrapper.findAll('[data-test="excerpt-edit"]').length > 0, '编辑按钮未出现');
     await wrapper.findAll('[data-test="excerpt-edit"]')[0]?.trigger('click');
-    await flushPromises();
+    await waitFor(() => wrapper.find('[data-test="excerpt-form-page"]').exists(), '编辑表单未打开');
     await wrapper.find('[data-test="excerpt-form-page"]').setValue('20');
     await wrapper.find('[data-test="excerpt-form"]').trigger('submit');
     await waitFor(
@@ -195,6 +198,7 @@ describe('书详情页 #/study/books/:id', () => {
     );
 
     // 删除第一条（20）
+    await waitFor(() => wrapper.findAll('[data-test="excerpt-delete"]').length > 0, '删除按钮未出现');
     await wrapper.findAll('[data-test="excerpt-delete"]')[0]?.trigger('click');
     await waitFor(() => wrapper.findAll('[data-test="excerpt-row"]').length === 2, '摘录未删除');
   });

@@ -128,8 +128,10 @@ describe('设置页 · 文本导出', () => {
     expect(text).toContain('### 饮食');
     expect(text).toContain('- 早：文本导出早餐（吃饱）');
 
-    // 文本导出绝不刷新备份时间
+    // 文本导出绝不刷新备份时间：先验库里的值，再重新读一次（重新 load 拿库里的真值）。
+    // 不直接断言常驻 store 的内存快照——并行跑时可能拿到别的用例遗留的旧快照，属于测试脚手架竞态而非产品行为。
     expect((await getSettings()).last_backup_at).toBe(lastBackupBefore);
+    await useSettingsStore().load();
     expect(useSettingsStore().lastBackupAt).toBe(FIXED_LAST_BACKUP);
     wrapper.unmount();
   });
