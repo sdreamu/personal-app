@@ -20,6 +20,7 @@ const toast = useToastStore();
 
 const selectedDate = computed(() => dateStore.selectedDate);
 const suggestions = computed(() => store.exerciseNames);
+const libraryNames = computed(() => store.libraryNames);
 
 async function load(): Promise<void> {
   try {
@@ -82,6 +83,10 @@ function handleRemoveExercise(exerciseIndex: number): void {
 
 function handleRenameExercise(exerciseIndex: number, name: string): void {
   runAction(() => store.renameExercise(selectedDate.value, exerciseIndex, name));
+}
+
+function handleSetNote(exerciseIndex: number, note: string | null): void {
+  runAction(() => store.setExerciseNote(selectedDate.value, exerciseIndex, note));
 }
 
 function handleSetDuration(minutes: number | null): void {
@@ -150,12 +155,14 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
       <WorkoutDay
         :record="store.day"
         :suggestions="suggestions"
+        :library="libraryNames"
         @start-temporary="handleStartTemporary"
         @toggle-set="handleToggleSet"
         @update-set="handleUpdateSet"
         @add-exercise="handleAddExercise"
         @remove-exercise="handleRemoveExercise"
         @rename-exercise="handleRenameExercise"
+        @set-note="handleSetNote"
         @set-duration="handleSetDuration"
         @finish="handleFinish"
       />

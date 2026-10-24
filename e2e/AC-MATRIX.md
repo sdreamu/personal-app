@@ -101,3 +101,21 @@
 - 同栏重排幂等、跨栏改状态的数据语义 —— src/stores/library.spec.ts、src/utils/dragSort.spec.ts
 
 覆盖完整性：AC-62 / AC-63 逐条有对应测试，无 skip / only。
+
+## M5 健身项目库与快速记录（AC-64 ~ AC-65）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-64 | AC-64 项目库自动维护与快速选择 | e2e/workout-library.spec.ts |
+| AC-65 | AC-65 动作备注写入/刷新/清空与回归 | e2e/workout-library.spec.ts |
+
+补充（组件/单元层）：
+- 项目库排序纯函数（最近使用优先、无历史按名字升序）—— src/stores/workout.spec.ts
+- addExercise/renameExercise/saveTemplate upsert 项目库；软删除行视为不存在；重复添加不新增行 —— src/stores/workout.spec.ts
+- setExerciseNote 落库/清空存 null/勾选与改值后仍保留/不影响默认用时 —— src/stores/workout.spec.ts
+- libraryNames getter 顺序 —— src/stores/workout.spec.ts
+- ExerciseLibrary 区块渲染/点选 emit/空状态 —— src/components/exercise-library.spec.ts
+- 健身页接线：项目库点击加入、备注编辑与刷新保留/清空 —— src/views/life-workout-view.spec.ts
+
+覆盖完整性：AC-64 / AC-65 逐条有对应测试，无 skip / only。
+

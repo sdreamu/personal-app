@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { WorkoutDayView } from '@/stores/workout';
+import ExerciseLibrary from './ExerciseLibrary.vue';
 
 const props = withDefaults(
   defineProps<{
     record: WorkoutDayView | null;
     suggestions?: string[];
     mode?: 'day' | 'history';
+    /** 项目库动作名（最近使用优先，已排序）；为空则不显示按钮，仅给空状态提示。 */
+    library?: string[];
   }>(),
-  { suggestions: () => [], mode: 'day' },
+  { suggestions: () => [], mode: 'day', library: () => [] },
 );
 
 const emit = defineEmits<{
@@ -23,6 +26,7 @@ const emit = defineEmits<{
   (e: 'add-exercise', name: string): void;
   (e: 'remove-exercise', exerciseIndex: number): void;
   (e: 'rename-exercise', exerciseIndex: number, name: string): void;
+  (e: 'set-note', exerciseIndex: number, note: string | null): void;
   (e: 'set-duration', minutes: number | null): void;
   (e: 'finish'): void;
 }>();
@@ -31,6 +35,8 @@ const suggestionListId = 'workout-suggestions-' + Math.random().toString(36).sli
 const newName = ref('');
 const renamingIndex = ref<number | null>(null);
 const renamingName = ref('');
+const notingIndex = ref<number | null>(null);
+const notingValue = ref('');
 
 function parseNullableNumber(value: string): number | null {
   if (value.trim() === '') return null;
@@ -56,6 +62,21 @@ function commitRename(index: number): void {
   const name = renamingName.value.trim();
   if (name !== '' && name !== props.record?.exercises[index]?.name) {
     emit('rename-exercise', index, name);
+  }
+}
+
+function startNote(index: number, note: string | null | undefined): void {
+  notingIndex.value = index;
+  notingValue.value = note ?? '';
+}
+
+function commitNote(index: number): void {
+  if (notingIndex.value !== index) return;
+  notingIndex.value = null;
+  const value = notingValue.value.trim();
+  const current = (props.record?.exercises[index]?.note ?? '').trim();
+  if (value !== current) {
+    emit('set-note', index, value === '' ? null : value);
   }
 }
 
@@ -115,23 +136,53 @@ function onDurationChange(event: Event): void {
       >
         <details open class="exercise-details">
           <summary class="exercise-summary">
-            <template v-if="renamingIndex === exerciseIndex">
+            <div class="exercise-main">
+              <div class="exercise-title">
+                <template v-if="renamingIndex === exerciseIndex">
+                  <input
+                    v-model="renamingName"
+                    class="rename-input"
+                    data-test="exercise-rename-input"
+                    @keyup.enter="commitRename(exerciseIndex)"
+                    @blur="commitRename(exerciseIndex)"
+                    @click.stop
+                  />
+                </template>
+                <template v-else>
+                  <span class="exercise-name" data-test="exercise-name">{{ exercise.name }}</span>
+                  <span class="badge" data-test="exercise-progress">
+                    {{ exercise.sets.filter((set) => set.done).length }}/{{ exercise.sets.length }} 组
+                  </span>
+                </template>
+              </div>
               <input
-                v-model="renamingName"
-                class="rename-input"
-                data-test="exercise-rename-input"
-                @keyup.enter="commitRename(exerciseIndex)"
-                @blur="commitRename(exerciseIndex)"
+                v-if="notingIndex === exerciseIndex"
+                v-model="notingValue"
+                class="note-input"
+                data-test="exercise-note-input"
+                placeholder="备注（如：加到 60kg，8 次力竭）"
+                @keyup.enter="commitNote(exerciseIndex)"
+                @blur="commitNote(exerciseIndex)"
                 @click.stop
               />
-            </template>
-            <template v-else>
-              <span class="exercise-name" data-test="exercise-name">{{ exercise.name }}</span>
-              <span class="badge" data-test="exercise-progress">
-                {{ exercise.sets.filter((set) => set.done).length }}/{{ exercise.sets.length }} 组
-              </span>
-            </template>
+              <p
+                v-else-if="exercise.note"
+                class="exercise-note"
+                data-test="exercise-note-text"
+                @click.stop.prevent="mode === 'day' ? startNote(exerciseIndex, exercise.note) : undefined"
+              >
+                {{ exercise.note }}
+              </p>
+            </div>
             <span class="exercise-ops">
+              <button
+                v-if="mode === 'day' && renamingIndex !== exerciseIndex && notingIndex !== exerciseIndex"
+                class="ghost-btn"
+                data-test="exercise-note"
+                @click.prevent="startNote(exerciseIndex, exercise.note)"
+              >
+                备注
+              </button>
               <button
                 v-if="renamingIndex !== exerciseIndex"
                 class="ghost-btn"
@@ -211,6 +262,12 @@ function onDurationChange(event: Event): void {
       </datalist>
       <button class="ghost-btn" data-test="add-exercise" @click="submitAdd">添加</button>
     </div>
+
+    <ExerciseLibrary
+      v-if="mode === 'day'"
+      :names="props.library"
+      @select="(name: string) => emit('add-exercise', name)"
+    />
   </div>
 
   <div v-else class="rest-day" data-test="rest-day">
@@ -281,8 +338,35 @@ function onDurationChange(event: Event): void {
   padding: 10px 12px;
   cursor: pointer;
 }
+.exercise-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.exercise-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .exercise-name {
   font-weight: 600;
+}
+.exercise-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.note-input {
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
 }
 .exercise-ops {
   margin-left: auto;

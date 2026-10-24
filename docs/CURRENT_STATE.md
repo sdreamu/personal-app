@@ -145,7 +145,7 @@ test:e2e   playwright test
 | 14 | `workout_records` | `id, date, deleted_at` | `date`、`type_name`(快照)、`exercises`: `[{ name, sets: [{ weight_kg, reps, done }], note? }]`、`duration_min`(number\|null)、`done` |
 | 15 | `play_records` | `id, date, deleted_at` | `date`、`content`、`minutes`(正整数)、`source`("timer"/"manual") |
 | 16 | `reviews` | `id, date, deleted_at` | `date`、`rating`(1-5\|null)、`mood`(1-5\|null)、`energy`(1-5\|null)、`good`、`improve`、`mit`、`record_worthy?`、`day_summary?`、`mit_added_to_plan`(bool) |
-| 17 | `exercises` | `id, deleted_at` | `name`（训练动作库） |
+| 17 | `exercises` | `id, deleted_at` | `name`（训练动作库；M5 起由健身页自动维护并作为「项目库」按钮来源，见 §11.4） |
 | 18 | `mistakes` | `id, date, mastered, deleted_at` | `date`、`subject_name`、`question_text`、`question_images`(base64 dataURL 数组)、`correction_text`、`correction_images`、`reasons`(string[])、`difficulty`(1-5)、`mastered` |
 
 ### 4.2 表分组常量（`src/db/schema.ts`）
@@ -659,6 +659,7 @@ test:e2e   playwright test
   - 校验 weekday 1~7、类型必须存在于 `workout_types`；
   - `type_name === "休息"` 时清空 `exercise_names`；动作去重 `dedupeNames()`；
   - 已有模板 → `updateRecord("workout_templates", id, patch)`；没有 → `createRecord(...)`；然后 `refreshWeek()`。
+  - **M5 项目库自动维护**：保存后把 `exercise_names` 逐个 `upsertLibraryExercise()` 进 `exercises` 表（同名去重、软删除行视为不存在即新建）。
 - 当天训练若尚未落库（`dayPersisted=false`）且改的是今天，会顺带 `loadDay()` 刷新草稿。
 
 ### 11.2 当天训练记录
@@ -667,12 +668,30 @@ test:e2e   playwright test
 - 默认组：`defaultSetsForExercise(name, history)` → `latestCompletedSets()` 找"最近一次已完成记录"里同名动作的 `weight_kg/reps`，`done` 重置为 false；没历史用 `emptySets(3)` 三组空值。
 - 首次落库：第一次勾选/改值/加动作时 `getEditableRecord()` → `ensureDay()` → 草稿 `createRecord("workout_records", {...})`（或直接新建 `type_name="临时训练"` 的空记录）。
 - 保存方式：**即时自动保存**，每次交互一条 `updateRecord("workout_records", id, { exercises })`（`persistExercises()`，整组数组覆盖写）；用时手改 `setDuration()`；完成 `finishWorkout()` 写 `done: true` + `duration_min`（未手填则 `computeDefaultDuration(firstCheckAtMs, now)`：首组勾选到完成的分钟差，<1 分钟或没勾过则为 30）。
+- **M5 动作备注**：每条动作可有一条 `note`（`string | null`）。写入走 `setExerciseNote(date, exerciseIndex, note)` → `persistExercises()`（trim 后空存 `null`，即时落库）；`cloneExercises()` 会保留 `note`，所以勾选/改重量/次数后备注不会丢。备注**不影响**组数、勾选与默认用时（仍按首勾到完成的差值计算）。
+- **M5 项目库自动维护**：`addExercise`、`renameExercise`、`saveTemplate` 都会把动作名 `upsertLibraryExercise()` 进 `exercises`（同名去重、软删除行视为不存在即新建一条有效行）；重复添加同名动作是幂等 no-op，不产生重复行。
 
 ### 11.3 历史记录
 - 数据来源：**同一个 `workout_records` 表**（不是单独的归档表）。`workoutStore.listHistory()` → `sortRecordsDesc()`（日期倒序，同日按 `updated_at` 倒序），存 `state.history`。
 - 展示：`src/components/WorkoutHistory.vue` 每条一个 `<details>`：日期+星期、类型、已完成/进行中、用时；展开后复用 `WorkoutDay.vue`（`mode="history"`）可直接编辑（勾组、改重量次数、增删改动作、改用时）。
 - 保存：展开后的编辑同样走 `workoutStore` 的 `toggleSet/updateSet/addExercise/removeExercise/renameExercise/setDuration`，按 `record.date` 定位记录，立即写库。
-- 动作自动补全：`exerciseNames` getter 从 `state.history` 收集去重 → `WorkoutDay.vue` 的 `<datalist>`。**没有**用 `exercises` 表（训练项目库表目前无任何读取方）。
+- 动作自动补全：`exerciseNames` getter 从 `state.history` 收集去重 → `WorkoutDay.vue` 的 `<datalist>`。
+- **M5 项目库区块（`ExerciseLibrary.vue`）**：挂在 `WorkoutDay.vue` 当天编辑区（`mode==='day'`）下方。按钮列表来自 `exercises` 表，经 `libraryNames` getter 用纯函数 `recentOrder()` 排序 —— **最近使用优先**（由 `workout_records` 历史推导每个动作最后一次出现的 `updated_at`），无历史的排后面，再按名字升序。点一下即 `emit('add-exercise', name)` → `addExercise()`（重复点击幂等）；项目库为空时显示简短空状态提示。
+
+### 11.4 M5 交付记录：健身项目库与快速记录（2026-10-25）
+
+| 项 | 内容 |
+|---|---|
+| 数据 | **未改表结构、未改 `DB_VERSION`（仍为 3）/ `SCHEMA_VERSION`（仍为 3）**，只使用已存在的 `exercises` 表与训练记录里早已存在的 `note` 字段 |
+| Store | `workout.ts` 新增纯函数 `lastUsedAtByName()` / `recentOrder()`；新增 state `exerciseLibrary`、getter `libraryNames`、action `refreshLibrary()` / `upsertLibraryExercise()` / `setExerciseNote()`；`refreshWeek()` 一并载入 `exercises`；`cloneExercises()` 改为保留 `note` |
+| 项目库自动维护 | `addExercise` / `renameExercise` / `saveTemplate` 触发 `upsertLibraryExercise()`：同名（trim 后）已有有效行不新增，**软删除行视为不存在即新建一条有效行**（不复活旧行）；重复添加同名动作不产生重复行、不删除用户已有行 |
+| 快速选择 | 新增 `src/components/ExerciseLibrary.vue`（项目库区块，挂在 `WorkoutDay.vue` 当天编辑区下方）；按钮排序=最近使用优先（历史推导 `updated_at`）→ 无历史靠后 → 名字升序；点一下即 `addExercise`（幂等）；空时显示空状态 |
+| 动作备注 | `WorkoutDay.vue` 每条动作支持一条备注（`note`）：点「备注」编辑、blur/回车即时保存、清空存 `null`；展示在动作名下方，为空不占位；写入走 `persistExercises` 同一条落库路径 |
+| 接线 | `src/views/LifeWorkoutView.vue` 向 `WorkoutDay` 传 `:library` 并监听 `@set-note`；既有能力（自由输入、历史默认组数、勾选、改名、删除、时长、完成训练）与默认用时语义全部保留 |
+| 测试 | `src/stores/workout.spec.ts`（排序纯函数 / upsert 去重与软删除 / setExerciseNote 落库与清空 / 备注不影响默认用时 / libraryNames 顺序）、`src/components/exercise-library.spec.ts`（渲染/点选/空状态）、`src/views/life-workout-view.spec.ts`（项目库点击加入与幂等、备注编辑与刷新保留/清空）、`e2e/workout-library.spec.ts`（AC-64 / AC-65） |
+
+本次实跑：`run typecheck` 0 错误；`run test` **52 文件 / 448 用例全部通过**（原 51 文件 / 434 用例，M5 新增 14 条）；全量 e2e（独占）**70 passed / 0 failed**（原 68 passed，新增 AC-64 / AC-65 两条）。
+
 
 ---
 
@@ -804,9 +823,9 @@ test:e2e   playwright test
 
 ## 16. 测试
 
-### 16.1 单元/组件测试文件（50 个，`src/**/*.spec.ts`，Vitest）
+### 16.1 单元/组件测试文件（52 个，`src/**/*.spec.ts`，Vitest）
 
-`src/components/`（24）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`month-calendar.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`top-bar.spec.ts`、`water-tracker.spec.ts`
+`src/components/`（25）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`exercise-library.spec.ts`（M5）、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`month-calendar.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`top-bar.spec.ts`、`water-tracker.spec.ts`
 
 `src/db/`（5）：`db.spec.ts`、`migration.spec.ts`、`backup-v2.spec.ts`、`exportText.spec.ts`、`dateStats.spec.ts`
 
@@ -814,25 +833,26 @@ test:e2e   playwright test
 
 `src/stores/`（8）：`diet.spec.ts`、`home.spec.ts`、`library.spec.ts`、`plan.spec.ts`、`play.spec.ts`、`review.spec.ts`、`timer.spec.ts`、`workout.spec.ts`
 
-`src/utils/`（3）：`date.spec.ts`、`image.spec.ts`、`calendar.spec.ts`
+`src/utils/`（4）：`date.spec.ts`、`image.spec.ts`、`calendar.spec.ts`、`dragSort.spec.ts`（M4）
 
 `src/views/`（8）：`life-play-view.spec.ts`、`life-workout-view.spec.ts`、`plan-view.spec.ts`、`review-view.spec.ts`、`study-book-detail-view.spec.ts`、`study-books-view.spec.ts`、`study-subjects-view.spec.ts`、`study-timer-view.spec.ts`
 
 `src/test/`（1）：`start-app-script.spec.ts`（校验 `start-app.bat` 的 CRLF 行尾与运行时回退）
 
 ### 16.2 端到端测试（Playwright，`e2e/`）
-`books.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 逐条对应）。
+`books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 逐条对应）。
 
-### 16.3 运行命令与当前结果（M3 交付后实跑，2026-10-24）
+### 16.3 运行命令与当前结果（M5 交付后实跑，2026-10-25）
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **全部通过：50 文件 / 412 用例，0 failed** | M3 未新增测试文件，在 `timer.spec.ts`（15→19）/ `play.spec.ts`（8→13）/ `play-timer-panel.spec.ts`（3→9）/ `play-record-list.spec.ts`（3→4）/ `life-play-view.spec.ts`（1→2）/ `settlement-modal.spec.ts`（9→11）内新增 19 个用例；基线为 50 文件 / 393 用例 |
+| `pnpm run test`（`vitest run`） | **全部通过：52 文件 / 448 用例，0 failed** | M5 新增 14 个用例（`workout.spec.ts` 22→31 的 9 条、`exercise-library.spec.ts` 3 条、`life-workout-view.spec.ts` 8→10 的 2 条）；基线为 M4 的 51 文件 / 434 用例 |
 | `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | 上一版盘点里的 7 个 TS 错误已在基线 v1.0 收尾修复 |
+| `e2e/workout-library.spec.ts`（Playwright） | **2 passed（11.6s）** | AC-64 / AC-65 逐条覆盖（项目库自动维护/最近使用排序/点选加入与幂等；备注写入/刷新保留/清空存 null/不影响组数与默认用时） |
 | `e2e/play-countdown.spec.ts`（Playwright） | **6 passed（18.6s）** | AC-60 / AC-61 逐条覆盖（名称必填、快捷 30 分钟、自定义 25 分钟与非法值、按剩余额度、到点超时封顶、再来一轮不自动开始） |
 | `e2e/life.spec.ts`（Playwright） | **7 passed** | AC-40 ~ AC-46 回归（含 AC-46 娱乐超额变红） |
 | `e2e/study.spec.ts`（Playwright） | **11 passed** | AC-04 / AC-31 ~ AC-39 + AC-39辅助 回归（含 AC-39 倒计时到点提示与再来一轮） |
-| `pnpm run test:e2e`（全量） | **64 passed / 0 failed（3.7m）** | AC-01~AC-61 全绿（M2 的 58 条 + M3 新增 6 条）；AC-34/35/36/39 等学习计时用例未改动仍通过。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑 |
+| `pnpm run test:e2e`（全量） | **70 passed / 0 failed（2.8m）** | AC-01~AC-65 全绿（M4 的 68 条 + M5 新增 AC-64 / AC-65 两条）；AC-43~AC-46 等健身既有用例未改动仍通过。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑 |
 
 补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 
@@ -851,7 +871,7 @@ test:e2e   playwright test
 ### 17.2 功能缺口（PRD 要求、代码未做完）
 1. **书架页不能改页码**。PRD §5.2 规则 2 写的是"在书架**或**书详情页直接手动修改当前页"，但 `src/views/StudyBooksView.vue` / `src/components/BookCard.vue` 没有任何页码输入，只有 `src/views/StudyBookDetailView.vue` 的 `savePage()`。
 2. **计时器页空状态没有主按钮**。PRD §10 AC-15 要求"在数据为空时打开每个页面，每页显示引导语和主按钮"，`StudyTimerView.vue` 的 `target-empty` 只有一句"暂无…，请先到对应页面添加。"，没有跳转按钮（e2e AC-15 只断言这句文案，所以没被拦住）。
-3. **"训练项目库"（`exercises` 表）没有接进任何 UI**：`WorkoutDay.vue` 的动作补全来自历史记录（`workoutStore.exerciseNames`），`exercises` 表没有任何读取方，也没有管理页面。
+3. ~~**"训练项目库"（`exercises` 表）没有接进任何 UI**~~ **已在 M5 解决**：`addExercise`/`renameExercise`/`saveTemplate` 自动 upsert 到 `exercises`，健身页当天编辑区新增「项目库」区块（`ExerciseLibrary.vue`，最近使用优先排序，点一下加入当天训练）；动作补全仍来自历史记录（`workoutStore.exerciseNames`）。做法详见 §11.4。
 4. **"错题本"（`mistakes` 表）没有页面/入口**：schema、图片压缩工具（`src/utils/image.ts`）、文本导出（`src/db/exportText.ts`）都写好了，但路由、视图、store 全缺。
 5. **复盘 `record_worthy` / `day_summary` 没有输入 UI**：`ReviewView.vue` 只有三栏文字，`reviewStore.ReviewPatch` 也把这两个字段排除在外；它们只出现在 schema、备份补默认值、文本导出里。
 6. **文本导出（Markdown）没有入口**：`exportText()` 只有单测调用，`src/db/index.ts` 也没导出它。

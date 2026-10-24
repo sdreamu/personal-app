@@ -7,6 +7,7 @@ import {
   listAliveByDate,
   removeCategory,
   resetDbForTests,
+  softDelete,
   type WorkoutRecord,
 } from '@/db';
 import {
@@ -16,7 +17,9 @@ import {
   buildExercisesFromNames,
   computeDefaultDuration,
   defaultSetsForExercise,
+  lastUsedAtByName,
   normalizeDurationMinutes,
+  recentOrder,
   sortRecordsDesc,
   useWorkoutStore,
   weekdayOf,
@@ -420,3 +423,155 @@ describe('快照与历史列表', () => {
     expect(store.history.map((r) => r.date)).toEqual(history.map((r) => r.date));
   });
 });
+
+
+describe('M5 项目库排序（纯函数）', () => {
+  it('lastUsedAtByName：取最近一条包含该动作记录的 updated_at', () => {
+    const history: WorkoutHistoryEntry[] = [
+      { date: '2026-05-20', updated_at: 100, done: true, exercises: [{ name: '卧推', sets: [] }] },
+      { date: '2026-05-20', updated_at: 200, done: true, exercises: [{ name: '卧推', sets: [] }] },
+      { date: '2026-05-25', updated_at: 50, done: true, exercises: [{ name: '飞鸟', sets: [] }] },
+    ];
+    const used = lastUsedAtByName(history);
+    expect(used.get('卧推')).toBe(200);
+    expect(used.get('飞鸟')).toBe(50);
+    expect(used.has('深蹲')).toBe(false);
+  });
+
+  it('recentOrder：最近使用优先，无历史排后面，再按名字升序', () => {
+    const history: WorkoutHistoryEntry[] = [
+      { date: '2026-05-20', updated_at: 100, done: true, exercises: [{ name: '卧推', sets: [] }] },
+      { date: '2026-05-20', updated_at: 200, done: true, exercises: [{ name: '飞鸟', sets: [] }] },
+    ];
+    // 飞鸟(200) > 卧推(100) > 无历史按名字升序：深蹲 < 硬拉
+    expect(recentOrder(['深蹲', '卧推', '硬拉', '飞鸟'], history)).toEqual([
+      '飞鸟',
+      '卧推',
+      '深蹲',
+      '硬拉',
+    ]);
+    // 全部无历史：名字升序
+    expect(recentOrder(['B', 'A', 'C'], [])).toEqual(['A', 'B', 'C']);
+    // 同名去重、去空
+    expect(recentOrder(['A', 'A', ' ', 'B'], [])).toEqual(['A', 'B']);
+  });
+});
+
+describe('M5 项目库自动维护', () => {
+  async function seedChest(): Promise<void> {
+    await addCategory('workout_types', '胸');
+    await store.loadWeek(TODAY);
+    await store.saveTemplate(1, { type_name: '胸', exercise_names: ['卧推'] });
+    await store.loadDay(TODAY);
+  }
+
+  it('addExercise：把动作名 upsert 进 exercises，重复添加不产生重复行', async () => {
+    await seedChest();
+    await store.addExercise(TODAY, '飞鸟');
+    let rows = await listAlive('exercises');
+    expect(rows.filter((r) => r.name === '飞鸟')).toHaveLength(1);
+    // 模板里的动作也被收录
+    expect(rows.some((r) => r.name === '卧推')).toBe(true);
+
+    // 再次添加同名（当天记录里已存在，属幂等 no-op）——exercises 仍只有一行
+    await store.addExercise(TODAY, '飞鸟');
+    rows = await listAlive('exercises');
+    expect(rows.filter((r) => r.name === '飞鸟')).toHaveLength(1);
+  });
+
+  it('软删除的 exercises 行视为不存在：upsert 新建一条有效行', async () => {
+    await seedChest();
+    await store.addExercise(TODAY, '飞鸟');
+    const before = (await listAlive('exercises')).find((r) => r.name === '飞鸟')!;
+    await softDelete('exercises', before.id);
+    expect((await listAlive('exercises')).some((r) => r.name === '飞鸟')).toBe(false);
+
+    await store.addExercise(TODAY, '飞鸟');
+    const alive = (await listAlive('exercises')).filter((r) => r.name === '飞鸟');
+    expect(alive).toHaveLength(1);
+    expect(alive[0]?.id).not.toBe(before.id);
+  });
+
+  it('renameExercise / saveTemplate 也会 upsert 项目库', async () => {
+    await seedChest();
+    await store.renameExercise(TODAY, 0, '蝴蝶机夹胸');
+    expect((await listAlive('exercises')).some((r) => r.name === '蝴蝶机夹胸')).toBe(true);
+
+    await store.saveTemplate(2, { type_name: '胸', exercise_names: ['深蹲', '硬拉'] });
+    const names = (await listAlive('exercises')).map((r) => r.name);
+    expect(names).toContain('深蹲');
+    expect(names).toContain('硬拉');
+  });
+});
+
+describe('M5 动作备注', () => {
+  async function seedChest(): Promise<void> {
+    await addCategory('workout_types', '胸');
+    await store.loadWeek(TODAY);
+    await store.saveTemplate(1, { type_name: '胸', exercise_names: ['卧推'] });
+    await store.loadDay(TODAY);
+  }
+
+  it('setExerciseNote：写入 note 即时落库；空白/清空存 null', async () => {
+    await seedChest();
+    await store.setExerciseNote(TODAY, 0, '  加到 60kg，8 次力竭  ');
+    let rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows[0]?.exercises[0]?.note).toBe('加到 60kg，8 次力竭');
+
+    await store.setExerciseNote(TODAY, 0, '   ');
+    rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows[0]?.exercises[0]?.note).toBeNull();
+
+    await store.setExerciseNote(TODAY, 0, '再写一条');
+    await store.setExerciseNote(TODAY, 0, null);
+    rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows[0]?.exercises[0]?.note).toBeNull();
+  });
+
+  it('备注在勾选/改值后仍保留（cloneExercises 不丢 note）', async () => {
+    await seedChest();
+    await store.setExerciseNote(TODAY, 0, '保留我');
+    await store.toggleSet(TODAY, 0, 0);
+    await store.updateSet(TODAY, 0, 0, { weight_kg: 60, reps: 8 });
+    const rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows[0]?.exercises[0]?.note).toBe('保留我');
+    expect(rows[0]?.exercises[0]?.sets[0]).toMatchObject({ weight_kg: 60, reps: 8, done: true });
+  });
+
+  it('备注不影响默认用时（首勾到完成的差值照旧）', async () => {
+    await seedChest();
+    await store.setExerciseNote(TODAY, 0, '备注不该影响用时');
+    await store.toggleSet(TODAY, 0, 0);
+    vi.setSystemTime(BASE + 5 * 60_000);
+    const finished = await store.finishWorkout(TODAY);
+    expect(finished.duration_min).toBe(5);
+    const rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows[0]?.exercises[0]?.note).toBe('备注不该影响用时');
+  });
+});
+
+describe('M5 libraryNames getter', () => {
+  it('最近使用优先，无历史按名字升序', async () => {
+    vi.setSystemTime(BASE);
+    await createRecord(
+      'workout_records',
+      makeRecord('2026-05-30', {
+        exercises: [{ name: '卧推', sets: [{ weight_kg: 60, reps: 8, done: true }] }],
+      }),
+    );
+    vi.setSystemTime(BASE + 1000);
+    await createRecord(
+      'workout_records',
+      makeRecord('2026-05-30', {
+        exercises: [{ name: '飞鸟', sets: [{ weight_kg: 20, reps: 12, done: true }] }],
+      }),
+    );
+    await createRecord('exercises', { name: '卧推' });
+    await createRecord('exercises', { name: '飞鸟' });
+    await createRecord('exercises', { name: '深蹲' });
+
+    await store.load(TODAY);
+    expect(store.libraryNames).toEqual(['飞鸟', '卧推', '深蹲']);
+  });
+});
+

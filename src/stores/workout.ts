@@ -5,6 +5,7 @@ import {
   listAlive,
   listAliveByDate,
   updateRecord,
+  type Exercise,
   type ExerciseEntry,
   type ExerciseSet,
   type WorkoutRecord,
@@ -59,6 +60,49 @@ export function sortRecordsDesc<T extends WorkoutHistoryEntry>(records: readonly
   return [...records].sort((a, b) =>
     a.date < b.date ? 1 : a.date > b.date ? -1 : b.updated_at - a.updated_at,
   );
+}
+
+/**
+ * 从历史训练记录里推导每个动作“最后一次被记录”的时间戳：
+ * 取最近一条（日期倒序、同日 updated_at 倒序）包含该动作的记录的 updated_at。
+ * 没有历史的动作不出现在结果里。
+ */
+export function lastUsedAtByName(
+  history: readonly WorkoutHistoryEntry[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const record of sortRecordsDesc(history)) {
+    for (const entry of record.exercises) {
+      const name = entry.name.trim();
+      if (name === '' || map.has(name)) continue;
+      map.set(name, record.updated_at);
+    }
+  }
+  return map;
+}
+
+/**
+ * 项目库排序：最近使用过的动作排在前面（按历史推导的最后使用时间倒序），
+ * 没有历史的排后面，最后按名字升序（码点序，稳定可断言）。同名去重、去空。
+ */
+export function recentOrder(
+  names: readonly string[],
+  history: readonly WorkoutHistoryEntry[],
+): string[] {
+  const used = lastUsedAtByName(history);
+  const unique = dedupeNames(names);
+  return unique.sort((a, b) => {
+    const ua = used.get(a);
+    const ub = used.get(b);
+    if (ua !== undefined && ub !== undefined) {
+      if (ua !== ub) return ub - ua;
+    } else if (ua !== undefined) {
+      return -1;
+    } else if (ub !== undefined) {
+      return 1;
+    }
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
 }
 
 /** 动作名在最近一次已完成训练里的组数值（done 重置为 false）；无历史返回 null。 */
@@ -136,7 +180,12 @@ export function computeDefaultDuration(firstCheckAtMs: number | null, finishAtMs
 }
 
 function cloneExercises(exercises: readonly ExerciseEntry[]): ExerciseEntry[] {
-  return exercises.map((e) => ({ name: e.name, sets: e.sets.map((s) => ({ ...s })) }));
+  return exercises.map((e) => ({
+    name: e.name,
+    sets: e.sets.map((s) => ({ ...s })),
+    // 备注必须随克隆一起保留，否则改组数/勾选等操作会把已有备注抹掉
+    note: e.note ?? null,
+  }));
 }
 
 function dedupeNames(names: readonly string[]): string[] {
@@ -164,6 +213,8 @@ export const useWorkoutStore = defineStore('workout', {
     dayPersisted: false,
     firstCheckAtMs: null as number | null,
     history: [] as WorkoutRecord[],
+    /** 训练项目库（exercises 表有效行，原样保存，排序由 getter 计算）。 */
+    exerciseLibrary: [] as Exercise[],
   }),
   getters: {
     /** 历史动作名自动补全候选（最近记录优先）。 */
@@ -180,6 +231,12 @@ export const useWorkoutStore = defineStore('workout', {
         }
       }
       return names;
+    },
+
+    /** 项目库区块的按钮列表：来自 exercises 表，最近使用优先，无历史按名字升序。 */
+    libraryNames(state): string[] {
+      const names = state.exerciseLibrary.map((e) => e.name.trim()).filter((n) => n !== '');
+      return recentOrder(names, state.history);
     },
   },
   actions: {
@@ -198,12 +255,32 @@ export const useWorkoutStore = defineStore('workout', {
     },
 
     async refreshWeek(): Promise<void> {
-      const [week, workoutTypes] = await Promise.all([
+      const [week, workoutTypes, exerciseLibrary] = await Promise.all([
         listAlive('workout_templates'),
         listAlive('workout_types'),
+        listAlive('exercises'),
       ]);
       this.week = week;
       this.workoutTypes = workoutTypes;
+      this.exerciseLibrary = exerciseLibrary;
+    },
+
+    /** 重新载入训练项目库（exercises 表有效行）。 */
+    async refreshLibrary(): Promise<void> {
+      this.exerciseLibrary = await listAlive('exercises');
+    },
+
+    /**
+     * 把动作名 upsert 进项目库：同名（trim 后完全相等）已有有效行则不新增；
+     * 软删除行视为不存在，直接新建一条有效行（不复活旧行）。
+     */
+    async upsertLibraryExercise(name: string): Promise<void> {
+      const trimmed = name.trim();
+      if (trimmed === '') return;
+      const rows = await listAlive('exercises');
+      if (rows.some((row) => row.name.trim() === trimmed)) return;
+      await createRecord('exercises', { name: trimmed });
+      await this.refreshLibrary();
     },
 
     /** 载入周计划（模板按星期几全局复用，date 只做合法性校验）。 */
@@ -285,6 +362,10 @@ export const useWorkoutStore = defineStore('workout', {
         }
       });
       await this.refreshWeek();
+      // 项目库自动维护：模板里的动作名一并 upsert（休息日 exerciseNames 已清空）
+      for (const name of exerciseNames) {
+        await this.upsertLibraryExercise(name);
+      }
     },
 
     /** 休息日“开始临时训练”：无记录则新建空记录（type_name=临时训练）。 */
@@ -396,6 +477,8 @@ export const useWorkoutStore = defineStore('workout', {
     async addExercise(date: string, name: string): Promise<void> {
       const trimmed = name.trim();
       if (!trimmed) throw new Error('动作名称不能为空');
+      // 项目库自动维护：即使当天已有同名动作，也确保项目库里有这一条（幂等）
+      await this.upsertLibraryExercise(trimmed);
       const record = await this.getEditableRecord(date);
       if (record.exercises.some((e) => e.name.trim() === trimmed)) return;
       const exercises = [
@@ -425,6 +508,25 @@ export const useWorkoutStore = defineStore('workout', {
       const exercises = record.exercises.map((e, i) =>
         i === exerciseIndex ? { ...e, name: trimmed } : e,
       );
+      await this.persistExercises(record, exercises);
+      await this.upsertLibraryExercise(trimmed);
+    },
+
+    /** 设置动作备注（trim 后为空存 null，清空即置 null）；走 persistExercises 即时落库。 */
+    async setExerciseNote(
+      date: string,
+      exerciseIndex: number,
+      note: string | null,
+    ): Promise<void> {
+      const record = await this.getEditableRecord(date);
+      if (exerciseIndex < 0 || exerciseIndex >= record.exercises.length) {
+        throw new Error('动作不存在');
+      }
+      const trimmed = note === null ? '' : note.trim();
+      const exercises = cloneExercises(record.exercises);
+      const target = exercises[exerciseIndex];
+      if (!target) throw new Error('动作不存在');
+      target.note = trimmed === '' ? null : trimmed;
       await this.persistExercises(record, exercises);
     },
 

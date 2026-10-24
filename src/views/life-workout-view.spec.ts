@@ -263,4 +263,89 @@ describe('健身页 #/life/workout', () => {
     expect((await listAliveByDate('workout_records', TOMORROW))[0]?.type_name).toBe('背');
     expect(await listAliveByDate('workout_records', TODAY)).toHaveLength(0);
   });
+
+  it('项目库区块：添加动作后自动收录，点一下可再次加入当天训练（重复点击不重复）', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+
+    await wrapper.find('[data-test="add-exercise-input"]').setValue('飞鸟');
+    await wrapper.find('[data-test="add-exercise"]').trigger('click');
+    await vi.waitFor(() => {
+      const lib = wrapper.findAll('[data-test="library-item"]');
+      if (!lib.some((i) => i.text() === '飞鸟')) throw new Error('项目库未出现飞鸟');
+    }, WAIT_OPTS);
+    // exercises 表恰好一行 name=飞鸟
+    expect((await listAlive('exercises')).filter((r) => r.name === '飞鸟')).toHaveLength(1);
+
+    // 从当天记录里删掉飞鸟（项目库仍保留）
+    const dayEditor = wrapper.find('[data-test="day-editor"]');
+    const flyItem = dayEditor
+      .findAll('[data-test="exercise-item"]')
+      .find((i) => i.text().includes('飞鸟'))!;
+    await flyItem.find('[data-test="exercise-remove"]').trigger('click');
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      if (rows[0]?.exercises.some((e) => e.name === '飞鸟')) throw new Error('飞鸟未删除');
+    }, WAIT_OPTS);
+
+    // 点项目库按钮 → 加回当天训练
+    await wrapper
+      .findAll('[data-test="library-item"]')
+      .find((i) => i.text() === '飞鸟')!
+      .trigger('click');
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      if (!rows[0]?.exercises.some((e) => e.name === '飞鸟')) throw new Error('项目库未加入当天训练');
+    }, WAIT_OPTS);
+
+    // 再点一次：记录里仍只有一条，exercises 表仍只有一行
+    await wrapper
+      .findAll('[data-test="library-item"]')
+      .find((i) => i.text() === '飞鸟')!
+      .trigger('click');
+    await flushPromises();
+    const rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows[0]?.exercises.filter((e) => e.name === '飞鸟')).toHaveLength(1);
+    expect((await listAlive('exercises')).filter((r) => r.name === '飞鸟')).toHaveLength(1);
+  });
+
+  it('动作备注：编辑即时落库、刷新后仍在，清空存 null；不改变默认组数', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+
+    // 回归：备注不影响默认 3 组
+    expect(wrapper.findAll('[data-test="set-row"]')).toHaveLength(3);
+
+    await wrapper.find('[data-test="exercise-note"]').trigger('click');
+    const noteInput = wrapper.find('[data-test="exercise-note-input"]');
+    await noteInput.setValue('加到 60kg，8 次力竭');
+    await noteInput.trigger('blur');
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      if (rows[0]?.exercises[0]?.note !== '加到 60kg，8 次力竭') throw new Error('备注未落库');
+    }, WAIT_OPTS);
+    await vi.waitFor(() => {
+      if (!wrapper.find('[data-test="exercise-note-text"]').text().includes('加到 60kg')) {
+        throw new Error('备注未显示');
+      }
+    }, WAIT_OPTS);
+
+    // 刷新（重新挂载）后备注仍在
+    wrapper.unmount();
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="exercise-note-text"]').text()).toContain('加到 60kg，8 次力竭');
+
+    // 清空 → 落库为 null，展示区不再占位
+    await wrapper.find('[data-test="exercise-note"]').trigger('click');
+    const clearInput = wrapper.find('[data-test="exercise-note-input"]');
+    await clearInput.setValue('');
+    await clearInput.trigger('blur');
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      if (rows[0]?.exercises[0]?.note !== null) throw new Error('备注未清空为 null');
+    }, WAIT_OPTS);
+    await vi.waitFor(() => {
+      if (wrapper.find('[data-test="exercise-note-text"]').exists()) throw new Error('清空后仍显示备注');
+    }, WAIT_OPTS);
+  });
 });
