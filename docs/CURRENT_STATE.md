@@ -301,7 +301,7 @@ test:e2e   playwright test
 - `addManualStudyRecord(input)`
 - `bookTotalStudySeconds(bookId)`
 
-**`src/stores/timer.ts`**（id `timer`；另导出常量 `DEFAULT_COUNTDOWN_SEC=1500`、`OVERRUN_RECOVERY_THRESHOLD_MS=12h`、`MIN_SETTLE_SESSION_MS=60s`、`APP_TITLE`、`COUNTDOWN_FINISH_TITLE`）
+**`src/stores/timer.ts`**（id `timer`；另导出常量 `DEFAULT_COUNTDOWN_SEC=1500`、`OVERRUN_RECOVERY_THRESHOLD_MS=12h`、`MIN_SETTLE_SESSION_MS=60s`、`MIN_SETTLE_MINUTES=1`、`APP_TITLE`、`COUNTDOWN_FINISH_TITLE`；纯函数 `capEntertainmentMinutes(minutes, mode, countdownSec)`）
 - `init()`
 - `dispose()`
 - `loadActiveTimer()`
@@ -359,11 +359,11 @@ test:e2e   playwright test
 - `setDuration(date, minutes)`
 - `finishWorkout(date?)`
 
-**`src/stores/play.ts`**（id `play`；另导出 `validatePlayInput`、`recentContentsFrom`、`DEFAULT_RECENT_LIMIT=8`）
-- `loadPlayData(date)`
+**`src/stores/play.ts`**（id `play`；另导出 `validatePlayInput`、`recentContentsFrom`、`resolveCountdownMinutes`、`quotaStateFrom`、`DEFAULT_RECENT_LIMIT=8`、常量 `PLAY_QUICK_COUNTDOWN_MINUTES=[15,30,45,60]`、`MIN_PLAY_COUNTDOWN_MINUTES=1`、`MAX_PLAY_COUNTDOWN_MINUTES=1440`、`DEFAULT_PLAY_COUNTDOWN_MINUTES=30`、`QUOTA_EXHAUSTED_HINT='今日娱乐额度已用完'`）
+- `loadPlayData(date)`（同时按 `logicalToday(settings.dayStartMin)` 重算 `state.todayQuota`，与选中日期无关）
 - `reload()`
 - `recentContents(limit)`
-- `startEntertainment(name)`
+- `startEntertainment(name, options?)`（`options.mode: 'stopwatch' | 'countdown'`（缺省正计时）、`options.countdownMinutes`（缺省 30，非法值拒绝并 toast））
 - `manualAdd(input)`
 - `editPlay(id, input)`
 - `softDeletePlay(record)`
@@ -545,19 +545,31 @@ test:e2e   playwright test
 - 入口：`src/views/StudyTimerView.vue` 的"模式"分段按钮（`mode-stopwatch` / `mode-countdown`），倒计时分钟输入（默认 25，范围 1~1440），`startTimer({ mode: "countdown", countdownSec: 分钟*60 })`。
 - 状态：`active_timer.mode`、`active_timer.countdown_sec`；getter `remainingMs` / `remainingSec`（向上取整）/ `isCountdownFinished`。
 - 到点：`detectBoundaryNeeds()` 置 `countdownFinishedPrompt = true` 并 `startTitleFlash()`（600ms 在 `⏰ 时间到！` 与 `Evan的专属APP` 间切换 `document.title`）；弹窗"再来一轮"→ `settleAndStartNextRound()`（自动结算本轮 + 同参数立刻开下一轮），"结束"→ `endTimer()`。
-- 娱乐计时**没有**倒计时：`playStore.startEntertainment()` 固定 `mode: "stopwatch"`。
+- **娱乐计时也已支持倒计时（M3）**：`playStore.startEntertainment(name, { mode: 'countdown', countdownMinutes })` 透传 `mode` / `countdownSec`；到点复用同一套 `detectBoundaryNeeds()` 提示（不区分类型）。
+- 娱乐倒计时结算封顶（用户拍板）：`settleEntertainment()` 用 `capEntertainmentMinutes()` 把分钟数封顶在设定时长（`ceil(countdown_sec/60)`，最少 1 分钟），即 30 分钟倒计时挂到 45 分钟才结束仍记 30 分钟；正计时与 `settleStudy()` 不看这个封顶。
 
 ### 8.4 娱乐页（`#/life/play`）现在的计时控件长什么样
 文件：`src/components/PlayTimerPanel.vue`（页面 `src/views/LifePlayView.vue` 只是 `<PlayTimerPanel />` + `<PlayRecordList />`）。
 
 | 状态 | 界面 |
 |---|---|
-| 无计时 | 标题"娱乐计时" → "内容名称"输入框（placeholder `如：塞尔达传说`）→ "最近使用：" 标签按钮行（点一下填入输入框）→ "开始"按钮 |
-| 有娱乐计时 | 居中一行：`娱乐` 徽章 + 名称 + 状态徽章（`计时中` / `已暂停` / `待结算`）→ 48px 大钟面（正计时 `HH:MM:SS`）→ 按钮（暂停 / 继续 / 结束） |
+| 无计时 | 标题"娱乐计时" → "内容名称"输入框（placeholder `如：塞尔达传说`）→ "最近使用：" 标签按钮行（点一下填入输入框）→ **"模式"分段按钮（`play-mode-stopwatch` 正计时 / `play-mode-countdown` 倒计时）** → 倒计时时展开：快捷 `15/30/45/60 分钟` 按钮 + "倒计时分钟数（1~1440）"输入框 + "按剩余额度（N 分钟）"按钮（N = `playStore.todayQuota.remaining`，额度 0 时 disabled 并显示"今日娱乐额度已用完"）→ "开始"按钮 |
+| 有娱乐计时 | 居中一行：`娱乐` 徽章 + 名称 + **模式徽章（`正计时` / `倒计时`）** + 状态徽章（`计时中` / `已暂停` / `待结算`）→ 48px 大钟面（倒计时进行中显示剩余时间，其余显示已用时间，均 `HH:MM:SS`）→ 按钮（暂停 / 继续 / 结束） |
 | 待结算 | 上面加一行提示"待结算：请在上方弹窗中保存或丢弃本次计时。" |
 | 有其它计时 | 一行提示"当前有其他计时进行中，娱乐计时暂不可用。" |
 
-特点：**只有正计时**，没有倒计时/分钟设定；没有内联结算表单（全部交给全局 `SettlementModal`）；最近使用标签来自 `playStore.recent`（`recentContentsFrom()` 按 `created_at` 倒序去重取前 8）。
+特点：内容名称仍为必填（空名称点"开始"→ toast `请输入娱乐内容名称`，沿用原有提示）；没有内联结算表单（全部交给全局 `SettlementModal`）；最近使用标签来自 `playStore.recent`（`recentContentsFrom()` 按 `created_at` 倒序去重取前 8）。
+
+历史记录（`PlayRecordList.vue`）每一行有"再来一轮"（`play-again-btn`）：emit 内容名称 + 30 分钟 → `LifePlayView` 的 `prefill` state 传给 `PlayTimerPanel` 的 `prefill` prop → 面板预填名称、切到倒计时、分钟填 30，**不自动开始**，用户再点"开始"才计时。
+
+### 8.5 M3 交付记录：娱乐页倒计时（2026-10-24）
+
+- `src/stores/play.ts`：`startEntertainment(name, options?)` 支持 `{ mode, countdownMinutes }`（缺省正计时 / 30 分钟）；新增纯函数 `resolveCountdownMinutes()`（整数 1~1440，0 / 负数 / 小数 / 超上限 / 空值返回 `{ ok:false, reason }`）与 `quotaStateFrom()`；`loadPlayData()` 额外按 `logicalToday(settings.dayStartMin)` 重算 `todayQuota`（供"按剩余额度"，与选中日期所在周无关）。
+- `src/stores/timer.ts`：新增纯函数 `capEntertainmentMinutes(minutes, mode, countdownSec)`，`settleEntertainment()` 用它封顶——倒计时默认结算 `min(实际用时, 设定时长)` 并向上取整到分钟、最少 1 分钟；**`settleStudy()` 与正计时结算未改**。`settleAndStartNextRound()` 未改（原本就保留 entertainment 的 type/mode/countdown_sec）。
+- `src/components/PlayTimerPanel.vue`：模式分段按钮 + 快捷 15/30/45/60 + 自定义分钟 + "按剩余额度（N 分钟）"（额度 0 时 disabled + "今日娱乐额度已用完"）；运行中显示模式徽章与剩余时间；接收 `prefill` prop（`prefill-applied` 回抛给父页清空）；娱乐计时结束/丢弃后自动 `playStore.reload()` 刷新记录与额度。
+- `src/components/PlayRecordList.vue`：每行新增"再来一轮"（emit `play-again`，内容名称 + `DEFAULT_PLAY_COUNTDOWN_MINUTES=30`）。
+- `src/views/LifePlayView.vue`：持有 `prefill` state，把"再来一轮"接到计时面板。
+- `src/components/SettlementModal.vue`：娱乐计时的"折算分钟数"预填改为复用 `capEntertainmentMinutes()`（预填值 == 落库值）：娱乐倒计时 30 分钟挂到 45 分钟 → 预填 30 而不是 45；娱乐正计时仍按实际时长向上取整；学习计时（含学习倒计时超时）完全不经过这条分支，"本次有效时长"仍如实显示实际值。
 
 ---
 
@@ -794,16 +806,18 @@ test:e2e   playwright test
 `src/test/`（1）：`start-app-script.spec.ts`（校验 `start-app.bat` 的 CRLF 行尾与运行时回退）
 
 ### 16.2 端到端测试（Playwright，`e2e/`）
-`books.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`review.spec.ts`、`study.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 逐条对应）。
+`books.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 逐条对应）。
 
-### 16.3 运行命令与当前结果（M2 交付后实跑，2026-10-24）
+### 16.3 运行命令与当前结果（M3 交付后实跑，2026-10-24）
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **全部通过：50 文件 / 393 用例，0 failed** | M2 新增 `calendar.spec.ts` / `dateStats.spec.ts` / `month-calendar.spec.ts` / `top-bar.spec.ts`；基线为 46 文件 / 359 用例 |
+| `pnpm run test`（`vitest run`） | **全部通过：50 文件 / 410 用例，0 failed** | M3 未新增测试文件，在 `timer.spec.ts`（15→19）/ `play.spec.ts`（8→13）/ `play-timer-panel.spec.ts`（3→9）/ `play-record-list.spec.ts`（3→4）/ `life-play-view.spec.ts`（1→2）内新增 17 个用例；基线为 50 文件 / 393 用例 |
 | `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | 上一版盘点里的 7 个 TS 错误已在基线 v1.0 收尾修复 |
-| `e2e/calendar.spec.ts`（Playwright） | **3 passed** | AC-57 / AC-58 / AC-59 逐条覆盖 |
-| `pnpm run test:e2e`（全量） | **58 passed（2.7m）** | AC-01~AC-53 + AC-57~AC-59 全绿；M2 收窄日期控件后，AC-12/13/19/20/41/24 已把日期控件操作挪到日期相关页面（plan / life-diet / review），断言未改 |
+| `e2e/play-countdown.spec.ts`（Playwright） | **6 passed（18.6s）** | AC-60 / AC-61 逐条覆盖（名称必填、快捷 30 分钟、自定义 25 分钟与非法值、按剩余额度、到点超时封顶、再来一轮不自动开始） |
+| `e2e/life.spec.ts`（Playwright） | **7 passed** | AC-40 ~ AC-46 回归（含 AC-46 娱乐超额变红） |
+| `e2e/study.spec.ts`（Playwright） | **11 passed** | AC-04 / AC-31 ~ AC-39 + AC-39辅助 回归（含 AC-39 倒计时到点提示与再来一轮） |
+| `pnpm run test:e2e`（全量） | **64 passed（2.7m）** | AC-01~AC-61 全绿（M2 的 58 条 + M3 新增 6 条）；AC-34/35/36/39 等学习计时用例未改动仍通过 |
 
 补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 
@@ -835,7 +849,7 @@ test:e2e   playwright test
 4. **暂停时长单位**：PRD §5.4 写"累计暂停时长（**秒**）"；代码字段是 `active_timer.paused_total_ms`（**毫秒**）。
 5. **"已复盘"判定两套口径**：首页 `homeStore.load()` 用 `reviews.length > 0`；复盘页 `hasReviewContent()` 要求有实际内容。点过评分又取消会留下全空行 → 首页认为已复盘、复盘页仍显示未填写（见 §12.2）。
 6. **手动改页码生成记录的日期**：PRD §5.2 要求"当天逻辑日期"；`libraryStore.updateBookPage()` 用的是 `dateStore.selectedDate`（顶栏当前选中日期）。回看昨天并改页码时，增量会记到昨天。
-7. **娱乐计时没有倒计时**：`active_timer.mode` 的 `countdown` 只由学习计时使用；`playStore.startEntertainment()` 写死 `stopwatch`。（PRD §5.7 只要求娱乐页"开始/暂停/结束"，不算硬缺口，但与"模式"字段的设计意图有出入。）
+7. ~~**娱乐计时没有倒计时**~~ **已在 M3 解决**：娱乐页可选正计时/倒计时（快捷 15/30/45/60、自定义分钟、按剩余额度），`startEntertainment(name, { mode, countdownMinutes })` 不再写死 `stopwatch`（见 §8.3 / §8.5）。
 8. **Space 快捷键会误伤娱乐计时**：`StudyTimerView.vue` 的 `onKeydown` 调 `timerStore.toggle()`，不判断 `type`；按钮虽然对娱乐计时隐藏，键盘仍可暂停/继续娱乐计时，与 PRD §5.4"入口分离"略有出入。
 9. **状态胶囊路由**：PRD 只说点击胶囊跳回对应页面；实现里学习→`/study/timer`、娱乐→`/life/play`（符合，仅记录实现方式）。
 10. **首页版面**：PRD §3.2 只有"提示条 + 6 张卡片"；实现多了 `HomeHero`（问候 + 实时时钟 + 日期）和 `HomeTiles`（4 个数据方块）。

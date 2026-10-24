@@ -5,6 +5,8 @@ import { createRecord, resetDbForTests, type Book } from '@/db';
 import { usePlayStore } from '@/stores/play';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimerStore } from '@/stores/timer';
+import { useToastStore } from '@/stores/toast';
+import { logicalToday } from '@/utils/date';
 import PlayTimerPanel from './PlayTimerPanel.vue';
 
 const BASE = new Date('2026-06-01T10:00:00').getTime();
@@ -33,6 +35,11 @@ async function seedPlay(date: string, content: string, minutes: number) {
 function useFakeDate(): void {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(BASE);
+}
+
+/** 逻辑今天（跟随设置的一天起点），用于准备“当天额度”记录。 */
+function todayKey(): string {
+  return logicalToday(useSettingsStore().dayStartMin);
 }
 
 /** 状态机写库走 Dexie 多轮事件循环，用 throw 语义等到条件成立。 */
@@ -114,6 +121,118 @@ describe('娱乐计时面板 PlayTimerPanel', () => {
     await flushPromises();
     expect(wrapper.find('[data-test="settling-hint"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="end-btn"]').exists()).toBe(false);
+  });
+
+  it('倒计时：快捷 30 分钟 → mode=countdown、countdown_sec=1800，界面显示剩余时间', async () => {
+    await play.loadPlayData(todayKey());
+    const wrapper = mountPanel();
+    await wrapper.find('[data-test="play-name-input"]').setValue('塞尔达');
+    expect(wrapper.find('[data-test="play-countdown-options"]').exists()).toBe(false);
+
+    await wrapper.find('[data-test="play-mode-countdown"]').trigger('click');
+    expect(wrapper.find('[data-test="play-mode-countdown"]').classes()).toContain('on');
+    expect(wrapper.find('[data-test="play-countdown-options"]').exists()).toBe(true);
+
+    await wrapper.find('[data-test="play-quick-30"]').trigger('click');
+    await wrapper.find('[data-test="start-btn"]').trigger('click');
+    await waitUntil(() => timer.isRunning, '等待倒计时开始');
+    await flushPromises();
+
+    expect(timer.timer?.mode).toBe('countdown');
+    expect(timer.timer?.countdown_sec).toBe(1800);
+    expect(timer.timer?.target_title).toBe('塞尔达');
+    expect(wrapper.find('[data-test="clock-face"]').text()).toBe('00:30:00');
+    expect(wrapper.find('[data-test="play-timer-mode"]').text()).toBe('倒计时');
+  });
+
+  it('倒计时：自定义 25 分钟 → 1500 秒；0 / 小数 / 超上限被拒绝且不开始', async () => {
+    await play.loadPlayData(todayKey());
+    const toast = useToastStore();
+    const wrapper = mountPanel();
+    await wrapper.find('[data-test="play-name-input"]').setValue('原神');
+    await wrapper.find('[data-test="play-mode-countdown"]').trigger('click');
+
+    const invalid: Array<[string, string]> = [
+      ['0', '倒计时分钟数至少 1 分钟'],
+      ['1.5', '倒计时分钟数必须为整数'],
+      ['1441', '倒计时分钟数不能超过 1440 分钟'],
+    ];
+    for (const [value, message] of invalid) {
+      await wrapper.find('[data-test="play-countdown-minutes"]').setValue(value);
+      await wrapper.find('[data-test="start-btn"]').trigger('click');
+      await flushPromises();
+      expect(timer.timer).toBeNull();
+      expect(toast.items.some((i) => i.message === message)).toBe(true);
+    }
+
+    await wrapper.find('[data-test="play-countdown-minutes"]').setValue('25');
+    await wrapper.find('[data-test="start-btn"]').trigger('click');
+    await waitUntil(() => timer.isRunning, '等待倒计时开始');
+    await flushPromises();
+    expect(timer.timer?.mode).toBe('countdown');
+    expect(timer.timer?.countdown_sec).toBe(1500);
+    expect(wrapper.find('[data-test="clock-face"]').text()).toBe('00:25:00');
+  });
+
+  it('倒计时：未填内容名称点开始被拒绝（沿用现有提示）', async () => {
+    await play.loadPlayData(todayKey());
+    const toast = useToastStore();
+    const wrapper = mountPanel();
+    await wrapper.find('[data-test="play-mode-countdown"]').trigger('click');
+    await wrapper.find('[data-test="start-btn"]').trigger('click');
+    await flushPromises();
+    expect(timer.timer).toBeNull();
+    expect(toast.items.some((i) => i.message === '请输入娱乐内容名称')).toBe(true);
+  });
+
+  it('按剩余额度：填入今日额度剩余分钟，开始后按该分钟数倒计时', async () => {
+    await seedPlay(todayKey(), '游戏A', 20);
+    await play.loadPlayData(todayKey());
+    const wrapper = mountPanel();
+    await wrapper.find('[data-test="play-name-input"]').setValue('原神');
+    await wrapper.find('[data-test="play-mode-countdown"]').trigger('click');
+
+    const quotaBtn = wrapper.find('[data-test="play-quota-btn"]');
+    expect(quotaBtn.text()).toContain('40 分钟');
+    expect(quotaBtn.attributes('disabled')).toBeUndefined();
+    await quotaBtn.trigger('click');
+    expect((wrapper.find('[data-test="play-countdown-minutes"]').element as HTMLInputElement).value).toBe('40');
+
+    await wrapper.find('[data-test="start-btn"]').trigger('click');
+    await waitUntil(() => timer.isRunning, '等待倒计时开始');
+    await flushPromises();
+    expect(timer.timer?.countdown_sec).toBe(2400);
+  });
+
+  it('按剩余额度：额度为 0 时按钮禁用并提示「今日娱乐额度已用完」', async () => {
+    await seedPlay(todayKey(), '游戏A', 70);
+    await play.loadPlayData(todayKey());
+    const wrapper = mountPanel();
+    await wrapper.find('[data-test="play-mode-countdown"]').trigger('click');
+    const quotaBtn = wrapper.find('[data-test="play-quota-btn"]');
+    expect(quotaBtn.attributes('disabled')).toBeDefined();
+    expect(quotaBtn.text()).toContain('0 分钟');
+    expect(wrapper.find('[data-test="play-quota-empty-hint"]').text()).toBe('今日娱乐额度已用完');
+  });
+
+  it('再来一轮预填：名称/倒计时/30 分钟就位但计时未启动，再点开始才计时', async () => {
+    await play.loadPlayData(todayKey());
+    const wrapper = mountPanel();
+    await wrapper.setProps({ prefill: { content: '塞尔达', minutes: 30 } });
+    await flushPromises();
+
+    expect((wrapper.find('[data-test="play-name-input"]').element as HTMLInputElement).value).toBe('塞尔达');
+    expect(wrapper.find('[data-test="play-mode-countdown"]').classes()).toContain('on');
+    expect((wrapper.find('[data-test="play-countdown-minutes"]').element as HTMLInputElement).value).toBe('30');
+    expect(timer.timer).toBeNull();
+    expect(wrapper.find('[data-test="pause-btn"]').exists()).toBe(false);
+    expect(wrapper.emitted('prefill-applied')).toBeTruthy();
+
+    await wrapper.find('[data-test="start-btn"]').trigger('click');
+    await waitUntil(() => timer.isRunning, '等待倒计时开始');
+    await flushPromises();
+    expect(timer.timer?.mode).toBe('countdown');
+    expect(timer.timer?.countdown_sec).toBe(1800);
   });
 
   it('已有学习计时时显示不可用且无开始按钮', async () => {

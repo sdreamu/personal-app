@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { errorMessage, getRecord, type Book } from '@/db';
-import { useTimerStore } from '@/stores/timer';
+import { capEntertainmentMinutes, useTimerStore } from '@/stores/timer';
 import { useToastStore } from '@/stores/toast';
 import { formatDuration } from '@/utils/date';
 
@@ -94,7 +94,10 @@ watch(
         startPageHint.value = null;
       }
     } else if (t.type === 'entertainment') {
-      minutes.value = String(Math.max(1, Math.ceil(settleSeconds.value / 60)));
+      // 预填值必须与落库值一致：娱乐倒计时按设定时长封顶（复用 timer store 的同一个纯函数），
+      // 正计时仍按实际时长向上取整；学习计时（含学习倒计时）不经过这里，行为不变。
+      const actualMinutes = Math.max(1, Math.ceil(settleSeconds.value / 60));
+      minutes.value = String(capEntertainmentMinutes(actualMinutes, t.mode, t.countdown_sec));
     }
   },
   { immediate: true },

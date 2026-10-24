@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import { createRecord, getActiveTimer, listAlive, resetDbForTests, type Book } from '@/db';
-import { usePlayStore } from '@/stores/play';
+import { quotaStateFrom, resolveCountdownMinutes, usePlayStore } from '@/stores/play';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimerStore } from '@/stores/timer';
 import { useToastStore } from '@/stores/toast';
@@ -146,6 +146,76 @@ describe('娱乐 store（play）', () => {
     expect(updated?.content).toBe('新名称');
     expect(updated?.minutes).toBe(35);
     expect(updated?.source).toBe('timer');
+  });
+
+  it('startEntertainment 默认正计时；countdown 选项写入 mode 与 countdown_sec', async () => {
+    useFakeDate();
+    const stopwatch = await play.startEntertainment('塞尔达');
+    expect(stopwatch).toEqual({ ok: true });
+    expect(timer.timer?.type).toBe('entertainment');
+    expect(timer.timer?.target_id).toBe('塞尔达');
+    expect(timer.timer?.mode).toBe('stopwatch');
+    await timer.discardTimer();
+
+    const countdown = await play.startEntertainment('  原神  ', { mode: 'countdown', countdownMinutes: 30 });
+    expect(countdown).toEqual({ ok: true });
+    expect(timer.timer?.target_title).toBe('原神');
+    expect(timer.timer?.mode).toBe('countdown');
+    expect(timer.timer?.countdown_sec).toBe(1800);
+    expect(timer.remainingSec).toBe(1800);
+    await timer.discardTimer();
+  });
+
+  it('resolveCountdownMinutes：1~1440 整数有效，0/负数/小数/超上限/空值被拒绝', () => {
+    expect(resolveCountdownMinutes(25)).toEqual({ ok: true, minutes: 25 });
+    expect(resolveCountdownMinutes(' 25 ')).toEqual({ ok: true, minutes: 25 });
+    expect(resolveCountdownMinutes(1)).toEqual({ ok: true, minutes: 1 });
+    expect(resolveCountdownMinutes(1440)).toEqual({ ok: true, minutes: 1440 });
+
+    expect(resolveCountdownMinutes(0)).toEqual({ ok: false, reason: '倒计时分钟数至少 1 分钟' });
+    expect(resolveCountdownMinutes(-5)).toEqual({ ok: false, reason: '倒计时分钟数至少 1 分钟' });
+    expect(resolveCountdownMinutes(1.5)).toEqual({ ok: false, reason: '倒计时分钟数必须为整数' });
+    expect(resolveCountdownMinutes(1441)).toEqual({ ok: false, reason: '倒计时分钟数不能超过 1440 分钟' });
+    expect(resolveCountdownMinutes('')).toEqual({ ok: false, reason: '请输入倒计时分钟数' });
+    expect(resolveCountdownMinutes(null).ok).toBe(false);
+    expect(resolveCountdownMinutes(undefined).ok).toBe(false);
+    expect(resolveCountdownMinutes('abc').ok).toBe(false);
+    expect(resolveCountdownMinutes(Number.NaN).ok).toBe(false);
+  });
+
+  it('startEntertainment 自定义分钟生效；非法分钟数被拒绝且不启动计时', async () => {
+    useFakeDate();
+    const ok = await play.startEntertainment('自定义', { mode: 'countdown', countdownMinutes: 25 });
+    expect(ok).toEqual({ ok: true });
+    expect(timer.timer?.countdown_sec).toBe(1500);
+    await timer.discardTimer();
+
+    const bad = await play.startEntertainment('非法', { mode: 'countdown', countdownMinutes: 0 });
+    expect(bad).toEqual({ ok: false, reason: '倒计时分钟数至少 1 分钟' });
+    expect(timer.timer).toBeNull();
+    expect(await getActiveTimer()).toBeNull();
+    expect(useToastStore().items.some((i) => i.message === '倒计时分钟数至少 1 分钟')).toBe(true);
+  });
+
+  it('todayQuota 按逻辑今天计算（与当前选中日期所在周无关）', async () => {
+    useFakeDate(); // 2026-06-01T10:00 → 逻辑今天 2026-06-01
+    await seedPlay('2026-06-01', '游戏A', 20);
+    await seedPlay('2026-06-01', '游戏B', 25, 'timer');
+    await play.loadPlayData('2026-06-01');
+    expect(play.todayQuota).toEqual({ used: 45, limit: 60, remaining: 15, over: false });
+
+    await play.loadPlayData('2026-06-20'); // 另一周：当周记录里没有今天，但 todayQuota 仍按今天算
+    expect(play.todayQuota).toEqual({ used: 45, limit: 60, remaining: 15, over: false });
+    expect(play.quotaState('2026-06-01').used).toBe(0);
+  });
+
+  it('quotaStateFrom 纯函数：当天记录求和，超额时剩余为 0 并标记 over', async () => {
+    await seedPlay('2026-06-03', '游戏A', 40);
+    await seedPlay('2026-06-03', '游戏B', 30, 'timer');
+    await seedPlay('2026-06-04', '游戏C', 10);
+    const rows = await listAlive('play_records');
+    expect(quotaStateFrom(rows, '2026-06-03', 60)).toEqual({ used: 70, limit: 60, remaining: 0, over: true });
+    expect(quotaStateFrom(rows, '2026-06-04', 60)).toEqual({ used: 10, limit: 60, remaining: 50, over: false });
   });
 
   it('recentContents 按最近使用去重排序并限制数量', async () => {

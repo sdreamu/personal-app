@@ -83,6 +83,17 @@ describe('娱乐记录区 PlayRecordList', () => {
     expect(wrapper.find('[data-test="quota-over-hint"]').text()).toBe('今日娱乐额度已用完');
   });
 
+  it('「再来一轮」抛出行内容名称 + 30 分钟预填，不自动开始计时', async () => {
+    await seedPlay('2026-06-03', '塞尔达', 30, 'timer');
+    await play.loadPlayData('2026-06-03');
+
+    const wrapper = mountList();
+    await flushPromises();
+    await wrapper.find('[data-test="play-again-btn"]').trigger('click');
+
+    expect(wrapper.emitted('play-again')).toEqual([[{ content: '塞尔达', minutes: 30 }]]);
+  });
+
   it('额度未超时进度条不红，显示剩余分钟与本周累计', async () => {
     await seedPlay('2026-06-03', '游戏A', 20);
     await play.loadPlayData('2026-06-03');

@@ -184,6 +184,54 @@ describe('全局结算弹窗', () => {
     expect(wrapper.find('[data-test="settlement-modal"]').exists()).toBe(false);
   });
 
+  it('娱乐倒计时：到点后挂着超时，折算分钟预填为设定时长且保存值一致', async () => {
+    timer.$patch({
+      timer: baseTimer({
+        type: 'entertainment',
+        target_id: '游戏',
+        target_title: '游戏',
+        mode: 'countdown',
+        countdown_sec: 1800,
+        started_at: NOW - 45 * 60_000, // 30 分钟倒计时挂到 45 分钟才结束
+        ended_at: NOW,
+      }),
+    });
+    const wrapper = await mountModal();
+    // 有效时长仍如实显示 45 分钟，但折算分钟预填必须等于设定时长（= 最终落库值）
+    expect(wrapper.find('[data-test="settle-duration"]').text()).toContain('00:45:00');
+    expect((wrapper.find('[data-test="settle-minutes"]').element as HTMLInputElement).value).toBe('30');
+
+    await wrapper.find('[data-test="settle-save"]').trigger('click');
+    await waitUntil(() => timer.timer === null, '等待娱乐倒计时结算完成');
+    await flushPromises();
+    const records = await listAlive('play_records');
+    expect(records).toHaveLength(1);
+    expect(records[0]?.minutes).toBe(30);
+  });
+
+  it('学习倒计时：到点后挂着超时，结算时长仍按实际时长（不封顶）', async () => {
+    const book = await makeBook(40);
+    timer.$patch({
+      timer: baseTimer({
+        target_id: book.id,
+        mode: 'countdown',
+        countdown_sec: 1800,
+        started_at: NOW - 45 * 60_000,
+        ended_at: NOW,
+      }),
+    });
+    const wrapper = await mountModal();
+    expect(wrapper.find('[data-test="settle-duration"]').text()).toContain('00:45:00');
+    expect(wrapper.find('[data-test="settle-minutes"]').exists()).toBe(false);
+
+    await wrapper.find('[data-test="settle-save"]').trigger('click');
+    await waitUntil(() => timer.timer === null, '等待学习结算完成');
+    await flushPromises();
+    const records = await listAlive('study_records');
+    expect(records).toHaveLength(1);
+    expect(records[0]?.duration_sec).toBe(2700);
+  });
+
   it('不足 1 分钟：先询问“直接丢弃/继续结算保存”，Esc 无效，继续后展示结算表单', async () => {
     const book = await makeBook(40);
     timer.$patch({ timer: baseTimer({ target_id: book.id, started_at: NOW - 30_000, ended_at: NOW }) });

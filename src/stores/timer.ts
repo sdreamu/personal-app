@@ -20,6 +20,7 @@ import { useToastStore } from './toast';
 export const DEFAULT_COUNTDOWN_SEC = 1500;
 export const OVERRUN_RECOVERY_THRESHOLD_MS = 12 * 60 * 60 * 1000;
 export const MIN_SETTLE_SESSION_MS = 60 * 1000;
+export const MIN_SETTLE_MINUTES = 1;
 export const APP_TITLE = 'Evan的专属APP';
 export const COUNTDOWN_FINISH_TITLE = '⏰ 时间到！';
 
@@ -43,6 +44,24 @@ export interface SettleEntertainmentPayload {
 }
 
 export type StartTimerResult = { ok: true } | { ok: false; reason: string };
+
+/**
+ * 娱乐结算分钟数（纯函数，用户拍板规则）：
+ * - 正计时：按实际有效时长向上取整，最少 1 分钟（与既有行为一致）；
+ * - 倒计时：默认结算 min(实际用时, 设定时长)，向上取整到分钟且最少 1 分钟——
+ *   到点后一直不点结束、挂到 45 分钟才结束的 30 分钟倒计时仍记 30 分钟。
+ * 显式传入的分钟数同样不允许超过设定时长（结算弹窗的预填值来自实际时长，含到点后的溢出部分）。
+ */
+export function capEntertainmentMinutes(
+  minutes: number,
+  mode: 'stopwatch' | 'countdown',
+  countdownSec: number,
+): number {
+  const normalized = Math.max(MIN_SETTLE_MINUTES, Math.floor(minutes));
+  if (mode !== 'countdown') return normalized;
+  const capMinutes = Math.max(MIN_SETTLE_MINUTES, Math.ceil(countdownSec / 60));
+  return Math.min(normalized, capMinutes);
+}
 
 export interface PendingPlanQuestion {
   planId: string;
@@ -391,17 +410,21 @@ export const useTimerStore = defineStore('timer', {
       this.nowTick = Date.now();
       return record;
     },
-    /** 结算保存娱乐计时：分钟向上取整有效时长，可被 payload.minutes 覆盖。 */
+    /**
+     * 结算保存娱乐计时：默认分钟数 = 向上取整的实际有效时长（最少 1 分钟），可被 payload.minutes 覆盖；
+     * 倒计时再按设定时长封顶（见 capEntertainmentMinutes），正计时行为不变。
+     */
     async settleEntertainment(payload: SettleEntertainmentPayload = {}): Promise<PlayRecord> {
       const t = this.timer;
       if (!t || t.ended_at === null) throw new Error('当前没有待结算的娱乐计时');
       if (t.type !== 'entertainment') throw new Error('学习计时请使用学习结算');
       const baseSec = Math.floor(Math.max(0, t.ended_at - t.started_at - t.paused_total_ms) / 1000);
-      const defaultMinutes = Math.max(1, Math.ceil(baseSec / 60));
-      const minutes =
+      const defaultMinutes = Math.max(MIN_SETTLE_MINUTES, Math.ceil(baseSec / 60));
+      const requestedMinutes =
         payload.minutes !== undefined && payload.minutes !== null
-          ? Math.max(1, Math.floor(payload.minutes))
+          ? Math.max(MIN_SETTLE_MINUTES, Math.floor(payload.minutes))
           : defaultMinutes;
+      const minutes = capEntertainmentMinutes(requestedMinutes, t.mode, t.countdown_sec);
       const dayStartMin = useSettingsStore().dayStartMin;
       const date = logicalDateOf(t.started_at, dayStartMin);
       const record = await this.runWithSaveStatus(async () => {

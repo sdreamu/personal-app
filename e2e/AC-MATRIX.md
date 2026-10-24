@@ -72,3 +72,16 @@
 | AC-57 | AC-57 顶栏日期弹窗月历：格数、今天与选中日高亮、点选跳转、翻月不改选中日 | e2e/calendar.spec.ts |
 | AC-58 | AC-58 月历小点只认五张主动记录表，忽略软删除与 water/meals | e2e/calendar.spec.ts |
 | AC-59 | AC-59 日期控件只在 5 个日期相关页面显示，原生日期输入仍可用 | e2e/calendar.spec.ts |
+
+## M3 娱乐页倒计时（AC-60 ~ AC-61）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-60 | AC-60 未填内容名称无法开始倒计时 | e2e/play-countdown.spec.ts |
+| AC-60 | AC-60 倒计时快捷30分钟启动并显示剩余时间 | e2e/play-countdown.spec.ts |
+| AC-60 | AC-60 自定义分钟生效且非法值被拒绝 | e2e/play-countdown.spec.ts |
+| AC-60 | AC-60 按剩余额度取今日剩余分钟且额度为0时禁用 | e2e/play-countdown.spec.ts |
+| AC-61 | AC-61 娱乐倒计时到点后超时结束仍记设定时长 | e2e/play-countdown.spec.ts |
+| AC-61 | AC-61 历史再来一轮预填但不自动开始 | e2e/play-countdown.spec.ts |
+
+覆盖完整性：AC-60 / AC-61 共 2 条，逐条有对应测试，无 skip / only。

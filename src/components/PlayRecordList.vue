@@ -3,12 +3,15 @@ import { computed, ref } from 'vue';
 import BaseModal from '@/components/BaseModal.vue';
 import { errorMessage, type PlayRecord } from '@/db';
 import { useDateStore } from '@/stores/date';
-import { usePlayStore } from '@/stores/play';
+import { DEFAULT_PLAY_COUNTDOWN_MINUTES, usePlayStore, type PlayRoundPrefill } from '@/stores/play';
 
 /**
- * 娱乐记录区（3c）：今日额度进度条 + 本周累计 + 手动补记/编辑/删除。
+ * 娱乐记录区（3c）：今日额度进度条 + 本周累计 + 手动补记/编辑/删除/再来一轮。
  * 手动补记生成 source='manual'；删除走软删除 + 5 秒撤销（store 内 toast）。
+ * 「再来一轮」只把预填信息抛给父页面（内容名称 + 倒计时 30 分钟），不自动开始计时。
  */
+const emit = defineEmits<{ 'play-again': [prefill: PlayRoundPrefill] }>();
+
 const dateStore = useDateStore();
 const playStore = usePlayStore();
 
@@ -45,6 +48,11 @@ function openEdit(record: PlayRecord): void {
   formDate.value = record.date;
   formError.value = '';
   showForm.value = true;
+}
+
+/** 「再来一轮」：预填同一内容名称 + 切到倒计时 30 分钟，计时由用户再点「开始」才启动。 */
+function playAgain(record: PlayRecord): void {
+  emit('play-again', { content: record.content, minutes: DEFAULT_PLAY_COUNTDOWN_MINUTES });
 }
 
 async function saveForm(): Promise<void> {
@@ -99,6 +107,7 @@ async function saveForm(): Promise<void> {
         </div>
         <span class="record-minutes">{{ record.minutes }} 分钟</span>
         <div class="record-ops">
+          <button class="ghost-btn" data-test="play-again-btn" @click="playAgain(record)">再来一轮</button>
           <button class="ghost-btn" data-test="edit-btn" @click="openEdit(record)">编辑</button>
           <button class="danger-btn" data-test="delete-btn" @click="playStore.softDeletePlay(record)">删除</button>
         </div>

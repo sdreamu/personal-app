@@ -12,6 +12,7 @@ import {
 import {
   APP_TITLE,
   COUNTDOWN_FINISH_TITLE,
+  capEntertainmentMinutes,
   useTimerStore,
 } from '@/stores/timer';
 import { useSettingsStore } from '@/stores/settings';
@@ -190,6 +191,103 @@ describe('全局计时状态机（active_timer 持久化）', () => {
     const record2 = await timer.settleEntertainment({ minutes: 5 });
     expect(record2.minutes).toBe(5);
     expect(await listAlive('play_records')).toHaveLength(2);
+  });
+
+  it('娱乐倒计时结算封顶：设定 30 分钟、挂到 45 分钟才点结束仍记 30 分钟（AC-61）', async () => {
+    useFakeDate();
+    await timer.startTimer({
+      type: 'entertainment',
+      targetId: '塞尔达',
+      targetTitle: '塞尔达',
+      mode: 'countdown',
+      countdownSec: 1800,
+    });
+    vi.setSystemTime(BASE + 45 * 60_000); // 到点后一直没点结束，45 分钟才结束
+    await timer.endTimer();
+    const record = await timer.settleEntertainment({});
+    expect(record.minutes).toBe(30);
+    expect(record.content).toBe('塞尔达');
+    expect(record.source).toBe('timer');
+    expect(record.date).toBe('2026-06-01');
+
+    const rows = await listAlive('play_records');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.minutes).toBe(30);
+    expect(await getActiveTimer()).toBeNull();
+  });
+
+  it('娱乐倒计时结算：提前结束按实际用时取整；显式分钟数也封顶在设定时长', async () => {
+    useFakeDate();
+    // 提前结束：10 分 1 秒 → ceil = 11 分钟
+    await timer.startTimer({
+      type: 'entertainment',
+      targetId: '视频',
+      targetTitle: '视频',
+      mode: 'countdown',
+      countdownSec: 1800,
+    });
+    vi.setSystemTime(BASE + 601_000);
+    await timer.endTimer();
+    expect((await timer.settleEntertainment({})).minutes).toBe(11);
+
+    // 结算弹窗把实际 45 分钟预填进来 → 仍封顶 30
+    await timer.startTimer({
+      type: 'entertainment',
+      targetId: '视频',
+      targetTitle: '视频',
+      mode: 'countdown',
+      countdownSec: 1800,
+    });
+    vi.setSystemTime(BASE + 601_000 + 45 * 60_000);
+    await timer.endTimer();
+    expect((await timer.settleEntertainment({ minutes: 45 })).minutes).toBe(30);
+
+    // 不超过设定时长的手动微调保留
+    await timer.startTimer({
+      type: 'entertainment',
+      targetId: '视频',
+      targetTitle: '视频',
+      mode: 'countdown',
+      countdownSec: 1800,
+    });
+    vi.setSystemTime(BASE + 601_000 + 45 * 60_000 + 20 * 60_000);
+    await timer.endTimer();
+    expect((await timer.settleEntertainment({ minutes: 12 })).minutes).toBe(12);
+  });
+
+  it('娱乐正计时与学习倒计时都不受娱乐封顶影响', async () => {
+    useFakeDate();
+    await timer.startTimer({
+      type: 'entertainment',
+      targetId: '视频',
+      targetTitle: '视频',
+      mode: 'stopwatch',
+    });
+    vi.setSystemTime(BASE + 45 * 60_000);
+    await timer.endTimer();
+    expect((await timer.settleEntertainment({})).minutes).toBe(45);
+
+    // 学习倒计时：settleStudy 不封顶（AC-39 / settleStudy 行为不变）
+    const subject = await makeSubject();
+    await timer.startTimer({
+      type: 'subject',
+      targetId: subject.id,
+      targetTitle: subject.name,
+      mode: 'countdown',
+      countdownSec: 1800,
+    });
+    vi.setSystemTime(BASE + 45 * 60_000 + 45 * 60_000);
+    await timer.endTimer();
+    expect((await timer.settleStudy({})).duration_sec).toBe(2700);
+  });
+
+  it('capEntertainmentMinutes 纯函数：倒计时按设定时长封顶、最少 1 分钟；正计时只取整', () => {
+    expect(capEntertainmentMinutes(45, 'countdown', 1800)).toBe(30);
+    expect(capEntertainmentMinutes(30, 'countdown', 1800)).toBe(30);
+    expect(capEntertainmentMinutes(45, 'stopwatch', 1800)).toBe(45);
+    expect(capEntertainmentMinutes(0, 'countdown', 1800)).toBe(1);
+    expect(capEntertainmentMinutes(5, 'countdown', 90)).toBe(2); // ceil(90/60) = 2
+    expect(capEntertainmentMinutes(12.7, 'stopwatch', 1500)).toBe(12);
   });
 
   it('全局单计时守卫：进行中与待结算都拒绝新计时并 toast 提示；isTargetActive 保护查询', async () => {
