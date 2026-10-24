@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import {
   clearAll,
   downloadBackup,
@@ -10,13 +10,22 @@ import {
   type BackupFile,
   type BackupSummary,
 } from '@/db';
+import { exportText } from '@/db/exportText';
+import {
+  getEarliestRecordDate,
+  loadExportSource,
+  resolveTextRange,
+  textExportFileName,
+  type TextRangePreset,
+} from '@/db/exportSource';
 import BaseModal from '@/components/BaseModal.vue';
 import CategoryManager from '@/components/CategoryManager.vue';
 import ClearDataModal from '@/components/ClearDataModal.vue';
 import { useSaveStatusStore } from '@/stores/saveStatus';
 import { useSettingsStore } from '@/stores/settings';
 import { useToastStore } from '@/stores/toast';
-import { formatDateTimeCN, pad2 } from '@/utils/date';
+import { addDays, formatDateTimeCN, logicalToday, pad2 } from '@/utils/date';
+import { triggerDownload } from '@/utils/download';
 
 const settings = useSettingsStore();
 const saveStatus = useSaveStatusStore();
@@ -91,6 +100,62 @@ async function handleExport(): Promise<void> {
     await settings.load();
     saveStatus.idle();
     toast.success('备份已导出：' + filename);
+  } catch (err) {
+    saveStatus.fail();
+    toast.error('导出失败：' + errorMessage(err));
+  }
+}
+
+/* ---------- 文本导出（Markdown）：只下载文件，绝不刷新备份时间 ---------- */
+const textRangeMode = ref<TextRangePreset>('last7');
+const customStart = ref('');
+const customEnd = ref('');
+/** 「全部」的起点依赖库里最早记录，挂载后异步取一次（只读）。 */
+const earliestDate = ref<string | null>(null);
+
+const today = computed(() => logicalToday(settings.dayStartMin));
+
+/** 当前预设解析出的区间；自定义日期非法时为 null。 */
+const textRange = computed<{ start: string; end: string } | null>(() => {
+  try {
+    return resolveTextRange(textRangeMode.value, today.value, earliestDate.value, {
+      start: customStart.value,
+      end: customEnd.value,
+    });
+  } catch {
+    return null;
+  }
+});
+
+const textRangeLabel = computed(() => {
+  const range = textRange.value;
+  return range === null ? '请选择有效的起止日期' : range.start + ' ~ ' + range.end;
+});
+
+onMounted(async () => {
+  customStart.value = addDays(logicalToday(settings.dayStartMin), -29);
+  customEnd.value = logicalToday(settings.dayStartMin);
+  try {
+    earliestDate.value = await getEarliestRecordDate();
+  } catch {
+    earliestDate.value = null;
+  }
+});
+
+async function handleExportText(): Promise<void> {
+  const range = textRange.value;
+  if (range === null) {
+    toast.error('请选择有效的起止日期');
+    return;
+  }
+  try {
+    saveStatus.begin();
+    const source = await loadExportSource(range.start, range.end);
+    const filename = textExportFileName(range.start, range.end);
+    // 注意：这里绝不调用 setLastBackupAt / 不写 settings.last_backup_at —— 文本导出不刷新备份提醒。
+    triggerDownload(filename, exportText(source), 'text/markdown');
+    saveStatus.idle();
+    toast.success('文本已导出：' + filename);
   } catch (err) {
     saveStatus.fail();
     toast.error('导出失败：' + errorMessage(err));
@@ -240,6 +305,59 @@ async function confirmClear(): Promise<void> {
       <p class="hint">
         清空需要二次确认并手动输入“清空”二字；建议先导出备份。导入会覆盖当前数据（覆盖前自动导出当前备份）。
       </p>
+
+      <h3 class="sub-title">导出文本</h3>
+      <p class="hint">
+        生成 Markdown 文本，方便直接交给 AI 分析。<strong>文本导出不会刷新备份提醒</strong>（备份时间与备份导出各管各的）。
+      </p>
+      <div class="segmented">
+        <button
+          class="seg-btn"
+          :class="{ on: textRangeMode === 'last7' }"
+          data-test="text-range-last7"
+          @click="textRangeMode = 'last7'"
+        >
+          最近 7 天
+        </button>
+        <button
+          class="seg-btn"
+          :class="{ on: textRangeMode === 'last30' }"
+          data-test="text-range-last30"
+          @click="textRangeMode = 'last30'"
+        >
+          最近 30 天
+        </button>
+        <button
+          class="seg-btn"
+          :class="{ on: textRangeMode === 'all' }"
+          data-test="text-range-all"
+          @click="textRangeMode = 'all'"
+        >
+          全部
+        </button>
+        <button
+          class="seg-btn"
+          :class="{ on: textRangeMode === 'custom' }"
+          data-test="text-range-custom"
+          @click="textRangeMode = 'custom'"
+        >
+          自定义
+        </button>
+      </div>
+      <div v-if="textRangeMode === 'custom'" class="inline-row">
+        <label class="field">
+          <span>开始日期</span>
+          <input v-model="customStart" type="date" data-test="text-start" />
+        </label>
+        <label class="field">
+          <span>结束日期</span>
+          <input v-model="customEnd" type="date" data-test="text-end" />
+        </label>
+      </div>
+      <p class="hint" data-test="text-export-range">导出区间：{{ textRangeLabel }}</p>
+      <div class="button-row">
+        <button class="primary-btn" data-test="export-text" @click="handleExportText">导出文本</button>
+      </div>
     </div>
 
     <ClearDataModal v-if="clearOpen" :on-confirm="confirmClear" @close="clearOpen = false" />
@@ -259,3 +377,11 @@ async function confirmClear(): Promise<void> {
     </BaseModal>
   </section>
 </template>
+<style scoped>
+/* 卡片内的小标题（数据管理 → 导出文本） */
+.sub-title {
+  margin: 18px 0 6px;
+  font-size: 14px;
+  color: var(--text);
+}
+</style>

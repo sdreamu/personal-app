@@ -119,3 +119,19 @@
 
 覆盖完整性：AC-64 / AC-65 逐条有对应测试，无 skip / only。
 
+## M8 文本导出（AC-66）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-66 | AC-66 文本导出区间文件名与内容且不刷新备份提醒 | e2e/text-export.spec.ts |
+
+补充（组件/单元层）：
+- 文本导出端到端写法：最近 7 天 → 触发一次下载，文件名 `evan-text-YYYYMMDD-YYYYMMDD.md`（区间 = 今天往前 6 天 ~ 今天），内容含 `### 计划`/`AC66计划`、`### 饮食`/`- 早：AC66早餐`、喝水汇总 `- 喝水：1 次，合计 250 ml` —— src/components/settings-form.spec.ts
+- 导出前后 `settings.last_backup_at` 相等（DB 与 store 两层都断言）—— src/components/settings-form.spec.ts、src/db/exportSource.spec.ts（只读：导出不写 settings）
+- 自定义区间控件生效、起止填反自动对调、非法日期抛错 —— src/components/settings-form.spec.ts、src/db/exportSource.spec.ts
+- 「全部」无记录时退回最近 30 天并写进导出区间 —— src/components/settings-form.spec.ts、src/db/exportSource.spec.ts
+- `loadExportSource` 只取 `deleted_at === null` 的行、带上 settings/exercises、不做区间裁剪（区间过滤交给 exportText）—— src/db/exportSource.spec.ts
+- `triggerDownload` 默认 `application/json`（备份沿用）、可传 `text/markdown`、10 秒后 revokeObjectURL —— src/utils/download.spec.ts
+
+覆盖完整性：AC-66 逐条有对应测试，无 skip / only。
+

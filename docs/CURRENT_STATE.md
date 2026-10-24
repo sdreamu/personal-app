@@ -224,7 +224,7 @@ test:e2e   playwright test
 - `datesWithData(year, month)`：只查 plans / study_records / workout_records / play_records / reviews 五张表，`deleted_at !== null` 一律忽略；返回该月 `YYYY-MM-DD` 升序去重。water / meals / excerpts 不参与。
 - 另导出常量 `DATE_STAT_TABLES`（五张表的唯一口径）。
 
-**`src/db/exportText.ts`**（纯函数，把各表整理成 Markdown 文本；**目前只有单测调用，UI 无入口**）
+**`src/db/exportText.ts`**（纯函数，把各表整理成 Markdown 文本；M8 起由设置页「导出文本」调用，见 §14.5）
 - `emptyExportSource(start, end)`
 - `inRange(date, start, end)`
 - `eachDateInRange(start, end)`
@@ -235,8 +235,16 @@ test:e2e   playwright test
 - `summarizeSource(source)`
 - `exportText(source)`
 
+**`src/db/exportSource.ts`**（M8 新增：文本导出的数据装载层，只读，不碰 `settings.last_backup_at`）
+- `loadExportSource(start, end)`：读全部导出用表的有效记录（`deleted_at === null`）+ `settings` + `exercises`，组装 `ExportSource`；**不做区间裁剪**，区间过滤交给 `exportText()` 的 `inRange` / 按天分段（书的「区间内有活动」要看区间外的 `start_date`，裁剪会算错）。
+- `getEarliestRecordDate()`：最早有记录的日期（带 `date` 的 8 张表取最小日期；摘录按 `created_at` 换算本地日期）；一条都没有返回 `null`。
+- `resolveAllRange(earliest, today)`：「全部」区间 = 最早记录日 ~ 今天；无记录退回最近 30 天（`ALL_RANGE_FALLBACK_DAYS`）。
+- `resolveTextRange(preset, today, earliest, custom)`：`last7` / `last30` / `all` / `custom`；自定义日期非法抛错，起止填反自动对调。
+- `textExportFileName(start, end)`：`evan-text-YYYYMMDD-YYYYMMDD.md`。
+- 另导出类型 `TextRangePreset`、`DateRange`。
+
 **`src/db/schema.ts`**：只有类型/常量，无函数。
-**`src/db/index.ts`**：统一出口 `export * from`（schema / util / database / crud / categories / settings / timer / backup）——**注意 `exportText` 未被这个 barrel 导出**。
+**`src/db/index.ts`**：统一出口 `export * from`（schema / util / database / crud / categories / settings / timer / backup）——**`exportText` / `exportSource` 都未加入这个 barrel**，设置页按路径直接导入 `@/db/exportText`、`@/db/exportSource`（与 `dateStats.ts` 的做法一致）。
 
 ### 5.2 业务服务层 `src/stores/`（Pinia store：store id → actions）
 
@@ -396,6 +404,8 @@ test:e2e   playwright test
 **`src/utils/date.ts`**（21 个纯函数）：`pad2`、`parseDayStart`、`dayStartToHHmm`、`parseTime`、`minutesOfDay`、`dateKeyOf`、`logicalDateOf`、`logicalToday`、`timeToOffset`、`offsetToTime`、`parseDateKey`、`formatDateKey`、`addDays`、`weekStart`、`weekdayCN`、`formatDateCN`、`formatDateCNWeekday`、`formatDuration`、`formatDateTimeCN`、`backupTimestamp`、`isBackupReminderDue`。
 
 **`src/utils/image.ts`**（图片压缩成 base64 data URL，**目前只有单测调用**）：`fitWithin`、`createBrowserImageDeps`、`compressImageToDataUrl`。
+
+**`src/utils/download.ts`**（M8 新增）：`triggerDownload(filename, content, mime = 'application/json')` —— 隐藏 `<a download>` 触发下载，`DOWNLOAD_REVOKE_DELAY_MS = 10_000` 后 `revokeObjectURL`。备份（`src/db/backup.ts`，JSON）与文本导出（`text/markdown`）共用这一份实现。
 
 **`src/config/nav.ts`**：`navItems`、`bottomTabs`、`isActivePath`、`isGroupActive`、`isItemActive`。
 
@@ -785,7 +795,7 @@ test:e2e   playwright test
 - `validateBackup(raw)`（`src/db/backup.ts`）依次校验：
   1. 必须是对象（非 null/数组）→ 否则"文件不是有效的备份对象"；
   2. **`app !== "evan-app"` 直接拒绝**（"应用标识不匹配（需要 evan-app）"）；
-  3. **`schema_version` 必须是数字且在 `SUPPORTED_BACKUP_VERSIONS = [1, 2]` 内**（"结构版本不匹配（需要 1 或 2）"）；
+  3. **`schema_version` 必须是数字且在 `SUPPORTED_BACKUP_VERSIONS = [1, 2, 3]` 内**（"结构版本不匹配（需要 1、2 或 3）"；v3 起 books 有 `sort_index`）；
   4. `exported_at` 必须是有限数字；
   5. `tables` 必须是对象；v1 备份允许缺 `exercises`/`mistakes`（视为空表），其余表必须存在且是数组；
   6. 每条记录必须是对象且有字符串 `id`；
@@ -803,6 +813,34 @@ test:e2e   playwright test
 
 ### 14.4 清空
 - `ClearDataModal.vue` 要求手动输入"清空"二字；确认 → `SettingsView.confirmClear()` → `clearAll()`（`wipeAllTables()` 清空 18 表 + `seedFirstRun()` 重新写入默认 settings 与内置分类/餐次）。
+
+### 14.5 文本导出（Markdown，M8）
+
+**入口**：设置页 →「数据管理」卡片里的「导出文本」区块（`data-test="export-text"`）。
+
+- **区间选择**：快捷「最近 7 天」(`text-range-last7`) / 「最近 30 天」(`text-range-last30`) / 「全部」(`text-range-all`)，以及「自定义」(`text-range-custom`) 下的两个原生 `type="date"` 输入（`text-start` / `text-end`）。
+  - 「最近 7 天」= 今天往前 6 天 ~ 今天（含首尾，共 7 天）；「最近 30 天」同理共 30 天。
+  - 「全部」= `getEarliestRecordDate()`（最早有记录的日期）~ 今天；**一条记录都没有时退回最近 30 天**，并把这个区间原样写进导出文本与文件名。
+  - 起止日期填反了自动对调；日期非法则 toast「请选择有效的起止日期」，不产生下载。
+- **今天**一律用 `logicalToday(settingsStore.dayStartMin)`（遵守 04:00 之类的「一天起点」）。
+- **文件**：`triggerDownload(filename, exportText(source), 'text/markdown')`，文件名 `evan-text-YYYYMMDD-YYYYMMDD.md`（起止日期去横线）。
+- **内容**：完全复用 `src/db/exportText.ts` 的 `exportText()`（本阶段没有重写任何 Markdown 生成逻辑），数据由 `src/db/exportSource.ts` 的 `loadExportSource(start, end)` 装进 `ExportSource`。
+- **绝不刷新备份提醒**：整条链路不调用 `setLastBackupAt()`、不写 `settings.last_backup_at`；页面上有一句「文本导出不会刷新备份提醒」的说明。AC-66 用「导出前后 `last_backup_at` 相等」守住这一点。
+- **备份未受影响**：`src/db/backup.ts` 的 `triggerDownload` 提取到 `src/utils/download.ts` 后，备份仍然传 `application/json`、仍然 10 秒后 revoke、文件名规则（`backupFileName`）不变；AC-05 / AC-06 / AC-07 / AC-09 等既有 e2e 全绿。
+
+### 14.6 M8 交付记录：文本导出（2026-10-25）
+
+| 改动 | 文件 |
+|---|---|
+| 新增数据装载层（只读，区间预设 / 文件名纯函数） | `src/db/exportSource.ts` + `src/db/exportSource.spec.ts`（11 用例） |
+| 下载函数提取（支持 mime，备份路径行为不变） | `src/utils/download.ts` + `src/utils/download.spec.ts`（2 用例） |
+| 备份改为复用提取出的 `triggerDownload` | `src/db/backup.ts`（`downloadBackup()` 的调用顺序、mime、文件名均未变） |
+| 设置页「数据管理」新增「导出文本」区块 | `src/views/SettingsView.vue`（预设按钮 / 自定义日期 / 区间回显 / 按钮 + 说明文案） |
+| UI 测试 | `src/components/settings-form.spec.ts`（+3 用例：最近 7 天文件名与内容且 `last_backup_at` 不变 / 自定义区间填反自动对调 / 全部无记录退回 30 天） |
+| e2e | `e2e/text-export.spec.ts`（AC-66，1 条） |
+| 文档 | `e2e/AC-MATRIX.md`（追加 AC-66）、本文件 |
+
+没有改表结构：`DB_VERSION` / `SCHEMA_VERSION` / 备份版本一律未动；零新依赖。
 
 ---
 
@@ -823,36 +861,37 @@ test:e2e   playwright test
 
 ## 16. 测试
 
-### 16.1 单元/组件测试文件（52 个，`src/**/*.spec.ts`，Vitest）
+### 16.1 单元/组件测试文件（54 个，`src/**/*.spec.ts`，Vitest）
 
 `src/components/`（25）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`exercise-library.spec.ts`（M5）、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`month-calendar.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`top-bar.spec.ts`、`water-tracker.spec.ts`
 
-`src/db/`（5）：`db.spec.ts`、`migration.spec.ts`、`backup-v2.spec.ts`、`exportText.spec.ts`、`dateStats.spec.ts`
+`src/db/`（6）：`db.spec.ts`、`migration.spec.ts`、`backup-v2.spec.ts`、`exportText.spec.ts`、`exportSource.spec.ts`（M8）、`dateStats.spec.ts`
 
 `src/router/`（1）：`router.spec.ts`
 
 `src/stores/`（8）：`diet.spec.ts`、`home.spec.ts`、`library.spec.ts`、`plan.spec.ts`、`play.spec.ts`、`review.spec.ts`、`timer.spec.ts`、`workout.spec.ts`
 
-`src/utils/`（4）：`date.spec.ts`、`image.spec.ts`、`calendar.spec.ts`、`dragSort.spec.ts`（M4）
+`src/utils/`（5）：`date.spec.ts`、`image.spec.ts`、`calendar.spec.ts`、`dragSort.spec.ts`（M4）、`download.spec.ts`（M8）
 
 `src/views/`（8）：`life-play-view.spec.ts`、`life-workout-view.spec.ts`、`plan-view.spec.ts`、`review-view.spec.ts`、`study-book-detail-view.spec.ts`、`study-books-view.spec.ts`、`study-subjects-view.spec.ts`、`study-timer-view.spec.ts`
 
 `src/test/`（1）：`start-app-script.spec.ts`（校验 `start-app.bat` 的 CRLF 行尾与运行时回退）
 
 ### 16.2 端到端测试（Playwright，`e2e/`）
-`books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 逐条对应）。
+`books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`text-export.spec.ts`（M8）、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 + M8 的 AC-66 逐条对应）。
 
-### 16.3 运行命令与当前结果（M5 交付后实跑，2026-10-25）
+### 16.3 运行命令与当前结果（M8 交付后实跑，2026-10-25）
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **全部通过：52 文件 / 448 用例，0 failed** | M5 新增 14 个用例（`workout.spec.ts` 22→31 的 9 条、`exercise-library.spec.ts` 3 条、`life-workout-view.spec.ts` 8→10 的 2 条）；基线为 M4 的 51 文件 / 434 用例 |
-| `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | 上一版盘点里的 7 个 TS 错误已在基线 v1.0 收尾修复 |
+| `pnpm run test`（`vitest run`） | **全部通过：54 文件 / 464 用例，0 failed** | M8 新增 16 个用例（`exportSource.spec.ts` 11 条、`download.spec.ts` 2 条、`settings-form.spec.ts` 3→6 的 3 条）；基线为 M5 的 52 文件 / 448 用例 |
+| `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | M8 改动后重跑 |
+| `e2e/text-export.spec.ts`（Playwright） | **1 passed（7.3s）** | AC-66：最近 7 天 → 一次下载，文件名 `evan-text-YYYYMMDD-YYYYMMDD.md`（区间 = 今天往前 6 天 ~ 今天），内容断言 `### 计划`/`AC66计划`、`### 饮食`/`- 早：AC66早餐`、汇总与当天段落的喝水行；导出前后 `settings.last_backup_at`（固定值 1700000000000）相等 |
 | `e2e/workout-library.spec.ts`（Playwright） | **2 passed（11.6s）** | AC-64 / AC-65 逐条覆盖（项目库自动维护/最近使用排序/点选加入与幂等；备注写入/刷新保留/清空存 null/不影响组数与默认用时） |
 | `e2e/play-countdown.spec.ts`（Playwright） | **6 passed（18.6s）** | AC-60 / AC-61 逐条覆盖（名称必填、快捷 30 分钟、自定义 25 分钟与非法值、按剩余额度、到点超时封顶、再来一轮不自动开始） |
 | `e2e/life.spec.ts`（Playwright） | **7 passed** | AC-40 ~ AC-46 回归（含 AC-46 娱乐超额变红） |
 | `e2e/study.spec.ts`（Playwright） | **11 passed** | AC-04 / AC-31 ~ AC-39 + AC-39辅助 回归（含 AC-39 倒计时到点提示与再来一轮） |
-| `pnpm run test:e2e`（全量） | **70 passed / 0 failed（2.8m）** | AC-01~AC-65 全绿（M4 的 68 条 + M5 新增 AC-64 / AC-65 两条）；AC-43~AC-46 等健身既有用例未改动仍通过。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑 |
+| `pnpm run test:e2e`（全量） | **71 passed / 0 failed（2.9m）** | AC-01~AC-66 全绿（M5 的 70 条 + M8 新增 AC-66）；备份相关的 AC-05 / AC-06 / AC-07 / AC-09 未改动仍通过（回归 `triggerDownload` 提取）。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑 |
 
 补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 
@@ -874,12 +913,12 @@ test:e2e   playwright test
 3. ~~**"训练项目库"（`exercises` 表）没有接进任何 UI**~~ **已在 M5 解决**：`addExercise`/`renameExercise`/`saveTemplate` 自动 upsert 到 `exercises`，健身页当天编辑区新增「项目库」区块（`ExerciseLibrary.vue`，最近使用优先排序，点一下加入当天训练）；动作补全仍来自历史记录（`workoutStore.exerciseNames`）。做法详见 §11.4。
 4. **"错题本"（`mistakes` 表）没有页面/入口**：schema、图片压缩工具（`src/utils/image.ts`）、文本导出（`src/db/exportText.ts`）都写好了，但路由、视图、store 全缺。
 5. **复盘 `record_worthy` / `day_summary` 没有输入 UI**：`ReviewView.vue` 只有三栏文字，`reviewStore.ReviewPatch` 也把这两个字段排除在外；它们只出现在 schema、备份补默认值、文本导出里。
-6. **文本导出（Markdown）没有入口**：`exportText()` 只有单测调用，`src/db/index.ts` 也没导出它。
+6. ~~**文本导出（Markdown）没有入口**~~ **已在 M8 解决**：设置页「数据管理」新增「导出文本」区块（最近 7 天 / 最近 30 天 / 全部 / 自定义起止日期 → 下载 `evan-text-YYYYMMDD-YYYYMMDD.md`），内容复用 `exportText()`，数据由 `src/db/exportSource.ts` 装载；导出不刷新备份时间。做法详见 §14.5 / §14.6，e2e AC-66。注：`exportText` / `exportSource` 仍不在 `src/db/index.ts` 的 barrel 里，设置页按路径直接导入（与 `dateStats.ts` 一致）。
 7. **首页"学习"卡片的"开始计时"只是跳转**：`HomeCards.vue` 的按钮 `router.push("/study/timer")`，不会带着对象直接开始计时（PRD §3.2 把它列在"可直接操作"列）。
 
 ### 17.3 与 PRD 描述不一致的地方
-1. **备份 `schema_version`**：PRD §7.2 写的是 `schema_version: 1`；代码是 `SCHEMA_VERSION = 2`（`src/db/schema.ts`）。导入端已兼容 1 和 2。
-2. **表数量**：PRD 数据结构是 16 张表；代码 `TABLE_NAMES` 是 18 张（多了 `exercises`、`mistakes`），`DECISIONS.md` 也还写着 16 张。
+1. **备份 `schema_version`**：PRD §7.2 写的是 `schema_version: 1`；代码是 `SCHEMA_VERSION = 3`（`src/db/schema.ts`）。导入端已兼容 1、2、3。
+2. **表数量**：PRD 数据结构是 16 张表；代码 `TABLE_NAMES` 是 18 张（多了 `exercises`、`mistakes`），`DECISIONS.md` 已于 2026-10-24 校准为 18 张。
 3. **快捷键多于三个**：PRD §2.4 说"仅三个 N / Space / Esc"；代码另有 `ArrowLeft` / `ArrowRight` 切换日期、`T` / `Home` 回到今天（`src/components/TopBar.vue` 的 `onKeydown`），以及日期跳转弹窗（`DateJumpPopover.vue`）。
 4. **暂停时长单位**：PRD §5.4 写"累计暂停时长（**秒**）"；代码字段是 `active_timer.paused_total_ms`（**毫秒**）。
 5. **"已复盘"判定两套口径**：首页 `homeStore.load()` 用 `reviews.length > 0`；复盘页 `hasReviewContent()` 要求有实际内容。点过评分又取消会留下全空行 → 首页认为已复盘、复盘页仍显示未填写（见 §12.2）。

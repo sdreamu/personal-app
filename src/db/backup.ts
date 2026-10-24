@@ -21,6 +21,7 @@ import {
 } from './schema';
 import { errorMessage, nowMs } from './util';
 import { setLastBackupAt } from './settings';
+import { triggerDownload } from '@/utils/download';
 
 export function backupFileName(exportedAtMs: number): string {
   return `evan-backup-${backupTimestamp(exportedAtMs)}.json`;
@@ -52,18 +53,7 @@ export async function downloadBackup(): Promise<{ backup: BackupFile; filename: 
   return { backup, filename };
 }
 
-function triggerDownload(filename: string, content: string): void {
-  const blob = new Blob([content], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = 'none';
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-}
+/* triggerDownload 已提取到 @/utils/download（与文本导出共用）；备份仍传 application/json，行为不变。 */
 
 export type BackupValidation = { ok: true; backup: BackupFile } | { ok: false; reason: string };
 
