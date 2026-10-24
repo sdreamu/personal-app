@@ -68,6 +68,38 @@ describe('设置页', () => {
     expect(useSettingsStore().dayStartMin).toBe(300);
   });
 
+  it('外观三选一：浅色 / 深色 / 跟随系统，选中态与持久化正确', async () => {
+    const wrapper = mount(SettingsView, { global: { plugins: [pinia] } });
+    await flushPromises();
+
+    // 三个按钮都在（原有 light/dark 的 data-test 保留，新增 system），默认选中浅色
+    expect(wrapper.find('button[data-test="theme-light"]').exists()).toBe(true);
+    expect(wrapper.find('button[data-test="theme-dark"]').exists()).toBe(true);
+    expect(wrapper.find('button[data-test="theme-system"]').exists()).toBe(true);
+    expect(wrapper.find('button[data-test="theme-light"]').text()).toBe('浅色');
+    expect(wrapper.find('button[data-test="theme-dark"]').text()).toBe('深色');
+    expect(wrapper.find('button[data-test="theme-system"]').text()).toBe('跟随系统');
+    expect(wrapper.find('button[data-test="theme-light"]').classes()).toContain('on');
+
+    // 选「跟随系统」→ 持久化 system，选中态跟着走
+    await wrapper.find('button[data-test="theme-system"]').trigger('click');
+    await waitFor(async () => (await getSettings()).theme === 'system');
+    await waitFor(() => useSettingsStore().theme === 'system'); // 等 store 完成写库后的状态更新
+    expect(useSettingsStore().theme).toBe('system');
+    await flushPromises();
+    expect(wrapper.find('button[data-test="theme-system"]').classes()).toContain('on');
+    expect(wrapper.find('button[data-test="theme-light"]').classes()).not.toContain('on');
+
+    // 再手选「深色」→ 覆盖 system
+    await wrapper.find('button[data-test="theme-dark"]').trigger('click');
+    await waitFor(async () => (await getSettings()).theme === 'dark');
+    await waitFor(() => useSettingsStore().theme === 'dark');
+    await waitFor(() => document.documentElement.dataset['theme'] === 'dark');
+    expect(useSettingsStore().theme).toBe('dark');
+    expect(document.documentElement.dataset['theme']).toBe('dark');
+    wrapper.unmount();
+  });
+
   it('切换深色模式即时生效并持久化', async () => {
     const wrapper = mount(SettingsView, { global: { plugins: [pinia] } });
     await flushPromises();

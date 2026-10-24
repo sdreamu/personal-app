@@ -129,7 +129,7 @@ test:e2e   playwright test
 
 | # | 表名 | 索引声明 | 字段（不含通用字段） |
 |---|---|---|---|
-| 1 | `settings` | `key` | `key:"app"`、`daily_study_min`、`daily_water_ml`、`cup_ml`、`daily_play_min`、`day_start`（"HH:mm"）、`theme`("light"/"dark")、`last_backup_at`(ms\|null) |
+| 1 | `settings` | `key` | `key:"app"`、`daily_study_min`、`daily_water_ml`、`cup_ml`、`daily_play_min`、`day_start`（"HH:mm"）、`theme`("light"/"dark"/"system"，第二轮 UI 第 2 步扩成三选一；读取端 `normalizeTheme` 把未知值兜底 `light`)、`last_backup_at`(ms\|null) |
 | 2 | `plan_categories` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("study"/"life"/"other"\|null) |
 | 3 | `meal_types` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("breakfast"/"lunch"/"dinner"/"snack"\|null) |
 | 4 | `workout_types` | `id, deleted_at` | `name` |
@@ -254,10 +254,11 @@ test:e2e   playwright test
 - `nextDay()`
 - `goToday()`
 
-**`src/stores/settings.ts`**（id `settings`；另导出 `applyTheme(theme)`）
-- `load()`
+**`src/stores/settings.ts`**（id `settings`；另导出 `THEME_MODES`、`DARK_SCHEME_QUERY`、`normalizeTheme(value)`、`resolveTheme(mode, prefersDark)`、`prefersDarkScheme()`、`refreshSystemPrefersDark()`、`systemPrefersDark`（响应式 ref）、`applyTheme(mode)`、`startSystemThemeWatch(getMode)`、`stopSystemThemeWatch()`）
+- getters：`theme`（归一化后的 ThemeMode）、`resolvedTheme`（解析后的 light/dark）、`isDark`、`dayStartMin`、`lastBackupAt`
+- `load()`（applyTheme + 注册系统主题监听，重复调用不叠加）
 - `update(patch)`
-- `setTheme(theme)`
+- `setTheme(theme: ThemeMode)`
 
 **`src/stores/saveStatus.ts`**（id `save-status`）
 - `begin()` / `idle()` / `fail()`
@@ -850,10 +851,12 @@ test:e2e   playwright test
   - 全局：`src/assets/main.css`（557 行，布局/顶栏/侧栏/弹窗/toast/表格/按钮/移动底部导航等公共类）。
   - 组件内：每个 `.vue` 的 `<style scoped>`（样式与模板同文件）。
 - **CSS 变量：有，且是主要的主题机制。** `:root` 定义 `--bg`、`--panel`、`--panel-2`、`--text`、`--muted`、`--border`、`--accent`、`--accent-soft`、`--danger`、`--danger-soft`、`--success`、`--success-soft`、`--warning`、`--warning-soft`、`--shadow`、`--shadow-up`、`--radius`、`--on-accent`、`--overlay`、`--nav-active-bar/bg/text`、`--bottom-nav-bg`、`--bottom-nav-h`、`--touch`；`[data-theme="dark"]` 覆盖同名变量。第二轮 UI 改造新增 UI_GUIDE 命名令牌作既有变量别名：`--surface`(=--panel)、`--surface-2`(=--panel-2)、`--ink`(=--text)、`--line`(=--border)、`--accent-ink`(=--on-accent)、`--good`(=--success)、`--warn`(=--warning)、`--warn-soft`(=--warning-soft)，以及首页问候大块专用 `--hero-bg`/`--hero-ink`/`--hero-sub`（深色在 `[data-theme="dark"]` 覆盖）；圆角拆三档 `--radius`(10px 列表行)/`--radius-card`(16px 卡片)/`--radius-pill`(999px 按钮胶囊)。
-- **深浅色切换**：
-  - 变量作用在 `<html data-theme="light|dark">`（`index.html` 初始 `data-theme="light"`）。
-  - 设置页"外观"两个按钮 → `SettingsView.setTheme()` → `settingsStore.update({ theme })`；`src/stores/settings.ts` 的 `applyTheme(theme)` 设 `document.documentElement.dataset.theme = theme`，`load()` / `update()` 后都会调用。
-  - 主题值持久化在 `settings.theme`（数据库），刷新后由 `settings.load()` 重新应用（e2e AC-51 覆盖）。
+- **深浅色切换**（第二轮 UI 第 2 步起是三选一：浅色 / 深色 / 跟随系统）：
+  - 变量作用在 `<html data-theme="light|dark">`（`index.html` 初始 `data-theme="light"`）；**data-theme 的取值域始终只有 light/dark**，`[data-theme='dark']` 规则继续成立。
+  - 设置页"外观"三个分段按钮（`theme-light` / `theme-dark` / `theme-system`）→ `SettingsView.setTheme(ThemeMode)` → `settingsStore.update({ theme })`；`src/stores/settings.ts` 的 `applyTheme(mode)` 先用 `resolveTheme(mode, prefersDarkScheme())` 解析，再把**解析后的** light/dark 写到 `document.documentElement.dataset.theme`，`load()` / `update()` 后都会调用。
+  - `ThemeMode = 'light' | 'dark' | 'system'` 唯一定义在 `src/db/schema.ts`（store 与设置页共用）；`DEFAULT_SETTINGS_VALUES.theme` 仍是 `'light'`（默认观感不变）。
+  - 跟随系统：`startSystemThemeWatch()` 用 `window.matchMedia('(prefers-color-scheme: dark)')` 注册监听，**只注册一次**（重复 `load()` 复用同一个监听器），系统切换深浅色立即生效；`stopSystemThemeWatch()` 可注销（测试清理用）。系统偏好本身用响应式 `systemPrefersDark` ref 供 `resolvedTheme`/`isDark` 派生。
+  - 主题值持久化在 `settings.theme`（数据库），刷新后由 `settings.load()` 重新应用（e2e AC-51 / AC-68 覆盖）。
 - 响应式：`main.css` 两条媒体查询（`max-width: 768px` 显示底部导航/隐藏侧栏、`769~1023px` 侧栏收窄），个别页面另有 `@media (max-width: 860px)`（`PlanView` 两栏改单栏）。
 - 字体：正文用 UI_GUIDE §3 中文栈（`"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif`），**不引入 Outfit / 任何外部字体或 CDN**；数字对齐统一靠 `font-variant-numeric: tabular-nums`（时钟、时间轴、计时）。
 
@@ -867,11 +870,22 @@ test:e2e   playwright test
 - **守护测试**：新增 `src/assets/styleTokens.spec.ts`（9 条）：断言 `:root`/`[data-theme='dark']` 关键令牌取值等于 UI_GUIDE（别名递归解析）、圆角三档、扫描 `src/**/*.vue` 不含 `#hex`/`rgb(`/`hsl(`。
 - **实跑**：typecheck 0 错；`run test` 55 文件 / 473 用例全绿（基线 54/464，+9）；全量 e2e 71 passed / 0 failed。
 
+### 15.2 第二轮 UI 改造 · 第 2 步交付记录：跟随系统主题（2026-10-26）
+
+- **依据**：本步任务书（用户已拍板三选一）+ `docs/UI_GUIDE.md` §1.2「浅色、深色两套都要做，设置里选"跟随系统"时用 prefers-color-scheme」。
+- **`src/db/schema.ts`**：新增 `export type ThemeMode = 'light' | 'dark' | 'system'`（**唯一类型定义**，store 与设置页复用）；`SettingsRecord.theme` 由 `'light' | 'dark'` 改为 `ThemeMode`；`DEFAULT_SETTINGS_VALUES.theme` **仍是 `'light'`**（默认观感不变）。`DB_VERSION` / `SCHEMA_VERSION` / 备份版本一律不动（旧备份的 light/dark 仍合法）。
+- **`src/stores/settings.ts`**：新增纯函数 `resolveTheme(mode, prefersDark)`（system 跟随 prefersDark）、`normalizeTheme(value)`（未知值兜底 `'light'`）、`applyTheme(mode)`（解析后把 light/dark 写 `document.documentElement.dataset.theme`，返回解析结果）、`prefersDarkScheme()`、`refreshSystemPrefersDark()` + 响应式 `systemPrefersDark`、`startSystemThemeWatch(getMode)` / `stopSystemThemeWatch()`（**幂等：重复调用只保留一个监听器**，返回 unsubscribe）。store getters 改为 `theme`（归一化）/ `resolvedTheme` / `isDark`；`load()` 内部 `applyTheme` + 注册监听；`setTheme` 接受 `ThemeMode`。
+- **`src/views/SettingsView.vue`**：外观从二选一扩成三选一，新增 `data-test="theme-system"` 按钮（`theme-light`/`theme-dark` 的 data-test 与 `.seg-btn.on` 选中态沿用），文案「浅色 / 深色 / 跟随系统」。
+- **`index.html`**：`<meta name="theme-color">` 由 `#4a6cf7` 改为 `#2A4BD7`（与 UI_GUIDE 的 `--accent` 一致）。
+- **`src/main.ts`**：仅补注释（`settings.load()` 已负责 applyTheme 与注册监听，这里再兜一次底），无行为改动。
+- **新增测试**：`src/stores/settings.spec.ts`（16 条：resolveTheme 三分支 / normalizeTheme 未知值 / applyTheme('system') 深·浅 / 无 matchMedia 环境 / 监听器只注册一次且只应用一次 / stop 后失效 / load 重复只注册一次 / 非 system 模式不被系统覆盖 / 默认仍 light / 库内未知值兜底）；`src/components/settings-form.spec.ts` +1（三选一控件与选中态）；`e2e/theme.spec.ts` 新增 2 条（AC-68 主用例 + theme-color 断言）。
+- **实跑**：typecheck 0 错；`run test` **56 文件 / 490 用例全绿**（基线 55/473，+1 文件 17 用例）；全量 e2e **73 passed / 0 failed**（基线 71，+2），含 AC-51 深色模式刷新保持回归。
+
 ---
 
 ## 16. 测试
 
-### 16.1 单元/组件测试文件（55 个，`src/**/*.spec.ts`，Vitest）
+### 16.1 单元/组件测试文件（56 个，`src/**/*.spec.ts`，Vitest）
 
 `src/components/`（25）：`bottom-nav.spec.ts`、`category-manager.spec.ts`、`clear-confirm.spec.ts`、`date-jump-popover.spec.ts`、`date-switch.spec.ts`、`exercise-library.spec.ts`（M5）、`home-cards.spec.ts`、`home-hero.spec.ts`、`home-hint-bar.spec.ts`、`home-tiles.spec.ts`、`meal-section.spec.ts`、`modal.spec.ts`、`month-calendar.spec.ts`、`nav.spec.ts`、`plan-form-modal.spec.ts`、`plan-timeline.spec.ts`、`play-record-list.spec.ts`、`play-timer-panel.spec.ts`、`review-components.spec.ts`、`settings-form.spec.ts`、`settlement-modal.spec.ts`、`timer-capsule-flow.spec.ts`、`timer-capsule.spec.ts`、`top-bar.spec.ts`、`water-tracker.spec.ts`
 
@@ -879,7 +893,7 @@ test:e2e   playwright test
 
 `src/router/`（1）：`router.spec.ts`
 
-`src/stores/`（8）：`diet.spec.ts`、`home.spec.ts`、`library.spec.ts`、`plan.spec.ts`、`play.spec.ts`、`review.spec.ts`、`timer.spec.ts`、`workout.spec.ts`
+`src/stores/`（9）：`diet.spec.ts`、`home.spec.ts`、`library.spec.ts`、`plan.spec.ts`、`play.spec.ts`、`review.spec.ts`、`settings.spec.ts`（第二轮 UI 第 2 步·主题解析/系统监听）、`timer.spec.ts`、`workout.spec.ts`
 
 `src/utils/`（5）：`date.spec.ts`、`image.spec.ts`、`calendar.spec.ts`、`dragSort.spec.ts`（M4）、`download.spec.ts`（M8）
 
@@ -890,7 +904,7 @@ test:e2e   playwright test
 `src/assets/`（1）：`styleTokens.spec.ts`（第二轮 UI 第 1 步·样式令牌守护：颜色/圆角取值对齐 `docs/UI_GUIDE.md` + 扫描 `.vue` 无硬编码颜色）
 
 ### 16.2 端到端测试（Playwright，`e2e/`）
-`books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`text-export.spec.ts`（M8）、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 + M8 的 AC-66 逐条对应）。
+`books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`text-export.spec.ts`（M8）、`theme.spec.ts`（第二轮 UI 第 2 步·AC-68）、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 + M8 的 AC-66 + 第二轮 UI 第 1 步的 AC-67 + 第二轮 UI 第 2 步的 AC-68 逐条对应）。
 
 ### 16.3 运行命令与当前结果（M8 交付后实跑，2026-10-25）
 
@@ -903,7 +917,8 @@ test:e2e   playwright test
 | `e2e/play-countdown.spec.ts`（Playwright） | **6 passed（18.6s）** | AC-60 / AC-61 逐条覆盖（名称必填、快捷 30 分钟、自定义 25 分钟与非法值、按剩余额度、到点超时封顶、再来一轮不自动开始） |
 | `e2e/life.spec.ts`（Playwright） | **7 passed** | AC-40 ~ AC-46 回归（含 AC-46 娱乐超额变红） |
 | `e2e/study.spec.ts`（Playwright） | **11 passed** | AC-04 / AC-31 ~ AC-39 + AC-39辅助 回归（含 AC-39 倒计时到点提示与再来一轮） |
-| `pnpm run test:e2e`（全量） | **71 passed / 0 failed（2.9m）** | AC-01~AC-66 全绿（M5 的 70 条 + M8 新增 AC-66）；备份相关的 AC-05 / AC-06 / AC-07 / AC-09 未改动仍通过（回归 `triggerDownload` 提取）。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑。第二轮 UI 改造·第 1 步（样式令牌对齐）后重跑：全量 e2e 仍 **71 passed / 0 failed（3.0m）**，含 AC-51 深色模式刷新保持 |
+| `pnpm run test:e2e`（全量） | **71 passed / 0 failed（2.9m）** | AC-01~AC-66 全绿（M5 的 70 条 + M8 新增 AC-66）；备份相关的 AC-05 / AC-06 / AC-07 / AC-09 未改动仍通过（回归 `triggerDownload` 提取）。注：与另一进程并发跑 Playwright 会共用 `test-results/` 导致 trace `ENOENT` 假失败，需独占跑。第二轮 UI 改造·第 1 步（样式令牌对齐）后重跑：全量 e2e 仍 **71 passed / 0 failed（3.0m）**，含 AC-51 深色模式刷新保持
+| 第二轮 UI 第 2 步（跟随系统主题）后实跑 | `run test` **56 文件 / 490 用例全绿（0 failed）**；`run typecheck` **0 错**；全量 e2e **73 passed / 0 failed（3.0m）** | 新增 `src/stores/settings.spec.ts`（16 条）与 `src/components/settings-form.spec.ts` +1、`e2e/theme.spec.ts` +2（AC-68）；AC-51 深色模式刷新保持未改动仍通过 |
 
 补充：`pnpm run test` 全量并行时 `src/views/study-book-detail-view.spec.ts > 摘录：增删改可用…` 曾偶发失败一次（`Cannot call trigger on an empty DOMWrapper`），单独重跑通过 → 该用例在并行全量跑时**偶发不稳定**（基线已存在，与 M2 无关）。
 

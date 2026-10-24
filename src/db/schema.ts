@@ -23,6 +23,15 @@ export interface BaseFields {
   deleted_at: number | null;
 }
 
+/**
+ * 主题模式（唯一类型定义，store 与设置页共用）：
+ * - 'light' / 'dark'：用户手选，固定不随系统变；
+ * - 'system'：跟随系统 prefers-color-scheme，系统切换时立即生效。
+ * 注意：'system' 只是「取值域扩大」，DB_VERSION / SCHEMA_VERSION / 备份版本都不变，
+ * 旧备份里的 'light'/'dark' 仍然合法；读取端遇到未知值兜底为 'light'（见 normalizeTheme）。
+ */
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export type PlanBuiltinKey = 'study' | 'life' | 'other';
 export type MealBuiltinKey = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
@@ -34,7 +43,7 @@ export interface SettingsRecord extends BaseFields {
   cup_ml: number;
   daily_play_min: number;
   day_start: string;
-  theme: 'light' | 'dark';
+  theme: ThemeMode;
   last_backup_at: number | null;
 }
 

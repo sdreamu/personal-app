@@ -147,3 +147,20 @@
 
 覆盖完整性：AC-67 有对应测试（src/assets/styleTokens.spec.ts 共 9 条断言），无 skip / only。
 
+## 第二轮 UI 改造 · 第 2 步 跟随系统主题（AC-68）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-68 | AC-68 跟随系统主题：三选一、系统切换即时生效、手选不被系统覆盖、刷新保持 | e2e/theme.spec.ts |
+| AC-68 | AC-68 theme-color 与 UI_GUIDE 主色一致 | e2e/theme.spec.ts |
+
+补充（单元/组件层）：
+- `resolveTheme(mode, prefersDark)` 三分支：light→light（系统深/浅都一样）、dark→dark、system→跟随 prefersDark —— src/stores/settings.spec.ts
+- `applyTheme('system')` 在 matchMedia 深色下写 `data-theme='dark'`、浅色下写 `'light'`；显式 light/dark 不受系统偏好影响；未知模式写入的值仍是 light —— src/stores/settings.spec.ts
+- **监听器只注册一次**：连续 3 次 `startSystemThemeWatch()`（等价于重复 load）后假 MediaQueryList 上只有 **1 个** 监听器；模拟系统变化时统计的「应用次数」恰好 +1 —— src/stores/settings.spec.ts；`store.load()` 连跑两次后同样只有 1 个监听器，且 system 模式下来回切系统偏好 data-theme 立刻 dark↔light —— src/stores/settings.spec.ts
+- `stopSystemThemeWatch()` 注销后监听器清空、系统变化不再应用 —— src/stores/settings.spec.ts
+- **未知主题值兜底**：`normalizeTheme('sepia' | '' | null | undefined | 1) === 'light'`；库里写入未知值后 `settings.theme === 'light'`、`resolvedTheme === 'light'`、`isDark === false`、`data-theme === 'light'`（导入口带进来的未知值走同一条读取路径）—— src/stores/settings.spec.ts
+- 设置页三选一：`theme-light`/`theme-dark`（保留）+`theme-system`（新增），文案「浅色 / 深色 / 跟随系统」，选中态 `.seg-btn.on`，点击持久化 system / 覆盖回 dark —— src/components/settings-form.spec.ts
+
+覆盖完整性：AC-68 逐条有对应测试（e2e 2 条 + 单测 16 条 + 组件 1 条），无 skip / only；AC-51 既有断言未改动仍通过。
+

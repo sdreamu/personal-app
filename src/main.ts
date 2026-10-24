@@ -23,6 +23,8 @@ async function bootstrap(): Promise<void> {
   } catch (err) {
     console.error('设置加载失败', err);
   }
+  // 主题：settings.load() 内部已 applyTheme 并注册系统主题监听（只注册一次）；这里再兜一次底，
+  // 保证即使 load 抛错也把 data-theme 落到 light/dark（'system' 按系统偏好解析）。
   applyTheme(settings.theme);
   const dateStore = useDateStore(pinia);
   if (!dateStore.persisted) dateStore.goToday();

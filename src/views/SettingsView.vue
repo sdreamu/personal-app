@@ -21,6 +21,7 @@ import {
 import BaseModal from '@/components/BaseModal.vue';
 import CategoryManager from '@/components/CategoryManager.vue';
 import ClearDataModal from '@/components/ClearDataModal.vue';
+import type { ThemeMode } from '@/db';
 import { useSaveStatusStore } from '@/stores/saveStatus';
 import { useSettingsStore } from '@/stores/settings';
 import { useToastStore } from '@/stores/toast';
@@ -82,9 +83,9 @@ watch([dayStartHour, dayStartMinute], () => {
   void settings.update({ day_start: dayStart.value }).catch(() => undefined);
 });
 
-/* ---------- 外观 ---------- */
+/* ---------- 外观（浅色 / 深色 / 跟随系统） ---------- */
 const theme = computed(() => settings.theme);
-function setTheme(next: 'light' | 'dark'): void {
+function setTheme(next: ThemeMode): void {
   if (next !== theme.value) void settings.update({ theme: next }).catch(() => undefined);
 }
 
@@ -282,6 +283,14 @@ async function confirmClear(): Promise<void> {
         </button>
         <button class="seg-btn" :class="{ on: theme === 'dark' }" data-test="theme-dark" @click="setTheme('dark')">
           深色
+        </button>
+        <button
+          class="seg-btn"
+          :class="{ on: theme === 'system' }"
+          data-test="theme-system"
+          @click="setTheme('system')"
+        >
+          跟随系统
         </button>
       </div>
     </div>
