@@ -5,6 +5,7 @@ import BaseModal from '@/components/BaseModal.vue';
 import BookCard from '@/components/BookCard.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { useLibraryStore, type BookInput, type BookStatus } from '@/stores/library';
+import { sortColumn } from '@/utils/dragSort';
 import type { Book } from '@/db';
 
 const router = useRouter();
@@ -14,9 +15,9 @@ const formOpen = ref(false);
 const editingId = ref<string | null>(null);
 const form = reactive({ title: '', author: '', totalPages: 300, status: 'want' as BookStatus });
 
-const wantBooks = computed(() => library.books.filter((book) => book.status === 'want'));
-const readingBooks = computed(() => library.books.filter((book) => book.status === 'reading'));
-const doneBooks = computed(() => library.books.filter((book) => book.status === 'done'));
+const wantBooks = computed(() => sortColumn(library.books.filter((book) => book.status === 'want')));
+const readingBooks = computed(() => sortColumn(library.books.filter((book) => book.status === 'reading')));
+const doneBooks = computed(() => sortColumn(library.books.filter((book) => book.status === 'done')));
 
 const columns = computed(() => [
   { key: 'want' as const, label: '想读', books: wantBooks.value },
@@ -72,6 +73,36 @@ function changeStatus(book: Book, status: BookStatus): void {
 function openDetail(book: Book): void {
   void router.push(`/study/books/${book.id}`);
 }
+
+// ---------- 拖动排序（原生 HTML5 DnD，零依赖） ----------
+const dragId = ref<string | null>(null);
+
+function onCardDragStart(book: Book): void {
+  dragId.value = book.id;
+}
+
+function onDragEnd(): void {
+  dragId.value = null;
+}
+
+/**
+ * 落到某栏：targetBookId 为落点卡片（插到它之前），null 表示落到栏尾/空白区（追加到列尾）。
+ * 计算 toIndex 时先排除被拖动的书，得到「目标列移除被拖动书之后」的下标，交给 library.moveBook。
+ */
+function dropInto(targetStatus: BookStatus, targetBookId: string | null): void {
+  const id = dragId.value;
+  if (id === null || targetBookId === id) return;
+  const column = columns.value.find((col) => col.key === targetStatus);
+  if (!column) return;
+  const without = column.books.filter((book) => book.id !== id);
+  let index = without.length;
+  if (targetBookId !== null) {
+    const found = without.findIndex((book) => book.id === targetBookId);
+    if (found >= 0) index = found;
+  }
+  dragId.value = null;
+  void library.moveBook(id, targetStatus, index);
+}
 </script>
 
 <template>
@@ -87,6 +118,8 @@ function openDetail(book: Book): void {
         :key="col.key"
         class="book-column"
         :data-test="`column-${col.key}`"
+        @dragover.prevent
+        @drop.prevent="dropInto(col.key, null)"
       >
         <h2 class="column-title">{{ col.label }}（{{ col.books.length }}）</h2>
         <div v-if="col.books.length > 0" class="column-cards">
@@ -98,6 +131,10 @@ function openDetail(book: Book): void {
             @edit="openEdit(book)"
             @delete="library.deleteBook(book.id)"
             @status-change="changeStatus(book, $event)"
+            @drag-start="onCardDragStart(book)"
+            @drag-end="onDragEnd"
+            @dragover.prevent
+            @drop.prevent.stop="dropInto(col.key, book.id)"
           />
         </div>
         <EmptyState
@@ -154,7 +191,7 @@ function openDetail(book: Book): void {
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .page-head .page-title { margin-bottom: 0; }
 .books-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
-.book-column { min-width: 0; }
+.book-column { min-width: 0; min-height: 120px; }
 .column-title { margin: 0 0 10px; font-size: 15px; color: var(--muted); }
 .column-cards { display: flex; flex-direction: column; gap: 10px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }

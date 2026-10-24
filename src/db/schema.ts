@@ -9,11 +9,11 @@ import { DEFAULT_DAY_START } from '@/utils/date';
 
 export const DB_NAME = 'evan_personal_app_db';
 /** 备份 JSON 的结构版本（导出时写入，导入时按兼容清单校验）。 */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 /** Dexie 数据库结构版本（this.version 用）——与备份结构版本解耦，两者独立演进。 */
-export const DB_VERSION = 2;
-/** 可导入的备份结构版本：1 = v1 旧备份（缺表/缺字段按默认值补齐），2 = 当前版本。 */
-export const SUPPORTED_BACKUP_VERSIONS: readonly number[] = [1, 2];
+export const DB_VERSION = 3;
+/** 可导入的备份结构版本：1/2 = 旧备份（缺表/缺字段按默认值补齐），3 = 当前版本。 */
+export const SUPPORTED_BACKUP_VERSIONS: readonly number[] = [1, 2, 3];
 export const APP_ID = 'evan-app';
 
 export interface BaseFields {
@@ -82,6 +82,12 @@ export interface Book extends BaseFields {
   color: string;
   start_date: string | null;
   finish_date: string | null;
+  /**
+   * 书架拖动排序键（v3 新增）：只在同一 status 内比较大小，升序显示。
+   * 建库 / 新建书 / 拖动重排 / 备份导入都会赋值；老数据升级时按 created_at 回填，
+   * 读取方用 `?? Infinity` 兜底（缺省排到该列末尾，再按 created_at 稳定）。
+   */
+  sort_index?: number;
 }
 
 /** 7. 摘录。 */

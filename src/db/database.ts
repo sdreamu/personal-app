@@ -62,6 +62,14 @@ export const SCHEMA_V2_STORES: Readonly<Record<string, string>> = {
 };
 
 /**
+ * v3 建表语句：结构与 v2 完全一致（books 只新增 sort_index 字段，不建索引），
+ * 保留为独立常量便于版本链清晰与迁移测试复现。
+ */
+export const SCHEMA_V3_STORES: Readonly<Record<string, string>> = {
+  ...SCHEMA_V2_STORES,
+};
+
+/**
  * v1 → v2 升级：只补字段、只新建表，绝不删除/重建已有数据。
  * reviews 补 record_worthy / day_summary = null；workout_records.exercises 每项补 note = null。
  */
@@ -84,6 +92,29 @@ export async function upgradeToV2(tx: Transaction): Promise<void> {
         entry['note'] === undefined ? { ...entry, note: null } : entry,
       );
     });
+}
+
+/**
+ * v2 → v3 升级：给所有 books 回填 sort_index —— 按 status 分组、组内按 created_at 升序，
+ * 赋值 10、20、30……（给后续插入留空隙）。不删不改其它字段；软删除记录同样回填（保持顺序稳定）。
+ */
+export async function upgradeToV3(tx: Transaction): Promise<void> {
+  const rows = (await tx.table('books').toArray()) as Array<Record<string, unknown>>;
+  const groups = new Map<string, Array<{ id: string; created_at: number }>>();
+  for (const row of rows) {
+    const status = String(row['status']);
+    const bucket = groups.get(status) ?? [];
+    bucket.push({ id: String(row['id']), created_at: Number(row['created_at']) || 0 });
+    groups.set(status, bucket);
+  }
+  for (const bucket of groups.values()) {
+    bucket.sort((a, b) => a.created_at - b.created_at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    let index = 10;
+    for (const item of bucket) {
+      await tx.table('books').update(item.id, { sort_index: index });
+      index += 10;
+    }
+  }
 }
 
 export class EvanDB extends Dexie {
@@ -110,7 +141,8 @@ export class EvanDB extends Dexie {
     super(DB_NAME);
     // 历史版本必须原样保留：浏览器里已有的 v1 数据要靠这条版本链升级，删掉就再也升不上来。
     this.version(1).stores(SCHEMA_V1_STORES);
-    this.version(DB_VERSION).stores(SCHEMA_V2_STORES).upgrade(upgradeToV2);
+    this.version(2).stores(SCHEMA_V2_STORES).upgrade(upgradeToV2);
+    this.version(DB_VERSION).stores(SCHEMA_V3_STORES).upgrade(upgradeToV3);
   }
 }
 

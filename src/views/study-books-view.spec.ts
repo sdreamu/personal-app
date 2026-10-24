@@ -200,6 +200,47 @@ describe('书架页 #/study/books', () => {
     await timerStore.discardTimer();
   });
 
+  it('拖动跨栏：把想读书卡拖到读完栏 → 移到读完栏，current_page=总页数', async () => {
+    const book = await makeBook('want', '拖动的书', 30, 100);
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 1, '卡片未出现');
+
+    await cardWith(wrapper, '拖动的书').trigger('dragstart');
+    await wrapper.find('[data-test="column-done"]').trigger('drop');
+    await waitFor(
+      () => wrapper.find('[data-test="column-done"]').text().includes('拖动的书'),
+      '未移到读完栏',
+    );
+    const done = await getRecord('books', book.id);
+    expect(done?.status).toBe('done');
+    expect(done?.current_page).toBe(100);
+    expect(wrapper.find('[data-test="column-want"]').text()).not.toContain('拖动的书');
+  });
+
+  it('拖动同栏：把第二张卡拖到第一张之上 → 顺序按 sort_index 持久化', async () => {
+    await library.createBook({ title: '甲', author: null, totalPages: 100, status: 'want' });
+    await library.createBook({ title: '乙', author: null, totalPages: 100, status: 'want' });
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 2, '两张卡片未出现');
+
+    const titles = (): string[] =>
+      wrapper.findAll('[data-test="column-want"] [data-test="book-title"]').map((row) => row.text());
+    expect(titles()).toEqual(['甲', '乙']);
+
+    // 把“乙”拖到“甲”卡片上（插到甲之前）
+    await cardWith(wrapper, '乙').trigger('dragstart');
+    await cardWith(wrapper, '甲').trigger('drop');
+    await waitFor(() => titles()[0] === '乙', '顺序未变化');
+    expect(titles()).toEqual(['乙', '甲']);
+
+    // 持久化：重新加载 store 后顺序仍是 乙、甲（sort_index 10、20）
+    const stored = (await library.loadBooks())
+      .filter((book) => book.status === 'want')
+      .sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    expect(stored.map((book) => book.title)).toEqual(['乙', '甲']);
+    expect(stored.map((book) => book.sort_index)).toEqual([10, 20]);
+  });
+
   it('空状态：三栏都显示引导与添加按钮', async () => {
     const wrapper = await mountBooks();
     await waitFor(() => wrapper.findAll('[data-test="empty-state"]').length === 3, '空状态未渲染');

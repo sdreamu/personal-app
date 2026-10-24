@@ -5,9 +5,11 @@ import {
   getRecord,
   listAlive,
   resetDbForTests,
+  updateRecord,
   type Book,
   type StudyRecord,
 } from '@/db';
+import { logicalToday } from '@/utils/date';
 import {
   daysUntil,
   expectedRemainingSeconds,
@@ -397,5 +399,86 @@ describe('读书/科目业务 store（library）', () => {
     expect(daysUntil('2026-06-11', '2026-06-01')).toBe(10);
     expect(daysUntil('2026-06-01', '2026-06-01')).toBe(0);
     expect(daysUntil('2026-05-30', '2026-06-01')).toBe(-2);
+  });
+
+  it('新建书 sort_index = 该状态列最大 + 10（空列 10），跨状态独立', async () => {
+    const a = await library.createBook({ title: 'A', author: null, totalPages: 100, status: 'want' });
+    const b = await library.createBook({ title: 'B', author: null, totalPages: 100, status: 'want' });
+    const c = await library.createBook({ title: 'C', author: null, totalPages: 100, status: 'reading' });
+    expect(a?.sort_index).toBe(10);
+    expect(b?.sort_index).toBe(20);
+    expect(c?.sort_index).toBe(10);
+  });
+
+  it('拖动跨栏到读完：current_page=总页数、finish_date=逻辑今天、绝不生成学习记录', async () => {
+    const book = await makeBook(50, 300, 'reading');
+    const existing = await makeRecord('book', book.id, '2026-06-01', 600);
+    const today = logicalToday(useSettingsStore().dayStartMin);
+    await library.moveBook(book.id, 'done', 0);
+
+    const done = await getRecord('books', book.id);
+    expect(done?.status).toBe('done');
+    expect(done?.current_page).toBe(300);
+    expect(done?.finish_date).toBe(today);
+
+    const records = await listAlive('study_records');
+    expect(records).toHaveLength(1); // 仍只有那条已有 manual 记录
+    expect(records[0]?.id).toBe(existing.id);
+    expect(records.some((record) => record.source === 'page_update')).toBe(false);
+  });
+
+  it('从读完拖出：finish_date 置 null、current_page 保持不动、在读补 start_date', async () => {
+    const book = await makeBook(300, 300, 'done');
+    await updateRecord('books', book.id, { finish_date: '2026-05-01' });
+    const today = logicalToday(useSettingsStore().dayStartMin);
+    await library.moveBook(book.id, 'reading', 0);
+
+    const moved = await getRecord('books', book.id);
+    expect(moved?.status).toBe('reading');
+    expect(moved?.finish_date).toBeNull();
+    expect(moved?.current_page).toBe(300); // 拖出读完不改页码
+    expect(moved?.start_date).toBe(today);
+  });
+
+  it('拖到在读：start_date 为空时补逻辑今天，已有则不覆盖', async () => {
+    const book = await makeBook(0, 300, 'want');
+    const today = logicalToday(useSettingsStore().dayStartMin);
+    await library.moveBook(book.id, 'reading', 0);
+    expect((await getRecord('books', book.id))?.start_date).toBe(today);
+
+    const book2 = await makeBook(0, 300, 'want', '已有开始');
+    await updateRecord('books', book2.id, { start_date: '2020-01-01' });
+    await library.moveBook(book2.id, 'reading', 0);
+    expect((await getRecord('books', book2.id))?.start_date).toBe('2020-01-01');
+  });
+
+  it('同栏拖动调整顺序：sort_index 持久化为 10、20、30 且反复拖动幂等', async () => {
+    const a = await library.createBook({ title: 'A', author: null, totalPages: 100, status: 'want' });
+    const b = await library.createBook({ title: 'B', author: null, totalPages: 100, status: 'want' });
+    const c = await library.createBook({ title: 'C', author: null, totalPages: 100, status: 'want' });
+    const wantColumn = async (): Promise<Book[]> =>
+      (await listAlive('books'))
+        .filter((row) => row.status === 'want')
+        .sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    expect((await wantColumn()).map((row) => row.title)).toEqual(['A', 'B', 'C']);
+
+    await library.reorder(c?.id ?? '', 0);
+    let column = await wantColumn();
+    expect(column.map((row) => row.title)).toEqual(['C', 'A', 'B']);
+    expect(column.map((row) => row.sort_index)).toEqual([10, 20, 30]);
+
+    // 幂等：重复拖到同一位置不改变结果
+    await library.reorder(c?.id ?? '', 0);
+    column = await wantColumn();
+    expect(column.map((row) => row.title)).toEqual(['C', 'A', 'B']);
+    expect(column.map((row) => row.sort_index)).toEqual([10, 20, 30]);
+
+    // 下移 b 到末尾
+    await library.reorder(b?.id ?? '', 2);
+    column = await wantColumn();
+    expect(column.map((row) => row.title)).toEqual(['C', 'A', 'B']);
+    await library.reorder(a?.id ?? '', 2);
+    column = await wantColumn();
+    expect(column.map((row) => row.title)).toEqual(['C', 'B', 'A']);
   });
 });

@@ -67,9 +67,16 @@ function triggerDownload(filename: string, content: string): void {
 
 export type BackupValidation = { ok: true; backup: BackupFile } | { ok: false; reason: string };
 
-/** 用 v2 默认值补齐单条记录的缺失字段（只补不改：已有值原样保留）。 */
-function normalizeRow(name: TableName, row: Record<string, unknown>): Record<string, unknown> {
-  if (name === 'reviews') {
+/** 用当前版本默认值补齐单条记录的缺失字段（只补不改：已有值原样保留）。 */
+function normalizeRow(
+  name: TableName,
+  row: Record<string, unknown>,
+  index: number,
+): Record<string, unknown> {
+  if (name === 'books') {
+    // v1/v2 备份无 sort_index：按在备份数组里的出现顺序回填 10、20、30……
+    if (typeof row['sort_index'] !== 'number') row['sort_index'] = (index + 1) * 10;
+  } else if (name === 'reviews') {
     if (row['record_worthy'] === undefined) row['record_worthy'] = null;
     if (row['day_summary'] === undefined) row['day_summary'] = null;
   } else if (name === 'workout_records') {
@@ -93,7 +100,7 @@ function normalizeBackup(obj: Record<string, unknown>): BackupFile {
   for (const name of TABLE_NAMES) {
     const rows = source[name];
     tables[name] = Array.isArray(rows)
-      ? rows.map((row) => normalizeRow(name, { ...(row as Record<string, unknown>) }))
+      ? rows.map((row, index) => normalizeRow(name, { ...(row as Record<string, unknown>) }, index))
       : [];
   }
   return {

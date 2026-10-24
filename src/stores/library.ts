@@ -6,6 +6,7 @@ import {
   getRecord,
   isAlive,
   listAlive,
+  nowMs,
   softDelete,
   undoDelete,
   updateRecord,
@@ -14,9 +15,11 @@ import {
   type StudyRecord,
   type Subject,
 } from '@/db';
-import { addDays, DAY_MS, parseDateKey, weekStart } from '@/utils/date';
+import { addDays, DAY_MS, logicalToday, parseDateKey, weekStart } from '@/utils/date';
+import { assignSortIndexes, nextSortIndex, orderedIdsAfterMove, sortColumn } from '@/utils/dragSort';
 import { useDateStore } from './date';
 import { useSaveStatusStore } from './saveStatus';
+import { useSettingsStore } from './settings';
 import { useTimerStore } from './timer';
 import { useToastStore } from './toast';
 
@@ -208,6 +211,11 @@ export const useLibraryStore = defineStore('library', {
     async createBook(input: BookInput): Promise<Book | null> {
       const fields = validateBook(input.title, input.totalPages);
       if (!fields) return null;
+      // 新书的排序键 = 该状态列现有最大 sort_index + 10（空列 = 10），追加到列尾。
+      const alive = await listAlive('books');
+      const sort_index = nextSortIndex(
+        alive.filter((row) => row.status === input.status).map((row) => row.sort_index),
+      );
       const book = await this.runWithSaveStatus(() =>
         createRecord('books', {
           title: fields.title,
@@ -218,6 +226,7 @@ export const useLibraryStore = defineStore('library', {
           color: randomBookColor(),
           start_date: input.status === 'reading' ? useDateStore().selectedDate : null,
           finish_date: null,
+          sort_index,
         }),
       );
       this.bumpRevision();
@@ -265,6 +274,74 @@ export const useLibraryStore = defineStore('library', {
       await this.runWithSaveStatus(() =>
         updateRecord('books', bookId, { status: 'done', finish_date: useDateStore().selectedDate }),
       );
+      this.bumpRevision();
+    },
+    /**
+     * 同栏上下拖动 = 调整顺序：整列按落点重排后，统一按 10、20、30… 重新分配 sort_index，一次性写回。
+     * toIndex 是「该列移除被拖动书之后」的下标；反复拖动到相同位置结果一致（幂等）。
+     */
+    async reorder(bookId: string, toIndex: number): Promise<void> {
+      const book = await getRecord('books', bookId);
+      if (!book || !isAlive(book)) return;
+      const allAlive = await listAlive('books');
+      const ids = orderedIdsAfterMove(allAlive, bookId, book.status, toIndex);
+      const indexes = assignSortIndexes(ids);
+      await this.runWithSaveStatus(async () => {
+        const db = await getDb();
+        await db.transaction('rw', db.books, async () => {
+          const stamp = nowMs();
+          for (const [id, index] of Object.entries(indexes)) {
+            await db.books.update(id, { sort_index: index, updated_at: stamp });
+          }
+        });
+      });
+      this.bumpRevision();
+    },
+    /**
+     * 跨栏拖动 = 改状态（并落到目标列 toIndex 处）：
+     * - 拖到「想读」→ status='want'
+     * - 拖到「在读」→ status='reading'，start_date 为空时补逻辑今天（已有则不覆盖）
+     * - 拖到「读完」→ status='done'，current_page 直接设为 total_pages、finish_date 写逻辑今天；
+     *   绝不经「手动更新页码」逻辑、绝不生成 source='page_update' 的学习记录（否则复盘阅读页数被撑大）
+     * - 从「读完」拖出 → finish_date 置 null，current_page 保持不动
+     * 目标列与源列都按 10、20、30… 重排后一次性写回。
+     */
+    async moveBook(bookId: string, toStatus: BookStatus, toIndex: number): Promise<void> {
+      const book = await getRecord('books', bookId);
+      if (!book || !isAlive(book)) return;
+      if (book.status === toStatus) {
+        await this.reorder(bookId, toIndex);
+        return;
+      }
+      const today = logicalToday(useSettingsStore().dayStartMin);
+      const patch: Partial<Book> = { status: toStatus };
+      if (toStatus === 'reading' && book.start_date === null) patch.start_date = today;
+      if (toStatus === 'done') {
+        patch.finish_date = today;
+        patch.current_page = book.total_pages;
+      } else if (book.status === 'done') {
+        patch.finish_date = null;
+      }
+      const allAlive = await listAlive('books');
+      const targetIndexes = assignSortIndexes(orderedIdsAfterMove(allAlive, bookId, toStatus, toIndex));
+      const sourceIndexes = assignSortIndexes(
+        sortColumn(allAlive.filter((row) => row.status === book.status && row.id !== bookId)).map(
+          (row) => row.id,
+        ),
+      );
+      await this.runWithSaveStatus(async () => {
+        const db = await getDb();
+        await db.transaction('rw', db.books, async () => {
+          const stamp = nowMs();
+          for (const [id, index] of Object.entries(targetIndexes)) {
+            await db.books.update(id, { sort_index: index, updated_at: stamp });
+          }
+          for (const [id, index] of Object.entries(sourceIndexes)) {
+            await db.books.update(id, { sort_index: index, updated_at: stamp });
+          }
+          await db.books.update(bookId, { ...patch, updated_at: stamp });
+        });
+      });
       this.bumpRevision();
     },
     /**

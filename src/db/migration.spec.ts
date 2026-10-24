@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import { afterEach, describe, expect, it } from 'vitest';
-import { EvanDB, SCHEMA_V1_STORES, SCHEMA_V2_STORES } from './database';
+import { EvanDB, SCHEMA_V1_STORES, SCHEMA_V2_STORES, SCHEMA_V3_STORES } from './database';
 import { DB_NAME, DB_VERSION, TABLE_NAMES } from './schema';
 
 let opened: EvanDB | null = null;
@@ -75,17 +75,38 @@ async function createLegacyV1(): Promise<void> {
     duration_min: 45,
     done: true,
   });
+  // 三本书：两本 reading（created_at 不同，用于验证升级后按 created_at 升序回填 sort_index）、一本 want。
+  const book = (id: string, status: string, createdAt: number) => ({
+    ...base,
+    id,
+    created_at: createdAt,
+    updated_at: createdAt,
+    title: id,
+    author: null,
+    total_pages: 300,
+    current_page: 0,
+    status,
+    color: '#4a6cf7',
+    start_date: null,
+    finish_date: null,
+  });
+  await legacy.table('books').add(book('book-reading-late', 'reading', now + 2000));
+  await legacy.table('books').add(book('book-reading-early', 'reading', now + 1000));
+  await legacy.table('books').add(book('book-want', 'want', now));
   await legacy.close();
 }
 
 describe('Dexie 结构版本 v1 → v2', () => {
-  it('v2 建表语句保留 v1 的全部表与索引（只新增，不改旧索引）', () => {
+  it('v2/v3 建表语句保留 v1 的全部表与索引（只新增，不改旧索引）', () => {
     for (const [table, spec] of Object.entries(SCHEMA_V1_STORES)) {
       expect(SCHEMA_V2_STORES[table], '表 ' + table + ' 的索引被改动').toBe(spec);
+      expect(SCHEMA_V3_STORES[table], '表 ' + table + ' 的 v3 索引被改动').toBe(spec);
     }
     expect(SCHEMA_V2_STORES['exercises']).toBe('id, deleted_at');
     expect(SCHEMA_V2_STORES['mistakes']).toBe('id, date, mastered, deleted_at');
-    expect(DB_VERSION).toBe(2);
+    expect(SCHEMA_V3_STORES['exercises']).toBe('id, deleted_at');
+    expect(SCHEMA_V3_STORES['mistakes']).toBe('id, date, mastered, deleted_at');
+    expect(DB_VERSION).toBe(3);
   });
 
   it('旧库升级：已有数据一条不少（含软删除记录），新表建好且为空，新字段补 null', async () => {
@@ -116,9 +137,19 @@ describe('Dexie 结构版本 v1 → v2', () => {
 
     expect(await opened.exercises.count()).toBe(0);
     expect(await opened.mistakes.count()).toBe(0);
+
+    // v3：books 全部回填 sort_index，按 status 分组、组内 created_at 升序赋 10、20……
+    const early = await opened.books.get('book-reading-early');
+    const late = await opened.books.get('book-reading-late');
+    const want = await opened.books.get('book-want');
+    expect(early?.sort_index).toBe(10);
+    expect(late?.sort_index).toBe(20);
+    expect(want?.sort_index).toBe(10);
+    const readingCount = await opened.books.where('status').equals('reading').count();
+    expect(readingCount).toBe(2);
   });
 
-  it('导出备份带上新表与新字段：v1 旧库升级后导出的备份是 schema_version 2 结构', async () => {
+  it('v1 旧库升级后带出 v2 新增表与字段（exercises / reviews 新字段）', async () => {
     await createLegacyV1();
     opened = new EvanDB();
     await opened.open();

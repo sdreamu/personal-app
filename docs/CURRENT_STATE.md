@@ -116,8 +116,8 @@ test:e2e   playwright test
 ## 4. 数据库（IndexedDB）
 
 - **数据库名**：`evan_personal_app_db`（`src/db/schema.ts` 的 `DB_NAME`）。
-- **当前 Dexie schema 版本号**：`DB_VERSION = 2`（`src/db/schema.ts`）。`src/db/database.ts` 的构造函数里保留 `this.version(1).stores(SCHEMA_V1_STORES)`（冻结的 v1 建表语句，供旧库升级），再 `this.version(2).stores(SCHEMA_V2_STORES).upgrade(upgradeToV2)`。
-- **备份结构版本**：`SCHEMA_VERSION = 2`（与 Dexie 版本解耦）；导入可接受 `SUPPORTED_BACKUP_VERSIONS = [1, 2]`。
+- **当前 Dexie schema 版本号**：`DB_VERSION = 3`（`src/db/schema.ts`）。`src/db/database.ts` 的构造函数里保留 `this.version(1).stores(SCHEMA_V1_STORES)`（冻结的 v1 建表语句，供旧库升级），再 `this.version(2).stores(SCHEMA_V2_STORES).upgrade(upgradeToV2)`，以及 `this.version(DB_VERSION).stores(SCHEMA_V3_STORES).upgrade(upgradeToV3)`（M4 新增；v3 建表结构与 v2 相同）。
+- **备份结构版本**：`SCHEMA_VERSION = 3`（与 Dexie 版本解耦）；导出写 3，导入可接受 `SUPPORTED_BACKUP_VERSIONS = [1, 2, 3]`（旧备份仍可导入，大于当前的拒绝）。
 - **字段命名风格：全库 snake_case**（`daily_study_min`、`current_page`、`mit_added_to_plan`…）。TypeScript 侧同样是 snake_case 接口字段，没有做 camelCase 映射。
 - 通用字段（除单行表主键外每张表都有）：`id`（UUID 字符串主键）、`created_at`(ms)、`updated_at`(ms)、`deleted_at`(ms|null，软删除)。
 - `settings` 与 `active_timer` 是**单行表**：主键为 `key`（`"app"` / `"global"`），但仍携带上述通用字段（`deleted_at` 恒为 null）。
@@ -134,7 +134,7 @@ test:e2e   playwright test
 | 3 | `meal_types` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("breakfast"/"lunch"/"dinner"/"snack"\|null) |
 | 4 | `workout_types` | `id, deleted_at` | `name` |
 | 5 | `plans` | `id, date, category_key, target_id, deleted_at` | `title`、`date`("YYYY-MM-DD")、`start_min`(number\|null，0~1440 偏移)、`end_min`(number\|null)、`category_key`、`category_name`(快照)、`target_type`("book"/"subject"\|null)、`target_id`、`target_title`(快照)、`done`、`done_at`、`rollover_from_date`、`is_rolled_over` |
-| 6 | `books` | `id, status, deleted_at` | `title`、`author`、`total_pages`、`current_page`、`status`("want"/"reading"/"done")、`color`、`start_date`、`finish_date` |
+| 6 | `books` | `id, status, deleted_at` | `title`、`author`、`total_pages`、`current_page`、`status`("want"/"reading"/"done")、`color`、`start_date`、`finish_date`、`sort_index`(v3，同 status 内升序显示，不建索引) |
 | 7 | `excerpts` | `id, book_id, deleted_at` | `book_id`、`page`、`content`、`thought` |
 | 8 | `subjects` | `id, archived, deleted_at` | `name`、`weekly_goal_min`、`deadline`("YYYY-MM-DD"\|null)、`archived` |
 | 9 | `study_records` | `id, date, target_id, deleted_at` | `target_type`("book"/"subject")、`target_id`、`target_title`(快照)、`start_at`、`end_at`、`duration_sec`、`note`、`start_page`、`end_page`、`pages_read`、`source`("timer"/"manual"/"page_update")、`date`(逻辑日期) |
@@ -157,7 +157,8 @@ test:e2e   playwright test
 
 ### 4.3 迁移
 - `src/db/database.ts` 的 `upgradeToV2(tx)`：只补字段、只建新表 —— `reviews` 补 `record_worthy`/`day_summary = null`，`workout_records.exercises[*]` 补 `note = null`；不删不改旧数据。
-- 迁移测试：`src/db/migration.spec.ts`（用冻结的 `SCHEMA_V1_STORES` 造真实旧库再打开 v2）。
+- `upgradeToV3(tx)`（M4）：给所有 `books` 回填 `sort_index` —— 按 `status` 分组、组内按 `created_at` 升序赋值 10、20、30…（给后续插入留空隙）；只补不改其它字段。
+- 迁移测试：`src/db/migration.spec.ts`（用冻结的 `SCHEMA_V1_STORES` 造真实旧库再打开 v3，验证 v1→v2→v3 链式升级与 `sort_index` 回填）。
 
 ---
 
@@ -620,7 +621,8 @@ test:e2e   playwright test
 **三栏并排。**
 - 文件：`src/views/StudyBooksView.vue`。模板 `.books-columns` 内 `v-for` 渲染三列（想读 / 在读 / 读完），每列标题带数量、下面是 `BookCard` 或 `EmptyState`。
 - 样式：`.books-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }` —— 固定三列，没有 Tab 切换、也没有窄屏折行媒体查询。
-- 没有全局 Tab 状态；列由 `wantBooks / readingBooks / doneBooks` 三个 computed 按 `book.status` 过滤。
+- 没有全局 Tab 状态；列由 `wantBooks / readingBooks / doneBooks` 三个 computed 按 `book.status` 过滤，各列再用 `sortColumn`（`src/utils/dragSort.ts`）按 `sort_index` 升序显示。
+- **M4 起支持拖动**（原生 HTML5 draggable，零新依赖）：跨栏拖动改状态、同栏上下拖动改顺序，见 §10.3。
 
 ### 10.2 手动改页码时如何生成 page_update 学习记录
 - 入口：`src/views/StudyBookDetailView.vue` 的"更新当前页"输入框（`page-input`）+ `page-save` 按钮（或回车）→ `savePage()`。
@@ -632,6 +634,19 @@ test:e2e   playwright test
 - 注意两点：
   - 记录的 `date` 取**顶栏当前选中日期** `dateStore.selectedDate`，不是 `logicalToday()`（回看历史日期时会把增量写到那天）。
   - 书架卡片（`BookCard.vue`）**没有**改页码控件，只有详情页能改（与 PRD §5.2「在书架或书详情页」不完全一致）。
+
+### 10.3 M4 交付记录：书架拖动（2026-10-25）
+- **交互**：`.books-columns` 三栏接收 drop；书卡 `BookCard.vue` 加 `draggable="true"` 与 `dragstart/dragend`（用 `DataTransfer` 写 book.id），既有按钮/下拉/点击入口一律保留。视图 `@dragover.prevent` + `@drop`（落在卡片=插到该卡之前，落在栏空白=追加列尾），把落点换算成「目标列移除被拖动书之后」的下标交给 store。
+- **纯函数** `src/utils/dragSort.ts`：`compareBySortIndex / sortColumn / clampIndex / orderedIdsAfterMove / assignSortIndexes / nextSortIndex`，负责「(fromId, toStatus, toIndex) → 新的有序 id 列表」与 sort_index 的 10/20/30 分配。
+- **store 动作**（`src/stores/library.ts`）：
+  - `createBook`：`sort_index = 该 status 列现有最大值 + 10`（空列 10）。
+  - `reorder(bookId, toIndex)`：同栏重排，整列按 10/20/30 重分配，单事务写回；幂等。
+  - `moveBook(bookId, toStatus, toIndex)`：跨栏改状态 + 落点排序。拖到 `done` 时 `current_page = total_pages`、`finish_date = 逻辑今天`，**直接 updateRecord，绝不走 updateBookPage、绝不生成 source='page_update' 学习记录**；拖出 `done` 时 `finish_date = null`、`current_page` 保持不动；拖到 `reading` 时 `start_date` 为空才补 `logicalToday(settingsStore.dayStartMin)`。「今天」用 `logicalToday(settingsStore.dayStartMin)`。
+- **数据**：`books.sort_index`（v3 新增，Dexie DB_VERSION 2→3，备份 SCHEMA_VERSION 2→3）；备份导入 `normalizeRow` 给缺失的 books 按出现顺序补 `sort_index`（10、20…）。详见 §4.3。
+- **测试实跑**：
+  - `run typecheck`：0 错。
+  - `run test`：**434 passed / 51 files**（原 414，新增 dragSort/迁移/备份/拖动等 20 条）。
+  - 全量 e2e（独占）：**68 passed / 0 failed**（原 64，新增 `e2e/books-drag.spec.ts` 4 条）；拖动用例另用 `--repeat-each=3`（12 次）复跑全绿，采用 DataTransfer 事件注入而非 Playwright 原生 dragAndDrop 以保证稳定。
 
 ---
 

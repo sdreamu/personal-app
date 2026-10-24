@@ -136,9 +136,9 @@ describe('v1 旧备份兼容导入', () => {
     expect(await listAlive('plans')).toHaveLength(0); // 失败不改动现有数据
   });
 
-  it('不支持的 schema_version（3）被拒绝', async () => {
+  it('不支持的 schema_version（4，大于当前 3）被拒绝', async () => {
     const raw = JSON.parse(makeV1BackupJson()) as { schema_version: number };
-    raw.schema_version = 3;
+    raw.schema_version = 4;
     const result = await importBackupFromJson(JSON.stringify(raw));
     expect(result.ok).toBe(false);
   });
@@ -258,5 +258,71 @@ describe('v2 备份 round-trip', () => {
     const result = await importBackupFromJson(text);
     expect(result.ok).toBe(true);
     expect((await listAlive('exercises')).map((row) => row.name)).toEqual(['深蹲']);
+  });
+});
+
+describe('v3 备份：books 补 sort_index（旧备份仍可导入）', () => {
+  /** 构造一份 v2 结构（books 缺 sort_index）的备份文本。 */
+  function makeV2BackupWithBooks(): string {
+    const base = { created_at: 1_700_000_000_000, updated_at: 1_700_000_000_000, deleted_at: null };
+    const tables: Record<string, unknown[]> = emptyTables(TABLE_NAMES);
+    tables['books'] = [
+      {
+        ...base,
+        id: 'book-a',
+        title: 'A',
+        author: null,
+        total_pages: 300,
+        current_page: 0,
+        status: 'reading',
+        color: '#4a6cf7',
+        start_date: null,
+        finish_date: null,
+      },
+      {
+        ...base,
+        id: 'book-b',
+        title: 'B',
+        author: null,
+        total_pages: 300,
+        current_page: 0,
+        status: 'reading',
+        color: '#4a6cf7',
+        start_date: null,
+        finish_date: null,
+      },
+    ];
+    return JSON.stringify({ app: APP_ID, schema_version: 2, exported_at: 1_700_000_000_000, tables });
+  }
+
+  it('v2 备份导入成功，books 缺失的 sort_index 按出现顺序回填 10、20……', async () => {
+    const result = await importBackupFromJson(makeV2BackupWithBooks());
+    expect(result.ok).toBe(true);
+    expect((await getRecord('books', 'book-a'))?.sort_index).toBe(10);
+    expect((await getRecord('books', 'book-b'))?.sort_index).toBe(20);
+  });
+
+  it('已带 sort_index 的记录原样保留（只补不改）', () => {
+    const raw = JSON.parse(makeV2BackupWithBooks()) as {
+      tables: Record<string, unknown[]>;
+    };
+    (raw.tables['books'] as Array<Record<string, unknown>>)[0]!['sort_index'] = 70;
+    const parsed = parseBackupJson(JSON.stringify(raw));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.backup.tables['books'].map((row) => row.sort_index)).toEqual([70, 20]);
+  });
+
+  it('导出写 schema_version=3，导入接受 1/2/3，拒绝 4', async () => {
+    const backup = await exportBackup();
+    expect(backup.schema_version).toBe(3);
+    for (const version of [1, 2, 3]) {
+      const raw = JSON.parse(makeV2BackupWithBooks()) as { schema_version: number };
+      raw.schema_version = version;
+      expect(parseBackupJson(JSON.stringify(raw)).ok, '版本 ' + version + ' 应被接受').toBe(true);
+    }
+    const tooNew = JSON.parse(makeV2BackupWithBooks()) as { schema_version: number };
+    tooNew.schema_version = 4;
+    expect(parseBackupJson(JSON.stringify(tooNew)).ok).toBe(false);
   });
 });

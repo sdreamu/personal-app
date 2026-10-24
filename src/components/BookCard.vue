@@ -9,7 +9,18 @@ const emit = defineEmits<{
   (e: 'edit'): void;
   (e: 'delete'): void;
   (e: 'status-change', status: BookStatus): void;
+  (e: 'drag-start'): void;
+  (e: 'drag-end'): void;
 }>();
+
+/** 原生 HTML5 拖拽开始：写入 book.id 作为传输数据（部分浏览器要求 setData 才允许拖放）。 */
+function onDragStart(event: DragEvent): void {
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', props.book.id);
+  }
+  emit('drag-start');
+}
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: BookStatus; label: string }> = [
   { value: 'want', label: '想读' },
@@ -24,7 +35,14 @@ const percent = computed(() => {
 </script>
 
 <template>
-  <article class="book-card" data-test="book-card" @click="emit('open')">
+  <article
+    class="book-card"
+    data-test="book-card"
+    draggable="true"
+    @click="emit('open')"
+    @dragstart="onDragStart"
+    @dragend="emit('drag-end')"
+  >
     <div class="cover" :style="{ background: book.color }" data-test="book-cover">
       <span class="cover-char">{{ book.title.slice(0, 1) }}</span>
     </div>

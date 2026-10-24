@@ -85,3 +85,19 @@
 | AC-61 | AC-61 历史再来一轮预填但不自动开始 | e2e/play-countdown.spec.ts |
 
 覆盖完整性：AC-60 / AC-61 共 2 条，逐条有对应测试，无 skip / only。
+
+## M4 书架拖动（AC-62 ~ AC-63）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-62 | AC-62 拖到读完：当前页设为总页数、finish_date 今天、不生成学习记录 | e2e/books-drag.spec.ts |
+| AC-62 | AC-62 从读完拖出：finish_date 清空、current_page 不变 | e2e/books-drag.spec.ts |
+| AC-62 | AC-62 拖到在读：start_date 补逻辑今天 | e2e/books-drag.spec.ts |
+| AC-63 | AC-63 同栏拖动顺序刷新后保持 | e2e/books-drag.spec.ts |
+
+补充（AC-63 的迁移 / 旧备份兼容两项由单测覆盖）：
+- v2 老库升级到 v3 后每本书都有 sort_index 且顺序按 created_at —— src/db/migration.spec.ts
+- v2 备份文件仍能导入且 books 自动补 sort_index —— src/db/backup-v2.spec.ts
+- 同栏重排幂等、跨栏改状态的数据语义 —— src/stores/library.spec.ts、src/utils/dragSort.spec.ts
+
+覆盖完整性：AC-62 / AC-63 逐条有对应测试，无 skip / only。
