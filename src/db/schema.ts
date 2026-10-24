@@ -8,7 +8,12 @@
 import { DEFAULT_DAY_START } from '@/utils/date';
 
 export const DB_NAME = 'evan_personal_app_db';
-export const SCHEMA_VERSION = 1;
+/** 备份 JSON 的结构版本（导出时写入，导入时按兼容清单校验）。 */
+export const SCHEMA_VERSION = 2;
+/** Dexie 数据库结构版本（this.version 用）——与备份结构版本解耦，两者独立演进。 */
+export const DB_VERSION = 2;
+/** 可导入的备份结构版本：1 = v1 旧备份（缺表/缺字段按默认值补齐），2 = 当前版本。 */
+export const SUPPORTED_BACKUP_VERSIONS: readonly number[] = [1, 2];
 export const APP_ID = 'evan-app';
 
 export interface BaseFields {
@@ -159,6 +164,8 @@ export interface ExerciseSet {
 export interface ExerciseEntry {
   name: string;
   sets: ExerciseSet[];
+  /** 动作备注（v2 新增；v1 数据升级时补 null，读取方按 null 兜底）。 */
+  note?: string | null;
 }
 
 /** 14. 训练记录。 */
@@ -187,7 +194,32 @@ export interface Review extends BaseFields {
   good: string | null;
   improve: string | null;
   mit: string | null;
+  /** 今天一件值得记录的事（v2 新增；v1 数据升级时补 null）。 */
+  record_worthy?: string | null;
+  /** 一句话总结今天（v2 新增；v1 数据升级时补 null）。 */
+  day_summary?: string | null;
   mit_added_to_plan: boolean;
+}
+
+/** 17. 训练项目库（动作名，去重后作为动作补全候选源）。 */
+export interface Exercise extends BaseFields {
+  name: string;
+}
+
+/** 18. 错题本。图片一律以 base64 data URL 字符串存储（可被 JSON 备份直接带走，禁止 Blob）。 */
+export interface Mistake extends BaseFields {
+  date: string;
+  subject_name: string | null;
+  question_text: string | null;
+  question_images: string[];
+  correction_text: string | null;
+  correction_images: string[];
+  reasons: string[];
+  /** 备注（v2 新增；旧记录/旧备份缺失时按 null 兜底，读取方用 note ?? ''）。 */
+  note?: string | null;
+  /** 难度 1~5（整数）。 */
+  difficulty: number;
+  mastered: boolean;
 }
 
 export interface TableRecordMap {
@@ -207,6 +239,8 @@ export interface TableRecordMap {
   workout_records: WorkoutRecord;
   play_records: PlayRecord;
   reviews: Review;
+  exercises: Exercise;
+  mistakes: Mistake;
 }
 
 export type TableName = keyof TableRecordMap;
@@ -229,7 +263,14 @@ export const TABLE_NAMES: readonly TableName[] = [
   'workout_records',
   'play_records',
   'reviews',
+  'exercises',
+  'mistakes',
 ];
+
+/** v1 备份里存在的表（v2 新增的 exercises / mistakes 不在此列，旧备份缺失时补空数组）。 */
+export const V1_TABLE_NAMES: readonly TableName[] = TABLE_NAMES.filter(
+  (name) => name !== 'exercises' && name !== 'mistakes',
+);
 
 /** 参与软删除 GC 的表（settings / active_timer 为单行表，不参与）。 */
 export const GC_TABLES: readonly TableName[] = TABLE_NAMES.filter(
@@ -249,10 +290,20 @@ export const DATA_TABLES: readonly TableName[] = [
   'workout_records',
   'play_records',
   'reviews',
+  'exercises',
+  'mistakes',
 ];
 
 /** 建了 date 索引、可按逻辑日期查询的表。 */
-export type DateTableName = 'plans' | 'study_records' | 'meals' | 'water' | 'workout_records' | 'play_records' | 'reviews';
+export type DateTableName =
+  | 'plans'
+  | 'study_records'
+  | 'meals'
+  | 'water'
+  | 'workout_records'
+  | 'play_records'
+  | 'reviews'
+  | 'mistakes';
 
 export type CategoryKind = 'plan_categories' | 'meal_types' | 'workout_types';
 
@@ -279,7 +330,7 @@ export const BUILTIN_MEAL_TYPES: ReadonlyArray<{ name: string; builtin_key: Meal
   { name: '加餐', builtin_key: 'snack' },
 ];
 
-/** 备份 JSON 结构：{ app:'evan-app', schema_version:1, exported_at(ms), tables:{<表名>:[有效记录...]} } */
+/** 备份 JSON 结构：{ app:'evan-app', schema_version:2, exported_at(ms), tables:{<表名>:[有效记录...]} } */
 export interface BackupFile {
   app: typeof APP_ID;
   schema_version: typeof SCHEMA_VERSION;

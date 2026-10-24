@@ -1,10 +1,10 @@
 /**
  * Dexie 数据库实例、初始化（首次运行种子 + 启动 GC + 申请持久存储）、清空。
  */
-import Dexie, { type Table } from 'dexie';
+import Dexie, { type Table, type Transaction } from 'dexie';
 import {
   DB_NAME,
-  SCHEMA_VERSION,
+  DB_VERSION,
   BUILTIN_MEAL_TYPES,
   BUILTIN_PLAN_CATEGORIES,
   DEFAULT_SETTINGS_VALUES,
@@ -14,8 +14,10 @@ import {
   type BaseFields,
   type Book,
   type Excerpt,
+  type Exercise,
   type Meal,
   type MealType,
+  type Mistake,
   type Plan,
   type PlanCategory,
   type PlayRecord,
@@ -31,6 +33,58 @@ import {
 import { nowMs, uuid } from './util';
 
 export const GC_GRACE_MS = 60 * 60 * 1000; // 软删除保留 1 小时（5 秒撤销的余量）
+
+/** v1 建表语句（冻结）：仅供 this.version(1) 声明与升级测试复现旧库，不得修改。 */
+export const SCHEMA_V1_STORES: Readonly<Record<string, string>> = {
+  settings: 'key',
+  plan_categories: 'id, builtin_key, deleted_at',
+  meal_types: 'id, builtin_key, deleted_at',
+  workout_types: 'id, deleted_at',
+  plans: 'id, date, category_key, target_id, deleted_at',
+  books: 'id, status, deleted_at',
+  excerpts: 'id, book_id, deleted_at',
+  subjects: 'id, archived, deleted_at',
+  study_records: 'id, date, target_id, deleted_at',
+  active_timer: 'key',
+  meals: 'id, date, meal_key, deleted_at',
+  water: 'id, date, deleted_at',
+  workout_templates: 'id, weekday, deleted_at',
+  workout_records: 'id, date, deleted_at',
+  play_records: 'id, date, deleted_at',
+  reviews: 'id, date, deleted_at',
+};
+
+/** v2 建表语句：v1 全量 + exercises / mistakes（旧表索引原样保留，只新增不重建）。 */
+export const SCHEMA_V2_STORES: Readonly<Record<string, string>> = {
+  ...SCHEMA_V1_STORES,
+  exercises: 'id, deleted_at',
+  mistakes: 'id, date, mastered, deleted_at',
+};
+
+/**
+ * v1 → v2 升级：只补字段、只新建表，绝不删除/重建已有数据。
+ * reviews 补 record_worthy / day_summary = null；workout_records.exercises 每项补 note = null。
+ */
+export async function upgradeToV2(tx: Transaction): Promise<void> {
+  await tx
+    .table('reviews')
+    .toCollection()
+    .modify((row: Record<string, unknown>) => {
+      if (row['record_worthy'] === undefined) row['record_worthy'] = null;
+      if (row['day_summary'] === undefined) row['day_summary'] = null;
+    });
+  await tx
+    .table('workout_records')
+    .toCollection()
+    .modify((row: Record<string, unknown>) => {
+      const exercises = Array.isArray(row['exercises'])
+        ? (row['exercises'] as Record<string, unknown>[])
+        : [];
+      row['exercises'] = exercises.map((entry) =>
+        entry['note'] === undefined ? { ...entry, note: null } : entry,
+      );
+    });
+}
 
 export class EvanDB extends Dexie {
   settings!: Table<SettingsRecord, string>;
@@ -49,27 +103,14 @@ export class EvanDB extends Dexie {
   workout_records!: Table<WorkoutRecord, string>;
   play_records!: Table<PlayRecord, string>;
   reviews!: Table<Review, string>;
+  exercises!: Table<Exercise, string>;
+  mistakes!: Table<Mistake, string>;
 
   constructor() {
     super(DB_NAME);
-    this.version(SCHEMA_VERSION).stores({
-      settings: 'key',
-      plan_categories: 'id, builtin_key, deleted_at',
-      meal_types: 'id, builtin_key, deleted_at',
-      workout_types: 'id, deleted_at',
-      plans: 'id, date, category_key, target_id, deleted_at',
-      books: 'id, status, deleted_at',
-      excerpts: 'id, book_id, deleted_at',
-      subjects: 'id, archived, deleted_at',
-      study_records: 'id, date, target_id, deleted_at',
-      active_timer: 'key',
-      meals: 'id, date, meal_key, deleted_at',
-      water: 'id, date, deleted_at',
-      workout_templates: 'id, weekday, deleted_at',
-      workout_records: 'id, date, deleted_at',
-      play_records: 'id, date, deleted_at',
-      reviews: 'id, date, deleted_at',
-    });
+    // 历史版本必须原样保留：浏览器里已有的 v1 数据要靠这条版本链升级，删掉就再也升不上来。
+    this.version(1).stores(SCHEMA_V1_STORES);
+    this.version(DB_VERSION).stores(SCHEMA_V2_STORES).upgrade(upgradeToV2);
   }
 }
 

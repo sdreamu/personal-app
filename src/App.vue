@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useEscToCloseModal } from '@/composables/useEscToCloseModal';
 import { downloadBackup } from '@/db';
+import BottomNav from '@/components/BottomNav.vue';
 import SettlementModal from '@/components/SettlementModal.vue';
 import SideNav from '@/components/SideNav.vue';
 import TopBar from '@/components/TopBar.vue';
@@ -42,6 +43,7 @@ async function exportNow(): Promise<void> {
         <RouterView />
       </main>
     </div>
+    <BottomNav />
     <ToastStack />
     <SettlementModal />
   </div>

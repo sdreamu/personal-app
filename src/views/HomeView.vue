@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
 import HomeCards from '@/components/HomeCards.vue';
+import HomeHero from '@/components/HomeHero.vue';
 import HomeHintBar from '@/components/HomeHintBar.vue';
+import HomeTiles from '@/components/HomeTiles.vue';
 import { useDateStore } from '@/stores/date';
 import { useHomeStore } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
@@ -9,6 +11,7 @@ import { useSettingsStore } from '@/stores/settings';
 /**
  * 首页（4a）：只读汇总今天。打开首页即把顶栏日期切回今天，
  * 内容始终按“今天”聚合，不随顶栏日期变化。
+ * 版面：左上主视觉（问候/日期/时间）→ 4 个今日数据方块 → 提示条 → 六张汇总卡片。
  */
 const home = useHomeStore();
 const dateStore = useDateStore();
@@ -46,8 +49,19 @@ watch(
 
 <template>
   <section class="page home-page" data-test="home-view">
-    <h1 class="page-title">今天</h1>
+    <div class="home-top">
+      <HomeHero />
+      <HomeTiles />
+    </div>
     <HomeHintBar />
     <HomeCards />
   </section>
 </template>
+
+<style scoped>
+.home-top {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+</style>

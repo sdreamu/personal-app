@@ -1,58 +1,21 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue';
 import { useRoute } from 'vue-router';
-
-interface NavLeaf {
-  to: string;
-  label: string;
-}
-type NavItem =
-  | { kind: 'link'; to: string; label: string }
-  | { kind: 'group'; label: string; children: NavLeaf[] };
-
-const navItems: NavItem[] = [
-  { kind: 'link', to: '/home', label: '首页' },
-  { kind: 'link', to: '/plan', label: '计划' },
-  {
-    kind: 'group',
-    label: '学习',
-    children: [
-      { to: '/study/books', label: '读书' },
-      { to: '/study/subjects', label: '科目' },
-      { to: '/study/timer', label: '计时器' },
-    ],
-  },
-  {
-    kind: 'group',
-    label: '生活',
-    children: [
-      { to: '/life/diet', label: '饮食' },
-      { to: '/life/workout', label: '健身' },
-      { to: '/life/play', label: '娱乐' },
-    ],
-  },
-  { kind: 'link', to: '/review', label: '复盘' },
-  { kind: 'link', to: '/settings', label: '设置' },
-];
+import { isActivePath, isGroupActive, isItemActive, navItems, type NavGroupItem } from '@/config/nav';
 
 const route = useRoute();
-const openGroups = reactive<Record<string, boolean>>({ 学习: true, 生活: true });
+/** 分组默认展开；当前路由所在分组自动展开（沿用原有规则）。 */
+const openGroups = reactive<Record<string, boolean>>({ study: true, life: true });
 
-function isActive(to: string): boolean {
-  return route.path === to || route.path.startsWith(`${to}/`);
-}
-function groupActive(group: { label: string; children: NavLeaf[] }): boolean {
-  return group.children.some((child) => isActive(child.to));
-}
-function toggleGroup(label: string): void {
-  openGroups[label] = !openGroups[label];
+function toggleGroup(group: NavGroupItem): void {
+  openGroups[group.key] = !openGroups[group.key];
 }
 
 watch(
   () => route.path,
   () => {
     for (const item of navItems) {
-      if (item.kind === 'group' && groupActive(item)) openGroups[item.label] = true;
+      if (item.kind === 'group' && isGroupActive(route.path, item)) openGroups[item.key] = true;
     }
   },
   { immediate: true },
@@ -60,34 +23,54 @@ watch(
 </script>
 
 <template>
-  <nav class="side-nav" data-test="side-nav">
-    <template v-for="item in navItems" :key="item.label">
-      <template v-if="item.kind === 'group'">
+  <nav class="side-nav" data-test="side-nav" aria-label="主导航">
+    <template v-for="item in navItems" :key="item.key">
+      <div v-if="item.kind === 'group'" class="nav-group">
         <button
+          type="button"
           class="nav-group-toggle"
+          :class="{ active: isItemActive(route.path, item) }"
           data-test="nav-group"
-          @click="toggleGroup(item.label)"
+          :aria-expanded="openGroups[item.key] ? 'true' : 'false'"
+          :aria-controls="`side-nav-group-${item.key}`"
+          @click="toggleGroup(item)"
         >
-          <span>{{ item.label }}</span>
-          <span class="chevron">{{ openGroups[item.label] ? '▾' : '▸' }}</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path :d="item.icon" />
+          </svg>
+          <span class="nav-label">{{ item.label }}</span>
+          <span class="chevron" aria-hidden="true">{{ openGroups[item.key] ? '▾' : '▸' }}</span>
         </button>
-        <div v-if="openGroups[item.label]" class="nav-group-children">
+        <div v-if="openGroups[item.key]" :id="`side-nav-group-${item.key}`" class="nav-group-children">
           <RouterLink
             v-for="child in item.children"
             :key="child.to"
             :to="child.to"
-            class="nav-link"
-            :class="{ active: isActive(child.to) }"
+            class="nav-link nav-link-child"
+            :class="{ active: isActivePath(route.path, child.to) }"
+            :title="child.label"
+            :aria-current="isActivePath(route.path, child.to) ? 'page' : undefined"
           >
-            {{ child.label }}
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="child.icon" />
+            </svg>
+            <span class="nav-label">{{ child.label }}</span>
           </RouterLink>
         </div>
-      </template>
-      <template v-else>
-        <RouterLink :to="item.to" class="nav-link" :class="{ active: isActive(item.to) }">
-          {{ item.label }}
-        </RouterLink>
-      </template>
+      </div>
+      <RouterLink
+        v-else
+        :to="item.to"
+        class="nav-link"
+        :class="{ active: isActivePath(route.path, item.to) }"
+        :title="item.label"
+        :aria-current="isActivePath(route.path, item.to) ? 'page' : undefined"
+      >
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path :d="item.icon" />
+        </svg>
+        <span class="nav-label">{{ item.label }}</span>
+      </RouterLink>
     </template>
   </nav>
 </template>

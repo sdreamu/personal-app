@@ -19,6 +19,7 @@ import {
   listCategories,
   removeCategory,
   renameCategory,
+  SCHEMA_VERSION,
   resetDbForTests,
   setActiveTimer,
   softDelete,
@@ -221,7 +222,7 @@ describe('导出 / 清空 / 导入', () => {
 
     const backup = await exportBackup();
     expect(backup.app).toBe('evan-app');
-    expect(backup.schema_version).toBe(1);
+    expect(backup.schema_version).toBe(SCHEMA_VERSION);
 
     await clearAll();
     expect(await listAlive('plans')).toHaveLength(0);
