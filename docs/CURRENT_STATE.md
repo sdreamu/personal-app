@@ -906,11 +906,11 @@ test:e2e   playwright test
 ### 16.2 端到端测试（Playwright，`e2e/`）
 `books.spec.ts`、`books-drag.spec.ts`、`calendar.spec.ts`、`data-persistence.spec.ts`、`global.spec.ts`、`home.spec.ts`、`life.spec.ts`、`offline.spec.ts`、`perf.spec.ts`、`plan.spec.ts`、`play-countdown.spec.ts`、`review.spec.ts`、`study.spec.ts`、`text-export.spec.ts`（M8）、`theme.spec.ts`（第二轮 UI 第 2 步·AC-68）、`workout-library.spec.ts`；辅助文件 `helpers.ts`、`fixtures.ts`；AC 映射表 `e2e/AC-MATRIX.md`（AC-01 ~ AC-53 + M2 的 AC-57 ~ AC-59 + M3 的 AC-60 ~ AC-61 + M4 的 AC-62 ~ AC-63 + M5 的 AC-64 ~ AC-65 + M8 的 AC-66 + 第二轮 UI 第 1 步的 AC-67 + 第二轮 UI 第 2 步的 AC-68 逐条对应）。
 
-### 16.3 运行命令与当前结果（M8 交付后实跑，2026-10-25）
+### 16.3 运行命令与当前结果（第二轮 UI 改造第 2 步后实跑，2026-10-26）
 
 | 命令 | 结果 | 说明 |
 |---|---|---|
-| `pnpm run test`（`vitest run`） | **全部通过：55 文件 / 473 用例，0 failed** | 第二轮 UI 第 1 步新增 `styleTokens.spec.ts` 9 条（基线 54 文件 / 464 用例）；M8 阶段为 54/464（`exportSource.spec.ts` 11 条、`download.spec.ts` 2 条、`settings-form.spec.ts` 3→6 的 3 条） |
+| `pnpm run test`（`vitest run`） | **全部通过：56 文件 / 490 用例，0 failed** | 起点为 50 文件 / 412 用例；M4 +20、M5 +14、M8 +16（`exportSource.spec.ts` 11 + `download.spec.ts` 2 + `settings-form.spec.ts` 3）、UI 第 1 步 `styleTokens.spec.ts` 9（含修 2 处不稳定用例）、UI 第 2 步 `settings.spec.ts` 16 + `settings-form.spec.ts` 1 |
 | `pnpm run typecheck`（`vue-tsc --noEmit`） | **通过（0 错误）** | M8 改动后重跑 |
 | `e2e/text-export.spec.ts`（Playwright） | **1 passed（7.3s）** | AC-66：最近 7 天 → 一次下载，文件名 `evan-text-YYYYMMDD-YYYYMMDD.md`（区间 = 今天往前 6 天 ~ 今天），内容断言 `### 计划`/`AC66计划`、`### 饮食`/`- 早：AC66早餐`、汇总与当天段落的喝水行；导出前后 `settings.last_backup_at`（固定值 1700000000000）相等 |
 | `e2e/workout-library.spec.ts`（Playwright） | **2 passed（11.6s）** | AC-64 / AC-65 逐条覆盖（项目库自动维护/最近使用排序/点选加入与幂等；备注写入/刷新保留/清空存 null/不影响组数与默认用时） |
