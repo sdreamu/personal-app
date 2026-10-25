@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import type { Plan } from '@/db';
@@ -51,9 +51,17 @@ function settingsRecord(): SettingsRecord {
 let pinia: Pinia;
 
 beforeEach(() => {
+  // 时间带按"现在几点"判定 已完成 / 进行中 / 逾期 / 未到，不钉住时间的话
+  // 凌晨 03:20~04:00 这段窗口里"1400 之后"的样例会变成"进行中"，用例会偶发失败。
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 24, 10, 0, 0));
   pinia = createPinia();
   setActivePinia(pinia);
   useSettingsStore().$patch({ loaded: true, data: settingsRecord() });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 function mountBand(plans: Plan[]) {
