@@ -103,6 +103,9 @@ test('AC-78 错题照片录入与压缩', async ({ page }) => {
   await expect(page.locator('[data-test="image-count"]').first()).toHaveText('1 / 4 张');
   await expect(page.locator('[data-test="image-thumb"]')).toHaveCount(1);
   await page.setInputFiles('[data-test="image-file-correction"]', await makePng(page, 1200, 2400));
+  // 压缩是异步的：等第二组也压完（两张缩略图都在）再保存，否则可能只存到第一组
+  await expect(page.locator('[data-test="image-count"]').nth(1)).toHaveText('1 / 4 张');
+  await expect(page.locator('[data-test="image-thumb"]')).toHaveCount(2);
   await page.click('[data-test="mistake-form-save"]');
 
   // 卡片出现两张缩略图（题目 + 订正）
