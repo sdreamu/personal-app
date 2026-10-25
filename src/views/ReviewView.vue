@@ -2,6 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import BaseModal from '@/components/BaseModal.vue';
 import ReviewHistory from '@/components/ReviewHistory.vue';
+import TrendChart from '@/components/TrendChart.vue';
+import { alignSeries, recentDates } from '@/utils/sparkline';
 import ReviewMetrics from '@/components/ReviewMetrics.vue';
 import ReviewMoodPicker from '@/components/ReviewMoodPicker.vue';
 import { errorMessage } from '@/db';
@@ -28,6 +30,28 @@ const selectedDate = computed(() => dateStore.selectedDate);
 const todayKey = computed(() => logicalToday(settingsStore.dayStartMin));
 
 const rating = ref<number | null>(null);
+/** P3 心情 / 精力曲线：最近 14 天（含今天），缺的日期断线。 */
+const TREND_DAYS = 14;
+const trendDates = computed(() => recentDates(todayKey.value, TREND_DAYS));
+const trendSeries = computed(() => {
+  return [
+    {
+      key: 'mood',
+      label: '心情',
+      values: alignSeries(trendDates.value, reviewStore.reviews.map((row) => ({ date: row.date, value: row.mood }))).map(
+        (item) => item.value,
+      ),
+    },
+    {
+      key: 'energy',
+      label: '精力',
+      values: alignSeries(trendDates.value, reviewStore.reviews.map((row) => ({ date: row.date, value: row.energy }))).map(
+        (item) => item.value,
+      ),
+    },
+  ];
+});
+
 const mood = ref<number | null>(null);
 const energy = ref<number | null>(null);
 const recordWorthyText = ref('');
@@ -284,6 +308,14 @@ function onSelectDate(date: string): void {
         :today="todayKey"
         @select-date="onSelectDate"
       />
+
+      <div class="settings-card review-trend" data-test="review-trend">
+        <div class="self-head">
+          <h2>心情 / 精力</h2>
+          <span class="self-note">最近 {{ TREND_DAYS }} 天，1~5 分</span>
+        </div>
+        <TrendChart :series="trendSeries" :dates="trendDates" />
+      </div>
     </template>
 
     <BaseModal

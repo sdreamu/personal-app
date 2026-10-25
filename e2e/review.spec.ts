@@ -210,3 +210,45 @@ test('AC-51 深色模式刷新保持', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('[data-test="theme-dark"]')).toHaveClass(/on/);
 });
+
+/** AC-77：复盘页底部的「心情 / 精力」曲线——纯 SVG，跟着 reviews.mood / energy 长。 */
+test('AC-77 心情 / 精力曲线', async ({ page }) => {
+  await gotoHash(page, 'review');
+  await expect(page.locator('[data-test="review-view"]')).toBeVisible();
+
+  // 还没记录：空态文案，不画空坐标轴
+  const card = page.locator('[data-test="review-trend"]');
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-test="trend-empty"]')).toBeVisible();
+  await expect(card.locator('[data-test="trend-svg"]')).toHaveCount(0);
+
+  // 记一天：心情 5、精力 2 → 确认后曲线出现
+  await page.locator('[data-test="mood-btn"]').nth(4).click();
+  await page.locator('[data-test="energy-bar"]').nth(1).click();
+  await page.click('[data-test="review-confirm"]');
+  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
+
+  await expect(card.locator('[data-test="trend-empty"]')).toHaveCount(0);
+  await expect(card.locator('[data-test="trend-svg"]')).toBeVisible();
+  await expect(card.locator('[data-test="trend-line-mood"]')).toHaveCount(1);
+  await expect(card.locator('[data-test="trend-line-energy"]')).toHaveCount(1);
+  await expect(card.locator('[data-test="trend-stat-mood"]')).toHaveText('1 天 · 平均 5');
+  await expect(card.locator('[data-test="trend-stat-energy"]')).toHaveText('1 天 · 平均 2');
+
+  // 还是纯 SVG：没有图片、没有外部脚本
+  await expect(card.locator('img')).toHaveCount(0);
+  await expect(card.locator('script')).toHaveCount(0);
+
+  // 切到前一天记第二条：心情 1、精力 5 → 两天相邻，折线连成一条、两个点
+  await page.click('[data-test="prev-day"]');
+  await expect(page.locator('[data-test="review-trend"]')).toBeVisible();
+  await page.locator('[data-test="mood-btn"]').nth(0).click();
+  await page.locator('[data-test="energy-bar"]').nth(4).click();
+  await page.click('[data-test="review-confirm"]');
+  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
+  await expect(card.locator('[data-test="trend-stat-mood"]')).toHaveText('2 天 · 平均 3');
+  await expect(card.locator('[data-test="trend-stat-energy"]')).toHaveText('2 天 · 平均 3.5');
+  await expect(card.locator('[data-test="trend-line-mood"]')).toHaveCount(1);
+  const moodPoints = (await card.locator('[data-test="trend-line-mood"]').first().getAttribute('points')) ?? '';
+  expect(moodPoints.split(' ')).toHaveLength(2);
+});

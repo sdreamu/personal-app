@@ -185,3 +185,55 @@ describe('ReviewView 复盘页', () => {
     await waitFor(() => useReviewStore().loadedDate === YESTERDAY, '未载入所选日期复盘');
   });
 });
+
+describe('P3 心情 / 精力曲线（AC-77）', () => {
+  it('底部有曲线卡：用最近 14 天的 reviews.mood / energy 画线，缺的日期断线', async () => {
+    await createRecord('reviews', reviewFixture({ date: '2026-05-30', mood: 2, energy: 5 }));
+    await createRecord('reviews', reviewFixture({ date: TODAY, mood: 5, energy: 3 }));
+    const wrapper = await mountLoaded();
+
+    const card = wrapper.find('[data-test="review-trend"]');
+    expect(card.exists()).toBe(true);
+    expect(card.find('[data-test="trend-chart"]').exists()).toBe(true);
+
+    // 5-30 与 6-1 之间差一天（5-31 没记录）→ 心情线分成两段
+    expect(card.findAll('[data-test="trend-line-mood"]').length).toBe(2);
+    // 精力线同样在 5-31 处断开（两天都没记录这一天）
+    expect(card.findAll('[data-test="trend-line-energy"]').length).toBe(2);
+    expect(card.find('[data-test="trend-stat-mood"]').text()).toBe('2 天 · 平均 3.5');
+    expect(card.find('[data-test="trend-stat-energy"]').text()).toBe('2 天 · 平均 4');
+  });
+
+  it('一条记录都没有时给空态文案，不画空坐标轴', async () => {
+    const wrapper = await mountLoaded();
+    const card = wrapper.find('[data-test="review-trend"]');
+    expect(card.exists()).toBe(true);
+    expect(card.find('[data-test="trend-empty"]').exists()).toBe(true);
+    expect(card.find('[data-test="trend-svg"]').exists()).toBe(false);
+  });
+
+  it('曲线窗口固定 14 天，右端就是逻辑今天', async () => {
+    await createRecord('reviews', reviewFixture({ date: TODAY, mood: 4, energy: 2 }));
+    const wrapper = await mountLoaded();
+    const svg = wrapper.find('[data-test="review-trend"] [data-test="trend-svg"]');
+    expect(svg.attributes('aria-label')).toBe('最近 14 天的心情与精力曲线');
+    const axis = wrapper.findAll('[data-test="review-trend"] .trend-axis span').map((node) => node.text());
+    // 今天 06-01 往前数第 14 天 = 05-19
+    expect(axis).toEqual(['05-19', '06-01']);
+  });
+});
+
+function reviewFixture(overrides: { date: string; mood: number | null; energy: number | null }) {
+  return {
+    date: overrides.date,
+    rating: null,
+    mood: overrides.mood,
+    energy: overrides.energy,
+    good: null,
+    improve: null,
+    mit: null,
+    record_worthy: null,
+    day_summary: null,
+    mit_added_to_plan: false,
+  };
+}

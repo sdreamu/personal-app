@@ -272,3 +272,16 @@
 - 导航回归：AC-11 现在覆盖 12 个页面（含错题本）。
 
 口径：一题一卡（Q5）；4 个预设错误原因 = 概念不清 / 计算失误 / 审题错误 / 时间不够，另可自定义；日期取 `dateStore.selectedDate`（顶栏日期控件在 `#/mistakes` 生效）；`mistakes` 表结构未动、`DB_VERSION` 未升。
+
+## 心情 / 精力曲线（AC-77）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-77 | AC-77 心情 / 精力曲线 | e2e/review.spec.ts |
+
+补充（工具 / 组件 / 页面层）：
+- 几何工具 `src/utils/sparkline.ts`：`buildSparkline`（值→SVG 坐标、越界夹紧、缺值断段、limit 截断）、`recentDates`（跨月/跨年）、`alignSeries`（按日期对齐补 null）、`summarize`（有效天数 + 一位小数均值）—— src/utils/sparkline.spec.ts（7 条）
+- 组件 `src/components/TrendChart.vue`：纯 SVG `polyline`（两条线：心情 = `--accent`、精力 = `--text`），缺的日期**分段不连假线**，图例给「n 天 · 平均 x」，全无记录时只给空态文案不画空坐标轴，无 `img`/`script`/`iframe` 且不在标签上写死颜色 —— src/components/trend-chart.spec.ts（5 条）
+- 复盘页：底部新增 `review-trend` 卡片，窗口固定最近 14 天（含逻辑今天），数据直读 `reviews.mood / energy` —— src/views/review-view.spec.ts（3 条）
+
+口径（Q7）：放复盘页底部、和录入同屏；不新增路由、不动表结构、`DB_VERSION` 未升；颜色全部走 CSS 变量，无图表库。

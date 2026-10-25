@@ -1021,3 +1021,5 @@ test:e2e   playwright test
 
 | 1 | **P1** 错题本·文字录入（M9，Q5：一题一卡 + 4 个预设原因 + 进日期切换） | 新 `src/stores/mistakes.ts`（`load/create/save/toggleMastered/remove`，`reasons` 落库前展开成普通数组避开 IndexedDB 结构化克隆报错；删除给 5 秒撤销）；新 `src/views/MistakesView.vue`（筛选 全部/未掌握 + 科目筛选、卡片 = 科目/难度★/已掌握徽标/题干/订正/原因 chips/备注，弹窗里可写自定义原因、1~5 难度、已掌握开关）；路由 `#/mistakes` + `src/config/nav.ts` 学习分组新增「错题本」+ `dateSwitchPaths` 加入 `/mistakes`（顶栏日期控件可用）；不升 `DB_VERSION`（复用现成 `mistakes` 表） | AC-76 |
 | 1 | **P1 附带** 路由/导航计数回归 | `router.spec`（12 条路由）、`nav.spec`（11 入口 / 7 个子页面链接）、`bottom-nav.spec`（学习面板 4 项）、`top-bar.spec`（dateSwitchPaths 6 条）、`e2e/global.spec` AC-11（多测一页）同步更新；断言只增不减 | AC-11 |
+
+| 1 | **P3** 心情 / 精力曲线（M7，Q7：放复盘页底部） | 新 `src/utils/sparkline.ts`（`buildSparkline` / `recentDates` / `alignSeries` / `summarize`，纯函数）；新 `src/components/TrendChart.vue`（两条 SVG `polyline`，缺日期分段断线，图例「n 天 · 平均 x」，全空时只给空态）；`ReviewView.vue` 底部新增 `review-trend` 卡（窗口 = 最近 14 天，含逻辑今天，数据直读 `reviews.mood / energy`）；无图表库、颜色全走 CSS 变量、不升 DB 版本 | AC-77 |
