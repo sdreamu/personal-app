@@ -3,7 +3,7 @@ import { defineComponent } from 'vue';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import { resetDbForTests, type Book, type Plan, type PlayRecord, type SettingsRecord, type StudyRecord, type Water, type WorkoutRecord, type WorkoutTemplate } from '@/db';
+import { listAliveByDate, resetDbForTests, type Book, type Plan, type PlayRecord, type SettingsRecord, type StudyRecord, type Water, type WorkoutRecord, type WorkoutTemplate } from '@/db';
 import { useHomeStore } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimerStore } from '@/stores/timer';
@@ -325,5 +325,45 @@ describe('首页六张卡片渲染', () => {
       if (router.currentRoute.value.path !== '/study/timer') throw new Error('还没跳到计时页');
     });
     expect(timer.timer?.started_at).toBe(startedAt);
+  });
+});
+
+describe('首页喝水可加可减（AC-72）', () => {
+  it('喝水卡同时有「−1 杯」和「+1 杯」，减号在左', () => {
+    const home = useHomeStore();
+    home.$patch({ today: TODAY, waterRecords: [waterFixture(250)] });
+    const wrapper = mountCards();
+
+    const buttons = wrapper.find('[data-test="water-card"]').findAll('button');
+    expect(buttons.map((node) => node.attributes('data-test'))).toEqual(['water-minus', 'water-plus']);
+    expect(wrapper.find('[data-test="water-minus"]').text()).toBe('−1 杯');
+    expect(wrapper.find('[data-test="water-plus"]').text()).toBe('+1 杯');
+    expect(wrapper.find('[data-test="water-minus"]').attributes('disabled')).toBeUndefined();
+  });
+
+  it('点「−1 杯」调用一次 removeWater（不跳页）', async () => {
+    const home = useHomeStore();
+    home.$patch({ today: TODAY, waterRecords: [waterFixture(250)] });
+    const removeWater = vi.spyOn(home, 'removeWater').mockResolvedValue(null);
+
+    const wrapper = mountCards();
+    await wrapper.find('[data-test="water-minus"]').trigger('click');
+
+    expect(removeWater).toHaveBeenCalledTimes(1);
+    expect(router.currentRoute.value.path).not.toBe('/life/diet');
+  });
+
+  it('0 ml 时减号 disabled，点它不写库', async () => {
+    const home = useHomeStore();
+    home.$patch({ today: TODAY, waterRecords: [] });
+    const wrapper = mountCards();
+
+    const minus = wrapper.find('[data-test="water-minus"]');
+    expect(minus.attributes('disabled')).toBeDefined();
+
+    await minus.trigger('click');
+    await flushPromises();
+    expect(await listAliveByDate('water', TODAY)).toHaveLength(0);
+    expect(home.water.totalMl).toBe(0);
   });
 });

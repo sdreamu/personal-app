@@ -60,6 +60,14 @@ async function addWater(): Promise<void> {
   }
 }
 
+async function removeWater(): Promise<void> {
+  try {
+    await home.removeWater();
+  } catch {
+    // 写库失败已由 store 统一提示
+  }
+}
+
 async function completeNext(): Promise<void> {
   try {
     await home.completeNext();
@@ -138,7 +146,20 @@ async function completeNext(): Promise<void> {
       <p class="card-main" data-test="water-text">
         {{ home.water.totalMl }} ml / 目标 {{ home.water.goalMl }} ml
       </p>
-      <button class="primary-btn" data-test="water-plus" @click.stop="addWater">+1 杯</button>
+      <div class="water-actions">
+        <button
+          type="button"
+          class="ghost-btn"
+          data-test="water-minus"
+          :disabled="home.water.totalMl <= 0"
+          @click.stop="removeWater"
+        >
+          −1 杯
+        </button>
+        <button type="button" class="primary-btn" data-test="water-plus" @click.stop="addWater">
+          +1 杯
+        </button>
+      </div>
     </article>
 
     <!-- 运动 -->
@@ -240,6 +261,15 @@ async function completeNext(): Promise<void> {
   gap: 10px;
   color: var(--muted);
   margin-bottom: 10px;
+}
+.water-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.water-actions .ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 /* 卡片里的按钮降一档：一排黑按钮会抢走松绿场的主角 */
 .home-card .primary-btn {

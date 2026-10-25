@@ -579,6 +579,42 @@ describe('首页 store 聚合与动作', () => {
     const rows = await listAliveByDate('water', TODAY);
     expect(rows.reduce((sum, row) => sum + row.ml, 0)).toBe(250);
   });
+
+  it('removeWater 复用 diet store：首页喝水 -1 杯并刷新聚合（AC-72）', async () => {
+    const home = useHomeStore();
+    await home.load();
+    await home.addWater();
+    await home.addWater();
+    expect(home.water.totalMl).toBe(500);
+
+    const removed = await home.removeWater();
+    expect(removed?.ml).toBe(-250);
+    expect(home.water.totalMl).toBe(250);
+
+    const rows = await listAliveByDate('water', TODAY);
+    expect(rows.map((row) => row.ml).sort((a, b) => a - b)).toEqual([-250, 250, 250]);
+  });
+
+  it('removeWater 在 0 ml 时返回 null、不写记录（AC-72）', async () => {
+    const home = useHomeStore();
+    await home.load();
+    expect(home.water.totalMl).toBe(0);
+
+    expect(await home.removeWater()).toBeNull();
+    expect(home.water.totalMl).toBe(0);
+    expect(await listAliveByDate('water', TODAY)).toHaveLength(0);
+  });
+
+  it('removeWater 在不足一杯时只扣剩余量（AC-72）', async () => {
+    await createRecord('water', { date: TODAY, ml: 100, at: Date.now() });
+    const home = useHomeStore();
+    await home.load();
+    expect(home.water.totalMl).toBe(100);
+
+    const removed = await home.removeWater();
+    expect(removed?.ml).toBe(-100);
+    expect(home.water.totalMl).toBe(0);
+  });
 });
 
 describe('home.summarizeWeekStudy（本周学习）', () => {

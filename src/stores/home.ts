@@ -348,6 +348,16 @@ export const useHomeStore = defineStore('home', {
       return created;
     },
 
+    /**
+     * 喝水 -1 杯：与 addWater 对称，复用 diet store 的 delta = -1（底层最多扣到 0，不写负总量）。
+     * 已经 0 ml 时底层返回 null，这里原样透传；卡片上的减号此时也是 disabled。
+     */
+    async removeWater(): Promise<Water | null> {
+      const created = await useDietStore().addWater(this.today, -1);
+      await this.reload();
+      return created;
+    },
+
     /** 把昨日 MIT 加入今日待办：复用 plan store 导出的 addMitToPlan。 */
     async addMit(): Promise<Plan | null> {
       const created = await addMitToPlan();

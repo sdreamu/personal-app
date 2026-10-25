@@ -86,3 +86,31 @@ test('AC-70 首页开始计时带对象直接开', async ({ page }) => {
   await expect(page).toHaveURL(/#\/study\/timer$/);
   await expect(page.locator('[data-test="timer-target"]')).toContainText('AC70书');
 });
+
+/** AC-72：首页喝水可加可减——+1/-1 双向同步到饮食页，0 ml 时减号禁用。 */
+test('AC-72 首页喝水可加可减', async ({ page }) => {
+  await gotoHash(page, 'home');
+  await expect(page.locator('[data-test="water-text"]')).toContainText('0 ml');
+
+  // 0 ml：减号禁用
+  await expect(page.locator('[data-test="water-card"] [data-test="water-minus"]')).toBeDisabled();
+
+  // +1 杯 ×2 → 500 ml
+  await page.locator('[data-test="water-card"] [data-test="water-plus"]').click();
+  await expect(page.locator('[data-test="water-text"]')).toContainText('250 ml');
+  await page.locator('[data-test="water-card"] [data-test="water-plus"]').click();
+  await expect(page.locator('[data-test="water-text"]')).toContainText('500 ml');
+
+  // −1 杯 → 250 ml，并且饮食页同步
+  await page.locator('[data-test="water-card"] [data-test="water-minus"]').click();
+  await expect(page.locator('[data-test="water-text"]')).toContainText('250 ml');
+  await gotoHash(page, 'life/diet');
+  await expect(page.locator('[data-test="water-total"]')).toHaveText('250 ml');
+
+  // 饮食页再减一杯回到 0，首页同步，减号重新禁用
+  await page.locator('[data-test="water-tracker"] [data-test="water-minus"]').click();
+  await expect(page.locator('[data-test="water-total"]')).toHaveText('0 ml');
+  await gotoHash(page, 'home');
+  await expect(page.locator('[data-test="water-text"]')).toContainText('0 ml');
+  await expect(page.locator('[data-test="water-card"] [data-test="water-minus"]')).toBeDisabled();
+});

@@ -196,3 +196,18 @@
 - 书详情页：读完确认 ✕ 关闭后 status 仍为 reading / 新增摘录 Esc 关闭不写摘录 —— src/views/study-book-detail-view.spec.ts
 
 覆盖完整性：AC-71 有 1 条 e2e + 5 条组件契约断言 + 7 条视图层断言，无 skip / only；既有「取消 / 保存」行为（AC-26~AC-32 附近）未改动且全绿。
+
+## 首页喝水可加可减（AC-72）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-72 | AC-72 首页喝水可加可减 | e2e/home.spec.ts |
+
+补充（单测/组件层）：
+- `home.removeWater()` 复用 `diet.addWater(today, -1)`：+2 杯后减 1 杯 → 聚合 500→250 ml，water 表出现 `-250` 行 —— src/stores/home.spec.ts
+- 0 ml 时 `removeWater()` 返回 null、不写记录、聚合保持 0 —— src/stores/home.spec.ts
+- 剩余不足一杯时只扣剩余（100 ml 减一杯 → 写 `-100`，归零）—— src/stores/home.spec.ts
+- 喝水卡按钮顺序固定 `water-minus` → `water-plus`（减号在左）、0 ml 时减号 disabled —— src/components/home-cards.spec.ts
+- 点减号只调用一次 `home.removeWater()`，不触发卡片跳转 —— src/components/home-cards.spec.ts
+
+覆盖完整性：AC-72 有 1 条 e2e + 5 条单测/组件断言；既有 AC-17（首页 +1 杯）断言未改动仍全绿。

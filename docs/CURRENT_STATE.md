@@ -1000,3 +1000,14 @@ test:e2e   playwright test
 ```
 
 本次盘点**只新增了本文件**（`docs/CURRENT_STATE.md`），没有修改任何现有业务文件。
+
+---
+
+## Z. NEEDED_CHANGES 执行记录
+
+> 对应 `docs/NEEDED_CHANGES.md`；每条一个 commit，AC 号按**实际交付顺序**发（B1→AC-71、N1→AC-72 ……）。
+
+| 批次 | 事项 | 落点 | AC |
+|---|---|---|---|
+| 1 | **B1** 弹窗 ✕ / 遮罩 / Esc 关不掉（7 处漏绑 `@close`） | `StudySubjectsView`(3)、`StudyBooksView`(1)、`StudyBookDetailView`(3) 补 `@close`；`BaseModal` 的 ✕ 补 `type="button"` + `data-test="modal-close"`；新增全库扫描守卫 `base-modal-close.spec.ts` | AC-71 |
+| 1 | **N1** 首页喝水可加可减 | `homeStore.removeWater()`（复用 `diet.addWater(today,-1)`）；`HomeCards` 喝水卡改为 `−1 杯`(ghost, 0ml 时 disabled) + `+1 杯`(primary)，均 `@click.stop` | AC-72 |
