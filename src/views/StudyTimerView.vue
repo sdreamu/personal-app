@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
   <section class="page timer-page" data-test="study-timer-view">
     <h1 class="page-title">计时器</h1>
 
-    <div class="settings-card clock-card">
+    <div class="timer-field">
       <div class="timer-target" data-test="timer-target">
         <template v-if="timerStore.timer">
           <span class="badge">{{ typeLabel }}</span>
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
         </template>
       </div>
       <div class="clock-face" data-test="clock-face">{{ clockText }}</div>
-      <p v-if="isEntertainmentRunning" class="hint" data-test="entertainment-notice">
+      <p v-if="isEntertainmentRunning" class="field-note" data-test="entertainment-notice">
         当前为娱乐计时，请到「生活 → 娱乐」页处理；学习计时暂不可用。
       </p>
       <div class="button-row timer-buttons">
@@ -229,10 +229,10 @@ onBeforeUnmount(() => {
         <button v-if="showResume" class="primary-btn" data-test="resume-btn" @click="timerStore.resumeTimer()">继续</button>
         <button v-if="showEnd" class="danger-btn" data-test="end-btn" @click="timerStore.endTimer()">结束</button>
       </div>
-      <p class="hint">快捷键：Space 开始 / 暂停 / 继续（弹窗打开时不响应）</p>
+      <p class="field-hint">快捷键：Space 开始 / 暂停 / 继续（弹窗打开时不响应）</p>
     </div>
 
-    <div v-if="!timerExists" class="settings-card">
+    <div v-if="!timerExists" class="timer-panel">
       <h2>选择对象</h2>
       <div class="segmented timer-type-switch">
         <button
@@ -277,7 +277,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="!timerExists" class="settings-card">
+    <div v-if="!timerExists" class="timer-panel">
       <h2>模式</h2>
       <div class="segmented">
         <button
@@ -314,15 +314,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.clock-card {
+/* 松绿场：一屏就看一个数字，所以时间占满整块，其余都退到边上 */
+.timer-field {
+  position: relative;
+  margin-bottom: 22px;
+  padding: 16px 18px 14px;
+  background: var(--field);
+  border: var(--line-w) solid var(--border-ink);
+  box-shadow: 7px 7px 0 var(--slab), 14px 14px 0 var(--border-ink);
   text-align: center;
 }
-.clock-face {
-  font-size: 56px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 2px;
-  margin: 18px 0 8px;
+.timer-field::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px solid var(--field-tick);
+  pointer-events: none;
 }
 .timer-target {
   display: flex;
@@ -330,34 +337,118 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--field-sub);
+}
+.timer-target strong {
+  color: var(--hero-ink);
+  font-weight: 700;
+}
+.timer-target .badge {
+  padding: 1px 7px;
+  border: 1px solid var(--field-tick);
+  color: var(--field-sub);
+  background: transparent;
+  font-size: 11px;
+}
+.clock-face {
+  margin: 10px 0 4px;
+  font-family: var(--font-mono);
+  font-size: clamp(56px, 12vw, 116px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--hero-ink);
 }
 .timer-buttons {
   justify-content: center;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 6px;
+}
+/* 场上的按钮：反白实块 / 反白描边 / 朱砂实块，别用墨底（墨底在松绿上糊成一团） */
+.timer-field .primary-btn,
+.timer-field .ghost-btn,
+.timer-field .danger-btn {
+  border: var(--line-w) solid var(--hero-ink);
+  box-shadow: 3px 3px 0 var(--border-ink);
+  font-weight: 700;
+}
+.timer-field .primary-btn {
+  background: var(--hero-ink);
+  color: var(--field);
+}
+.timer-field .ghost-btn {
+  background: transparent;
+  color: var(--hero-ink);
+}
+.timer-field .danger-btn {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-accent);
+}
+.timer-field .primary-btn:hover,
+.timer-field .ghost-btn:hover {
+  background: var(--field-2);
+  color: var(--hero-ink);
+}
+.field-hint,
+.field-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--field-sub);
+}
+.field-note {
+  color: var(--hero-ink);
+  font-size: 12px;
+}
+.timer-panel {
+  margin-bottom: 18px;
+  padding: 16px 16px 14px;
+  background: var(--panel);
+  border: var(--line-w) solid var(--border-ink);
+  box-shadow: 5px 5px 0 var(--slab);
+}
+.timer-panel h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
 }
 .timer-type-switch {
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 }
 .target-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-  max-height: 260px;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 280px;
   overflow-y: auto;
 }
 .target-option {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
   padding: 8px 12px;
+  border: 1px solid var(--border);
   cursor: pointer;
 }
+.target-option:hover {
+  border-color: var(--border-ink);
+}
 .target-option.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--text);
+  border-color: var(--border-ink);
+  color: var(--panel);
+}
+.target-option .badge {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.target-option.selected .badge {
+  border-color: var(--field-tick);
+  color: var(--hero-sub);
 }
 .target-name {
   flex: 1;
@@ -366,8 +457,12 @@ onBeforeUnmount(() => {
   max-width: 240px;
   margin-top: 12px;
 }
+.countdown-field input {
+  font-family: var(--font-mono);
+}
 .empty-hint {
   color: var(--muted);
-  margin-top: 12px;
+  margin-top: 10px;
+  font-size: 13px;
 }
 </style>
