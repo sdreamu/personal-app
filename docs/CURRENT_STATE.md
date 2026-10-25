@@ -793,7 +793,7 @@ test:e2e   playwright test
 ### 14.1 导出备份
 - 入口：设置页"数据管理"里的"导出备份"按钮（`data-test="export-backup"`）→ `SettingsView.handleExport()` → `downloadBackup()`。
 - 遍历方式：`exportBackup()`（`src/db/backup.ts`）**遍历 `TABLE_NAMES` 全部 18 张表**（不是写死的表清单），逐表 `filter(r => r.deleted_at === null).toArray()`。
-- 结构：`{ app: "evan-app", schema_version: 2, exported_at: <ms>, tables: { <表名>: [记录...] } }`。
+- 结构：`{ app: "evan-app", schema_version: 3, exported_at: <ms>, tables: { <表名>: [记录...] } }`。
 - 文件名：`evan-backup-YYYYMMDD-HHmm.json`（`backupFileName()` + `backupTimestamp()`）。
 - 下载：`triggerDownload()` 用 `Blob` + `URL.createObjectURL` + 临时 `<a download>` 点击（10s 后 `revokeObjectURL`）。
 - 顺带写 `settings.last_backup_at = exported_at`（`setLastBackupAt()`），设置页显示"最近备份时间"，首页 P4 提示用 `isBackupReminderDue()`（超过 7 天）。
@@ -849,6 +849,19 @@ test:e2e   playwright test
 | 文档 | `e2e/AC-MATRIX.md`（追加 AC-66）、本文件 |
 
 没有改表结构：`DB_VERSION` / `SCHEMA_VERSION` / 备份版本一律未动；零新依赖。
+
+### 14.7 备份版本策略（P6-5：接受「单设备事实标准」）
+
+`SCHEMA_VERSION = 3` **不提供降级**：导出写 3，导入端接受 `SUPPORTED_BACKUP_VERSIONS = [1, 2, 3]`，
+更大的版本直接拒绝（提示「结构版本不匹配（需要 1 或 2 或 3）」）。这不是待修的 Bug，而是主动选择：
+
+- 本应用是**纯本机、单人、单设备**工具，备份的用途是「换机 / 重装 / 事故回滚」，不是跨大版本互操作；
+- 把 `SCHEMA_VERSION` 退回去「兼容旧程序」等于让新备份**谎报结构**，老程序导入后会静默丢掉
+  `books.sort_index` 这类新字段，问题更难查；
+- 因此**写进文档当作事实标准**（本小节即为该决定），而不是退版本号。
+
+实践约定：升级只加字段、不删字段；新字段在导入端由 `normalizeRow` 补默认值（v1/v2 备份照常能进）；
+真要「降级」就走人工——备份是纯 JSON，删掉老版本不认识的字段即可被老版本读取。
 
 ---
 
@@ -1029,3 +1042,5 @@ test:e2e   playwright test
 | 1 | **P4** 侧栏主动折叠（68px + 记忆） | `SideNav.vue`：品牌行右侧加折叠按钮 `side-collapse`（212 ⇄ 68），状态写 `localStorage.evan-sidebar-collapsed`（键名常量在 `config/nav.ts` 的 `SIDEBAR_COLLAPSED_KEY`，不动 settings 表）；`main.css`：`.side-nav.collapsed` 宽 68px、隐藏文字只留图标（入口仍有 `title`/`aria-label`），窄屏断点里的 64px 统一成 68px | AC-79 |
 
 | 1 | **P5** e2e 欠账补齐（日程页三泳道 / 首页新面板） | `e2e/global.spec.ts` 新增 AC-80：首页「接下来」三行封顶 + 就地完成重新聚合、首页「本周学习」7 柱与当天高亮、日程页 7 天概览三泳道与件数；过程中发现并修掉 `HomeNext` 的时间显示 Bug（偏移当墙上时间、nowOffset 量纲不一致） | AC-80 |
+
+| 1 | **P6** 技术债 6 条一次性清 | P6-1 `workout.addExercise` 先取可编辑记录再 upsert（N3 已随重写修掉）；P6-2 `library.normalizeSortIndexes`（`loadBooks` 时把缺失/非数字的 `sort_index` 按列内顺序回填 10、20、30 并落库，不再只靠 `?? Infinity`）；P6-3 `BookCard` 加 ↑/↓ 按钮 + `library.moveBy` + `utils/dragSort.movedIndex`（键盘/触屏排序，与拖动同一写回路径，列首/列尾 disabled）；P6-4 `testTimeout` 15s→8s（基线：整轮 40~46s、单条最慢 4.1s）；P6-5 备份版本策略写进 §14.7（接受单设备事实标准，不退 `SCHEMA_VERSION`）；P6-6 新页面结构说明随每次交付补齐（`#/mistakes` 已进 §3 路由表 / §4.1 表清单） | AC-81 |

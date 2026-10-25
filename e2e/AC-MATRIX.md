@@ -316,3 +316,12 @@
 
 覆盖：首页「接下来」三行封顶（今天下一个时间块带反白、今天的无时间待办可「完成」、明天第一件）→ 就地完成后重新聚合；「本周学习」7 根柱子 + 当天高亮 + 合计文案；日程页 7 天概览里今天那列三泳道（学习有块、生活/其它无块）+ 件数。
 配套修 Bug：`HomeNext` 之前把 `start_min`（相对一天起点的偏移）当墙上时间显示，09:00 的时间块显示成 05:00，「下一个时间块」的判定也用了不同量纲的 `minutesOfDay` —— 已改为 `offsetToTime(…, settings.dayStartMin)` 并把 nowOffset 换算成同量纲（commit `fix(home)`，home-next.spec 期望值同步改正）。
+
+## 技术债清理（AC-81）
+
+| AC | 项 | 覆盖测试 |
+|---|---|---|
+| AC-81 | P6-2 `books.sort_index` 读取端兜底 | src/stores/library.spec.ts（`loadBooks` 回填 10/20/30、兜底后 `moveBy` 仍可用） |
+| AC-81 | P6-3 书架排序的键盘 / 触屏替代 | src/utils/dragSort.spec.ts（`movedIndex` 边界 3 条）、src/stores/library.spec.ts（`moveBy` 上移/下移/列首列尾）、src/views/study-books-view.spec.ts（点 ↑ 换位并落库、列首列尾 disabled、只在本栏内移动） |
+| AC-81 | P6-4 单测超时 | `vite.config.ts` `testTimeout: 8000`（全量 642 条连续两轮全绿） |
+| AC-81 | P6-5 备份版本策略 | 文档 §14.7（无代码改动） |
