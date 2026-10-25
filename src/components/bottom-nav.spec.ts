@@ -41,7 +41,7 @@ describe('手机底部导航', () => {
 
     const tabs = wrapper.findAll('.bottom-tab');
     expect(tabs).toHaveLength(5);
-    expect(tabs.map((t) => t.text())).toEqual(['首页', '计划', '学习', '生活', '复盘']);
+    expect(tabs.map((t) => t.text())).toEqual(['今天', '日程', '学习', '生活', '复盘']);
     expect(wrapper.findAll('a.bottom-tab')).toHaveLength(3);
     expect(wrapper.findAll('[data-test="bottom-tab-group"]')).toHaveLength(2);
     // 无障碍标签 + 图标都是内联 SVG
@@ -57,7 +57,7 @@ describe('手机底部导航', () => {
 
     await router.push('/home');
     await flushPromises();
-    expect(wrapper.findAll('.bottom-tab.active').map((t) => t.text())).toEqual(['首页']);
+    expect(wrapper.findAll('.bottom-tab.active').map((t) => t.text())).toEqual(['今天']);
     expect(wrapper.find('a.bottom-tab.active').attributes('aria-current')).toBe('page');
 
     await router.push('/study/timer');

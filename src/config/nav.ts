@@ -28,7 +28,7 @@ export interface NavGroupItem {
 export type NavItem = NavLinkItem | NavGroupItem;
 
 const ICONS = {
-  home: 'M4 10.6 12 4l8 6.6M6.4 9.6V20h11.2V9.6M10 20v-5.2h4V20',
+  home: 'M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2',
   plan: 'M4.5 6.5h15v13.5h-15zM4.5 11h15M8.5 4v4M15.5 4v4',
   study: 'M5 4.5h9a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3zM17 7.5h2v12.5h-2M8.5 8.5h5',
   life: 'M12 20S3.8 14.7 3.8 9.4A4.6 4.6 0 0 1 12 6.4a4.6 4.6 0 0 1 8.2 3c0 5.3-8.2 10.6-8.2 10.6z',
@@ -44,8 +44,8 @@ const ICONS = {
 
 /** 侧边栏顺序：一级入口与分组混排（与 PRD §2.2 路由一一对应）。 */
 export const navItems: readonly NavItem[] = [
-  { kind: 'link', key: 'home', to: '/home', label: '首页', icon: ICONS.home },
-  { kind: 'link', key: 'plan', to: '/plan', label: '计划', icon: ICONS.plan },
+  { kind: 'link', key: 'home', to: '/home', label: '今天', icon: ICONS.home },
+  { kind: 'link', key: 'plan', to: '/plan', label: '日程', icon: ICONS.plan },
   {
     kind: 'group',
     key: 'study',
@@ -71,6 +71,19 @@ export const navItems: readonly NavItem[] = [
   { kind: 'link', key: 'review', to: '/review', label: '复盘', icon: ICONS.review },
   { kind: 'link', key: 'settings', to: '/settings', label: '设置', icon: ICONS.settings },
 ];
+
+/**
+ * 沉在侧边栏底部的两个入口（复盘 / 设置）：单独一组，和上面的导航拉开距离。
+ * 手机端 复盘 仍在底部导航里，设置由侧栏与顶栏进入。
+ */
+export const navFooter: readonly NavLinkItem[] = navItems.filter(
+  (item): item is NavLinkItem => item.kind === 'link' && (item.key === 'review' || item.key === 'settings'),
+);
+
+/** 侧边栏主体（不含底部那一组）。 */
+export const navMain: readonly NavItem[] = navItems.filter(
+  (item) => !navFooter.some((footer) => footer.key === item.key),
+);
 
 /** 手机底部导航的 5 个一级入口；设置留在侧边栏之外由顶栏/首页进入。 */
 export const bottomTabs: readonly NavItem[] = navItems.filter((item) => item.key !== 'settings');

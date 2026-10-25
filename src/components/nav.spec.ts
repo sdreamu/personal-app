@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent } from 'vue';
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
+import { createPinia } from 'pinia';
 import { bottomTabs, navItems } from '@/config/nav';
 import SideNav from './SideNav.vue';
 
@@ -29,14 +30,14 @@ beforeEach(() => {
 
 describe('左侧导航', () => {
   it('渲染全部 10 个页面入口、2 个分组，且每个入口都带内联图标', async () => {
-    const wrapper = mount(SideNav, { global: { plugins: [router] } });
+    const wrapper = mount(SideNav, { global: { plugins: [router, createPinia()] } });
     await router.isReady();
 
     const links = wrapper.findAll('a.nav-link');
     expect(links).toHaveLength(10);
     expect(links.map((l) => l.text())).toEqual([
-      '首页',
-      '计划',
+      '今天',
+      '日程',
       '读书',
       '科目',
       '计时器',
@@ -55,7 +56,7 @@ describe('左侧导航', () => {
   });
 
   it('分组子页面链接存在且都指向真实路由', async () => {
-    const wrapper = mount(SideNav, { global: { plugins: [router] } });
+    const wrapper = mount(SideNav, { global: { plugins: [router, createPinia()] } });
     await router.isReady();
 
     const groupPaths = navItems.flatMap((item) =>
@@ -77,14 +78,14 @@ describe('左侧导航', () => {
   });
 
   it('当前页高亮；书详情子路由归属“读书”', async () => {
-    const wrapper = mount(SideNav, { global: { plugins: [router] } });
+    const wrapper = mount(SideNav, { global: { plugins: [router, createPinia()] } });
     await router.isReady();
 
     await router.push('/plan');
     await flushPromises();
     let active = wrapper.find('a.nav-link.active');
     expect(active.exists()).toBe(true);
-    expect(active.text()).toBe('计划');
+    expect(active.text()).toBe('日程');
     expect(active.attributes('aria-current')).toBe('page');
     expect(wrapper.findAll('a.nav-link.active')).toHaveLength(1);
 
@@ -100,7 +101,7 @@ describe('左侧导航', () => {
   });
 
   it('分组可折叠；切到组内页面时该组自动展开', async () => {
-    const wrapper = mount(SideNav, { global: { plugins: [router] } });
+    const wrapper = mount(SideNav, { global: { plugins: [router, createPinia()] } });
     await router.isReady();
     expect(wrapper.findAll('a.nav-link')).toHaveLength(10);
 
@@ -118,9 +119,9 @@ describe('左侧导航', () => {
 });
 
 describe('底部导航配置（5 个一级入口）', () => {
-  it('一级入口为 首页/计划/学习/生活/复盘', () => {
+  it('一级入口为 今天/日程/学习/生活/复盘', () => {
     expect(bottomTabs).toHaveLength(5);
-    expect(bottomTabs.map((tab) => tab.label)).toEqual(['首页', '计划', '学习', '生活', '复盘']);
+    expect(bottomTabs.map((tab) => tab.label)).toEqual(['今天', '日程', '学习', '生活', '复盘']);
     // 设置不进底部导航，太窄的屏幕留给侧边栏/首页入口
     expect(bottomTabs.some((tab) => tab.key === 'settings')).toBe(false);
   });
