@@ -165,3 +165,16 @@
 
 覆盖完整性：AC-68 逐条有对应测试（e2e 2 条 + 单测 16 条 + 组件 1 条），无 skip / only；AC-51 既有断言未改动仍通过。
 
+
+## 补齐 PRD 缺口（AC-69）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-69 | AC-69 书架卡片直接改页码 | e2e/books.spec.ts |
+
+补充（组件/视图层）：
+- 书架上改页码 → 落库 `current_page` 且生成一条 `source='page_update'` 的学习记录（pages_read = 新页 - 旧页）—— src/views/study-books-view.spec.ts
+- 页码超过总页数 → 不改库、给错误 toast、卡片数字保持原值 —— src/views/study-books-view.spec.ts
+- 到总页数且未读完 → `updateBookPage` 返回 `confirmDone`，书架页 toast 提示改成「读完」—— src/views/study-books-view.spec.ts + src/stores/library.spec.ts（既有）
+
+覆盖完整性：AC-69 有 1 条 e2e + 2 条视图层断言，无 skip / only；AC-26~AC-30 既有断言未改动（`book-pages` 文本保持原样）。

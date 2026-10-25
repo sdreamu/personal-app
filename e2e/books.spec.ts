@@ -87,3 +87,27 @@ test('AC-30 开始阅读计时预选与手动补记', async ({ page }) => {
   await gotoHash(page, 'review');
   await expect(page.locator('[data-test="metric-study-value"]')).toContainText('00:30:00');
 });
+
+/** AC-69：书架卡片上直接改当前页（PRD §5.2 允许「书架或书详情页」二选一）——进度同步、复盘页数增加。 */
+test('AC-69 书架卡片直接改页码', async ({ page }) => {
+  await seedBook(page, { title: 'AC69书', totalPages: 200, status: 'reading' });
+
+  const card = page.locator('[data-test="column-reading"] [data-test="book-card"]');
+  await expect(card).toHaveCount(1);
+  await expect(card.locator('[data-test="book-pages"]')).toHaveText('0/200 页（0%）');
+
+  await card.locator('[data-test="book-page-input"]').fill('50');
+  await card.locator('[data-test="book-page-input"]').press('Enter');
+  await expect(card.locator('[data-test="book-pages"]')).toHaveText('50/200 页（25%）');
+
+  // 改页码生成 page_update 学习记录 → 复盘页的阅读页数跟着涨
+  await gotoHash(page, 'review');
+  await expect(page.locator('[data-test="metric-pages-value"]')).toHaveText('50 页');
+
+  // 超过总页数的输入被拒绝，页码保持不变
+  await gotoHash(page, 'study/books');
+  const input = page.locator('[data-test="column-reading"] [data-test="book-page-input"]');
+  await input.fill('999');
+  await input.press('Enter');
+  await expect(page.locator('[data-test="column-reading"] [data-test="book-pages"]')).toHaveText('50/200 页（25%）');
+});

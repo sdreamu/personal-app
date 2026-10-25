@@ -5,11 +5,13 @@ import BaseModal from '@/components/BaseModal.vue';
 import BookCard from '@/components/BookCard.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { useLibraryStore, type BookInput, type BookStatus } from '@/stores/library';
+import { useToastStore } from '@/stores/toast';
 import { sortColumn } from '@/utils/dragSort';
 import type { Book } from '@/db';
 
 const router = useRouter();
 const library = useLibraryStore();
+const toast = useToastStore();
 
 const formOpen = ref(false);
 const editingId = ref<string | null>(null);
@@ -68,6 +70,20 @@ async function save(): Promise<void> {
 
 function changeStatus(book: Book, status: BookStatus): void {
   void library.setBookStatus(book.id, status);
+}
+
+/**
+ * 书架上直接改页码：复用 libraryStore.updateBookPage（内部会生成 source=page_update 的学习记录、
+ * 到总页数时返回 confirmDone），不另写一套落库逻辑。
+ */
+async function changePage(book: Book, page: number): Promise<void> {
+  const result = await library.updateBookPage(book.id, page);
+  if (!result.ok) {
+    toast.error(result.reason);
+    await library.loadBooks();
+    return;
+  }
+  if (result.confirmDone) toast.success('已经翻到最后一页了，要把状态改成「读完」吗？');
 }
 
 function openDetail(book: Book): void {
@@ -131,6 +147,7 @@ function dropInto(targetStatus: BookStatus, targetBookId: string | null): void {
             @edit="openEdit(book)"
             @delete="library.deleteBook(book.id)"
             @status-change="changeStatus(book, $event)"
+            @page-change="changePage(book, $event)"
             @drag-start="onCardDragStart(book)"
             @drag-end="onDragEnd"
             @dragover.prevent

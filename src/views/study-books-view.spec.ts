@@ -3,7 +3,7 @@ import { defineComponent } from 'vue';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import { createRecord, getRecord, resetDbForTests, type Book } from '@/db';
+import { createRecord, getRecord, listAlive, resetDbForTests, type Book } from '@/db';
 import { useDateStore } from '@/stores/date';
 import { TIMING_GUARD_MESSAGE, useLibraryStore } from '@/stores/library';
 import { useTimerStore } from '@/stores/timer';
@@ -250,5 +250,37 @@ describe('书架页 #/study/books', () => {
     await wrapper.find('[data-test="column-want"] [data-test="empty-action"]').trigger('click');
     await flushPromises();
     expect(wrapper.find('[data-test="book-form"]').exists()).toBe(true);
+  });
+  it('书架上直接改页码：落库 current_page，并生成一条 page_update 学习记录', async () => {
+    await makeBook('reading', '能改页', 50, 200);
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 1, '卡片未出现');
+    const card = cardWith(wrapper, '能改页');
+
+    const input = card.find('[data-test="book-page-input"]');
+    expect(input.exists()).toBe(true);
+    await input.setValue('80');
+    await input.trigger('change');
+
+    await waitFor(() => card.find('[data-test="book-pages"]').text().includes('80/200'), '页码未更新');
+    expect((await getRecord('books', (await listAlive('books'))[0]!.id))?.current_page).toBe(80);
+    const records = await listAlive('study_records');
+    expect(records.some((row) => row.source === 'page_update' && row.pages_read === 30)).toBe(true);
+  });
+
+  it('页码超过总页数：不改库，给出错误提示', async () => {
+    const book = await makeBook('reading', '超页书', 50, 200);
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 1, '卡片未出现');
+    const card = cardWith(wrapper, '超页书');
+
+    const input = card.find('[data-test="book-page-input"]');
+    await input.setValue('999');
+    await input.trigger('change');
+    await flushPromises();
+
+    expect(useToastStore().items.some((t) => t.type === 'error')).toBe(true);
+    expect((await getRecord('books', book.id))?.current_page).toBe(50);
+    expect(card.find('[data-test="book-pages"]').text()).toContain('50/200');
   });
 });

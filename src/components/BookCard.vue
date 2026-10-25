@@ -9,6 +9,7 @@ const emit = defineEmits<{
   (e: 'edit'): void;
   (e: 'delete'): void;
   (e: 'status-change', status: BookStatus): void;
+  (e: 'page-change', page: number): void;
   (e: 'drag-start'): void;
   (e: 'drag-end'): void;
 }>();
@@ -27,6 +28,19 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: BookStatus; label: string }> = [
   { value: 'reading', label: '在读' },
   { value: 'done', label: '读完' },
 ];
+
+/** 书架上直接改当前页（PRD §5.2：书架「或」书详情页都能改）。 */
+const pageInputId = computed(() => `book-page-${props.book.id}`);
+
+function commitPage(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const value = input.valueAsNumber;
+  if (!Number.isFinite(value) || value === props.book.current_page) {
+    input.value = String(props.book.current_page);
+    return;
+  }
+  emit('page-change', value);
+}
 
 const percent = computed(() => {
   if (props.book.total_pages <= 0) return 0;
@@ -53,6 +67,22 @@ const percent = computed(() => {
         <div class="progress-fill" :style="{ width: percent + '%' }" data-test="book-progress" />
       </div>
       <p class="book-pages" data-test="book-pages">{{ book.current_page }}/{{ book.total_pages }} 页（{{ percent }}%）</p>
+      <div class="page-quick" data-test="book-page-quick" @click.stop>
+        <label class="page-quick-label" :for="pageInputId">改到第</label>
+        <input
+          :id="pageInputId"
+          class="page-quick-input num"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          :max="book.total_pages"
+          :value="book.current_page"
+          data-test="book-page-input"
+          @keydown.enter.prevent="commitPage($event)"
+          @change="commitPage($event)"
+        />
+        <span class="page-quick-total">页</span>
+      </div>
       <div class="book-ops" @click.stop>
         <select
           class="book-status"
@@ -103,6 +133,20 @@ const percent = computed(() => {
 }
 .progress-fill { height: 100%; background: var(--accent); border-radius: var(--radius); }
 .book-pages { margin: 0; color: var(--muted); font-size: 12px; }
+.page-quick { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.page-quick-input {
+  width: 56px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+.page-quick-input:focus {
+  outline: 2px solid var(--border-ink);
+  outline-offset: 1px;
+  background: var(--panel);
+}
 .book-ops { display: flex; align-items: center; gap: 6px; margin-top: auto; }
 .book-status {
   border: 1px solid var(--border);
