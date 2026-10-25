@@ -7,6 +7,7 @@ import PlanFormModal from '@/components/PlanFormModal.vue';
 import PlanTimeline from '@/components/PlanTimeline.vue';
 import { useDateStore } from '@/stores/date';
 import { useModalStore } from '@/stores/modal';
+import ScheduleWeek from '@/components/ScheduleWeek.vue';
 import { usePlanStore, type PlanFormPayload } from '@/stores/plan';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimerStore } from '@/stores/timer';
@@ -172,9 +173,10 @@ function onKeydown(event: KeyboardEvent): void {
 
 <template>
   <section class="page plan-page" data-test="plan-view">
+    <ScheduleWeek />
     <div class="settings-card plan-header" data-test="plan-header">
       <div class="header-row">
-        <h1 class="page-title">计划</h1>
+        <h1 class="page-title">日程</h1>
         <button class="primary-btn" data-test="add-plan-btn" @click="openCreate">+ 新增计划</button>
         <span class="hint">快捷键 N 新建</span>
       </div>
