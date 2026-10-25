@@ -164,7 +164,12 @@ function dropInto(targetStatus: BookStatus, targetBookId: string | null): void {
       </section>
     </div>
 
-    <BaseModal v-if="formOpen" id="book-form" :title="editingId === null ? '新增书籍' : '编辑书籍'">
+    <BaseModal
+      v-if="formOpen"
+      id="book-form"
+      :title="editingId === null ? '新增书籍' : '编辑书籍'"
+      @close="formOpen = false"
+    >
       <form data-test="book-form" @submit.prevent="save">
         <div class="field">
           <label for="book-title-input">书名（必填）</label>

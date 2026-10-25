@@ -176,7 +176,12 @@ function formatMinutes(sec: number): string {
       <p v-else class="hint">没有已归档的科目。</p>
     </div>
 
-    <BaseModal v-if="formOpen" id="subject-form" :title="editingId === null ? '新增科目' : '编辑科目'">
+    <BaseModal
+      v-if="formOpen"
+      id="subject-form"
+      :title="editingId === null ? '新增科目' : '编辑科目'"
+      @close="formOpen = false"
+    >
       <form data-test="subject-form" @submit.prevent="save">
         <div class="field">
           <label for="subject-name-input">名称（必填）</label>
@@ -211,7 +216,12 @@ function formatMinutes(sec: number): string {
       </form>
     </BaseModal>
 
-    <BaseModal v-if="manualOpen" id="subject-manual-form" title="手动补记学习记录">
+    <BaseModal
+      v-if="manualOpen"
+      id="subject-manual-form"
+      title="手动补记学习记录"
+      @close="manualOpen = false"
+    >
       <form data-test="subject-manual-form" @submit.prevent="saveManual">
         <div class="field">
           <label for="subject-manual-date-input">逻辑日期</label>
@@ -256,7 +266,12 @@ function formatMinutes(sec: number): string {
       </form>
     </BaseModal>
 
-    <BaseModal v-if="historyOpen" id="subject-history" title="历史学习记录">
+    <BaseModal
+      v-if="historyOpen"
+      id="subject-history"
+      title="历史学习记录"
+      @close="historyOpen = false"
+    >
       <p v-if="historySubject !== null" class="hint">
         {{ historySubject.name }} 的全部有效学习记录（{{ historyRecords.length }} 条）
       </p>

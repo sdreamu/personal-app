@@ -25,7 +25,9 @@ watch(
       <div class="modal" role="dialog" :aria-label="title">
         <header>
           <h3>{{ title }}</h3>
-          <button class="icon-btn" aria-label="关闭" @click="emit('close')">✕</button>
+          <button type="button" class="icon-btn" aria-label="关闭" data-test="modal-close" @click="emit('close')">
+            ✕
+          </button>
         </header>
         <div class="modal-body">
           <slot />

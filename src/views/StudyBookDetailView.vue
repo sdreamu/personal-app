@@ -236,6 +236,7 @@ function startTimer(): void {
         v-if="confirmDoneOpen"
         id="book-done-confirm"
         title="标记为读完？"
+        @close="confirmDoneOpen = false"
       >
         <p>当前页已达到总页数，是否将这本书标记为读完？</p>
         <div class="modal-actions">
@@ -257,6 +258,7 @@ function startTimer(): void {
         v-if="excerptOpen"
         id="excerpt-form"
         :title="excerptEditingId === null ? '新增摘录' : '编辑摘录'"
+        @close="excerptOpen = false"
       >
         <form data-test="excerpt-form" @submit.prevent="saveExcerpt">
           <div class="field">
@@ -297,7 +299,12 @@ function startTimer(): void {
         </form>
       </BaseModal>
 
-      <BaseModal v-if="manualOpen" id="manual-record-form" title="手动补记阅读记录">
+      <BaseModal
+        v-if="manualOpen"
+        id="manual-record-form"
+        title="手动补记阅读记录"
+        @close="manualOpen = false"
+      >
         <form data-test="manual-form" @submit.prevent="saveManual">
           <div class="field">
             <label for="manual-date-input">逻辑日期</label>

@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import { createRecord, getRecord, listAlive, resetDbForTests, type Subject } from '@/db';
+import { useEscToCloseModal } from '@/composables/useEscToCloseModal';
 import { useDateStore } from '@/stores/date';
 import { TIMING_GUARD_MESSAGE, useLibraryStore } from '@/stores/library';
 import { useTimerStore } from '@/stores/timer';
@@ -240,5 +241,69 @@ describe('科目页 #/study/subjects', () => {
     await flushPromises();
     expect(router.currentRoute.value.path).toBe('/study/timer');
     expect(router.currentRoute.value.query).toMatchObject({ type: 'subject', id: subject.id });
+  });
+});
+
+describe('科目页弹窗关闭：✕ / 遮罩 / Esc（AC-73）', () => {
+  const EscHost = defineComponent({
+    components: { StudySubjectsView },
+    setup() {
+      useEscToCloseModal();
+    },
+    template: '<StudySubjectsView />',
+  });
+
+  async function mountWithEsc(): Promise<VueWrapper> {
+    const wrapper = mount(EscHost, {
+      global: { plugins: [pinia, router], stubs: { Teleport: true } },
+    });
+    await router.isReady();
+    await waitFor(() => wrapper.find('[data-test="subjects-view"]').exists(), '科目页未渲染');
+    return wrapper;
+  }
+
+  it('新增科目弹窗：点 ✕ 关闭、不写库', async () => {
+    await makeSubject('数学');
+    const wrapper = await mountSubjects();
+    await waitFor(() => wrapper.findAll('[data-test="subject-card"]').length === 1, '卡片未出现');
+
+    await wrapper.find('[data-test="add-subject-btn"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-test="subject-form"]').exists()).toBe(true);
+
+    await wrapper.find('[data-test="modal-close"]').trigger('click');
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="subject-form"]').exists(), '弹窗未关闭');
+    expect((await listAlive('subjects')).length).toBe(1);
+  });
+
+  it('手动补记弹窗：点遮罩空白处关闭、不写库', async () => {
+    const subject = await makeSubject('数学');
+    const wrapper = await mountSubjects();
+    await waitFor(() => wrapper.findAll('[data-test="subject-card"]').length === 1, '卡片未出现');
+
+    await wrapper.find('[data-test="subject-manual"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-test="subject-manual-form"]').exists()).toBe(true);
+
+    await wrapper.find('.modal-overlay').trigger('click');
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="subject-manual-form"]').exists(), '弹窗未关闭');
+    expect((await listAlive('study_records')).length).toBe(0);
+    expect(subject.id).toBeTruthy();
+  });
+
+  it('历史记录弹窗：按 Esc 关闭', async () => {
+    const subject = await makeSubject('数学');
+    await makeRecord(subject.id, '2026-06-03', 3600);
+    const wrapper = await mountWithEsc();
+    await waitFor(() => wrapper.findAll('[data-test="subject-card"]').length === 1, '卡片未出现');
+
+    await wrapper.find('[data-test="subject-history"]').trigger('click');
+    await waitFor(() => wrapper.find('[data-test="history-list"]').exists(), '历史记录未加载');
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="history-list"]').exists(), 'Esc 未关闭弹窗');
   });
 });

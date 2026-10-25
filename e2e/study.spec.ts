@@ -195,3 +195,40 @@ test('AC-39辅助 计时12小时恢复', async ({ page }) => {
   await expect(page.locator('[data-test="settlement-overlay"]')).toHaveCount(0);
   await expect(page.locator('[data-test="pause-btn"]')).toBeVisible();
 });
+
+/** AC-71：科目/书籍弹窗都能被 ✕ / 点遮罩 / Esc 关掉，且三种方式都不写库。 */
+test('AC-71 弹窗三种关闭方式（✕ / 遮罩 / Esc）', async ({ page }) => {
+  await gotoHash(page, 'study/subjects');
+
+  // 1) ✕
+  await page.click('[data-test="add-subject-btn"]');
+  await expect(page.locator('[data-test="subject-form"]')).toBeVisible();
+  await page.click('[data-test="modal-close"]');
+  await expect(page.locator('[data-test="subject-form"]')).toHaveCount(0);
+
+  // 2) 点遮罩空白处
+  await page.click('[data-test="add-subject-btn"]');
+  await expect(page.locator('[data-test="subject-form"]')).toBeVisible();
+  await page.locator('.modal-overlay').click({ position: { x: 4, y: 4 } });
+  await expect(page.locator('[data-test="subject-form"]')).toHaveCount(0);
+
+  // 3) Esc
+  await page.click('[data-test="add-subject-btn"]');
+  await expect(page.locator('[data-test="subject-form"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-test="subject-form"]')).toHaveCount(0);
+
+  // 三种方式都没写库
+  await expect(page.locator('[data-test="subject-card"]')).toHaveCount(0);
+
+  // 书籍页同理：✕ 与 Esc
+  await gotoHash(page, 'study/books');
+  await page.click('[data-test="add-book-btn"]');
+  await expect(page.locator('[data-test="book-form"]')).toBeVisible();
+  await page.click('[data-test="modal-close"]');
+  await expect(page.locator('[data-test="book-form"]')).toHaveCount(0);
+  await page.click('[data-test="add-book-btn"]');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-test="book-form"]')).toHaveCount(0);
+  await expect(page.locator('[data-test="book-card"]')).toHaveCount(0);
+});

@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import { createRecord, getRecord, listAlive, resetDbForTests, type Book } from '@/db';
+import { useEscToCloseModal } from '@/composables/useEscToCloseModal';
 import { useDateStore } from '@/stores/date';
 import { useLibraryStore } from '@/stores/library';
 import StudyBookDetailView from './StudyBookDetailView.vue';
@@ -265,5 +266,50 @@ describe('书详情页 #/study/books/:id', () => {
     await wrapper.find('[data-test="empty-action"]').trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.path).toBe('/study/books');
+  });
+});
+
+describe('书详情页弹窗关闭：✕ / Esc（AC-73）', () => {
+  const EscHost = defineComponent({
+    components: { StudyBookDetailView },
+    setup() {
+      useEscToCloseModal();
+    },
+    template: '<StudyBookDetailView />',
+  });
+
+  async function mountDetailWithEsc(bookId: string): Promise<VueWrapper> {
+    await router.push("/study/books/" + bookId);
+    const wrapper = mount(EscHost, {
+      global: { plugins: [pinia, router], stubs: { Teleport: true } },
+    });
+    await router.isReady();
+    await waitFor(() => wrapper.find('[data-test="detail-title"]').exists(), '书详情未渲染');
+    return wrapper;
+  }
+
+  it('读完确认弹窗：点 ✕ 关闭、状态不变', async () => {
+    const book = await makeBook(0, 300);
+    const wrapper = await mountDetail(book.id);
+    await wrapper.find('[data-test="page-input"]').setValue('300');
+    await wrapper.find('[data-test="page-save"]').trigger('click');
+    await waitFor(() => wrapper.find('[data-test="done-confirm-yes"]').exists(), '读完确认弹窗未出现');
+
+    await wrapper.find('[data-test="modal-close"]').trigger('click');
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="done-confirm-yes"]').exists(), '弹窗未关闭');
+    expect((await getRecord('books', book.id))?.status).toBe('reading');
+  });
+
+  it('新增摘录弹窗：按 Esc 关闭、不写摘录', async () => {
+    const book = await makeBook(0, 300);
+    const wrapper = await mountDetailWithEsc(book.id);
+    await wrapper.find('[data-test="excerpt-add"]').trigger('click');
+    await waitFor(() => wrapper.find('[data-test="excerpt-form"]').exists(), '摘录弹窗未出现');
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="excerpt-form"]').exists(), 'Esc 未关闭弹窗');
+    expect((await listAlive('excerpts')).length).toBe(0);
   });
 });

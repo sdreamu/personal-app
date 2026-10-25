@@ -488,6 +488,8 @@ test:e2e   playwright test
 
 统一模式：`BaseModal.vue`（Teleport + 遮罩；注册进 `useModalStore`，Esc/点遮罩关闭）→ 表单在组件内维护临时 state → 点保存时 emit/调用父组件 handler → **写库成功后才关闭弹窗**，失败保留弹窗并显示错误。
 
+**弹窗关闭纪律（B1 修复后）：** 每个 `<BaseModal>` **必须**绑 `@close`（漏绑 = ✕ / 遮罩 / Esc 全部失效，而且 Esc 会把弹窗从 modal store 栈里弹掉、屏幕上的弹窗却留着，导致背后的快捷键守卫同时失效）。`src/components/base-modal-close.spec.ts` 会扫描全库 `<BaseModal>` 开始标签，漏绑直接红；✕ 按钮固定 `type="button"` + `data-test="modal-close"`。
+
 | 场景 | 表单组件 | 保存入口（函数） | 落库 |
 |---|---|---|---|
 | 新增/编辑计划项、安排时间 | `src/components/PlanFormModal.vue` | `PlanView.vue` 的 `handleFormSave()` → `planStore.createPlan()` / `planStore.updatePlan()` | `createRecord`/`updateRecord("plans")` |

@@ -284,3 +284,34 @@ describe('书架页 #/study/books', () => {
     expect(card.find('[data-test="book-pages"]').text()).toContain('50/200');
   });
 });
+
+describe('书架页弹窗关闭：✕ / 遮罩（AC-73）', () => {
+  it('新增书籍弹窗：点 ✕ 关闭、不写库', async () => {
+    await makeBook('reading', 'SICP');
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 1, '卡片未出现');
+
+    await wrapper.find('[data-test="add-book-btn"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-test="book-form"]').exists()).toBe(true);
+
+    await wrapper.find('[data-test="modal-close"]').trigger('click');
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="book-form"]').exists(), '弹窗未关闭');
+    expect((await listAlive('books')).length).toBe(1);
+  });
+
+  it('编辑书籍弹窗：点遮罩关闭、书名不变', async () => {
+    const book = await makeBook('reading', 'SICP');
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 1, '卡片未出现');
+
+    await wrapper.find('[data-test="book-edit"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-test="book-form-title"]').setValue('改了一半');
+    await wrapper.find('.modal-overlay').trigger('click');
+    await flushPromises();
+    await waitFor(() => !wrapper.find('[data-test="book-form"]').exists(), '弹窗未关闭');
+    expect((await getRecord('books', book.id))?.title).toBe('SICP');
+  });
+});

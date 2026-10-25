@@ -180,3 +180,19 @@
 
 覆盖完整性：AC-69 有 1 条 e2e + 2 条视图层断言，无 skip / only；AC-26~AC-30 既有断言未改动（`book-pages` 文本保持原样）。
 - 首页「开始计时」：有在读的书就带着它直接 `startTimer`，已有计时则只跳转不重复开 —— src/components/home-cards.spec.ts（2 条）
+
+## 修复弹窗关闭 bug（AC-71）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-71 | AC-71 弹窗三种关闭方式（✕ / 遮罩 / Esc） | e2e/study.spec.ts |
+
+补充（单测/组件/视图层）：
+- **全库守卫**：`src` 下所有 `<BaseModal>` 开始标签都必须绑 `@close`（扫描式断言，扫到 ≥13 处，缺失即列出 文件:行）；扫描器自带自检用例，防止守卫变成永真 —— src/components/base-modal-close.spec.ts
+- `✕` 按钮契约：`type="button"` + `data-test="modal-close"` + `aria-label="关闭"`，点击 emit `close`；点遮罩 emit `close` —— src/components/base-modal-close.spec.ts
+- **Esc 的真相**：父组件没绑 `@close` 时，Esc 已把弹窗从 modal store 栈里弹出（`isOpen === false`）但弹窗仍留在屏幕上，且全局 Esc 处理器此后不再认它 —— 断言 emit 了 `close`、栈已空、屏幕仍在 —— src/components/base-modal-close.spec.ts
+- 科目页：新增科目 ✕ 关闭不写库 / 手动补记点遮罩关闭不写库 / 历史记录 Esc 关闭 —— src/views/study-subjects-view.spec.ts
+- 书架页：新增书籍 ✕ 关闭不写库 / 编辑书籍点遮罩关闭书名不变 —— src/views/study-books-view.spec.ts
+- 书详情页：读完确认 ✕ 关闭后 status 仍为 reading / 新增摘录 Esc 关闭不写摘录 —— src/views/study-book-detail-view.spec.ts
+
+覆盖完整性：AC-71 有 1 条 e2e + 5 条组件契约断言 + 7 条视图层断言，无 skip / only；既有「取消 / 保存」行为（AC-26~AC-32 附近）未改动且全绿。
