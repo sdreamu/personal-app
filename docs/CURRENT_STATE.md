@@ -1027,3 +1027,5 @@ test:e2e   playwright test
 | 1 | **P2** 错题照片录入（M10，Q6：图片进备份，单组 4+4 张） | 新 `src/components/ImageInput.vue`（选图 → `compressImageToDataUrl` 1400px/0.72/JPEG → dataURL 数组；缩略图 + ✕ 删除、满了 disabled、超选/读不出都有中文提示）；`mistakes` store 加 `questionImages / correctionImages`（落库前 `slice(0, 4)`）；`MistakesView` 题/订正各一个 ImageInput、卡片出缩略图；`exportText` 只写图片张数不写 base64；`.modal` 补 `max-height` + `.modal-body` 滚动（长表单不再把按钮顶出屏幕） | AC-78 |
 
 | 1 | **P4** 侧栏主动折叠（68px + 记忆） | `SideNav.vue`：品牌行右侧加折叠按钮 `side-collapse`（212 ⇄ 68），状态写 `localStorage.evan-sidebar-collapsed`（键名常量在 `config/nav.ts` 的 `SIDEBAR_COLLAPSED_KEY`，不动 settings 表）；`main.css`：`.side-nav.collapsed` 宽 68px、隐藏文字只留图标（入口仍有 `title`/`aria-label`），窄屏断点里的 64px 统一成 68px | AC-79 |
+
+| 1 | **P5** e2e 欠账补齐（日程页三泳道 / 首页新面板） | `e2e/global.spec.ts` 新增 AC-80：首页「接下来」三行封顶 + 就地完成重新聚合、首页「本周学习」7 柱与当天高亮、日程页 7 天概览三泳道与件数；过程中发现并修掉 `HomeNext` 的时间显示 Bug（偏移当墙上时间、nowOffset 量纲不一致） | AC-80 |

@@ -307,3 +307,12 @@
 | AC-79 | AC-79 侧栏折叠与记忆 | e2e/global.spec.ts |
 
 补充（组件层）：默认展开；点 `side-collapse` 收起（`data-collapsed="true"`、按钮 `aria-expanded=false`/`aria-label=展开侧栏`）并写 `localStorage.evan-sidebar-collapsed = '1'`；重挂载读回仍是折叠；折叠态每个链接仍有 `title`、分组按钮仍有 `title` + `aria-label`；样式纪律（212px / 折叠 68px / 响应式断点已由 64px 统一成 68px）—— src/components/nav.spec.ts（4 条）
+
+## 首页新面板与日程页三泳道（AC-80）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-80 | AC-80 首页接下来 / 本周学习 / 日程页三泳道 | e2e/global.spec.ts |
+
+覆盖：首页「接下来」三行封顶（今天下一个时间块带反白、今天的无时间待办可「完成」、明天第一件）→ 就地完成后重新聚合；「本周学习」7 根柱子 + 当天高亮 + 合计文案；日程页 7 天概览里今天那列三泳道（学习有块、生活/其它无块）+ 件数。
+配套修 Bug：`HomeNext` 之前把 `start_min`（相对一天起点的偏移）当墙上时间显示，09:00 的时间块显示成 05:00，「下一个时间块」的判定也用了不同量纲的 `minutesOfDay` —— 已改为 `offsetToTime(…, settings.dayStartMin)` 并把 nowOffset 换算成同量纲（commit `fix(home)`，home-next.spec 期望值同步改正）。
