@@ -309,7 +309,7 @@ function onDurationChange(event: Event): void {
   width: 88px;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 8px;
 }
 .exercise-list {
@@ -364,7 +364,7 @@ function onDurationChange(event: Event): void {
   max-width: 320px;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 8px;
   font-size: 13px;
 }
@@ -380,7 +380,7 @@ function onDurationChange(event: Event): void {
 .rename-input {
   width: 160px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 8px;
 }
 .set-list {
@@ -407,7 +407,7 @@ function onDurationChange(event: Event): void {
   width: 88px;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 8px;
 }
 .unit {

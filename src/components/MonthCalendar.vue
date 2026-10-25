@@ -179,7 +179,7 @@ function cellLabel(cell: CalendarCell): string {
   min-height: 34px;
   padding: 2px 0 7px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
   color: var(--text);
   font-variant-numeric: tabular-nums;

@@ -201,3 +201,34 @@ describe('.vue 不得含硬编码颜色', () => {
     expect(violations, '发现硬编码颜色：\n' + violations.join('\n')).toEqual([]);
   });
 });
+
+describe('.vue 圆角只用令牌（直角语言）', () => {
+  function walk(dir: string, out: string[]): string[] {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) walk(full, out);
+      else if (entry.isFile() && entry.name.endsWith('.vue')) out.push(full);
+    }
+    return out;
+  }
+
+  /** 允许的三种写法：0 / var(--radius...) / 50%（水杯、日历点这种真圆）。 */
+  const allowed = /^(0|50%|var\(\s*--radius[A-Za-z0-9-]*\s*\))$/;
+
+  it('圆角只允许 0 / var(--radius) / 50%，不得写死 px 圆角', () => {
+    const offenders: string[] = [];
+    for (const file of walk(resolve(root, 'src'), [])) {
+      const text = readFileSync(file, 'utf8');
+      const re = /border-radius:\s*([^;]+);/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        const value = m[1].trim();
+        // 四值写法（如 2px 2px 0 0）也按四段逐段校验
+        const parts = value.split(/\s+/);
+        const ok = parts.every((part) => allowed.test(part));
+        if (!ok) offenders.push(`${file.replace(root, '')}: border-radius: ${value}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

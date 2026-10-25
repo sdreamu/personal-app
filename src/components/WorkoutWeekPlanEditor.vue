@@ -180,7 +180,7 @@ function commitRename(row: WeekRow, index: number): void {
 .type-select {
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 8px;
 }
 .exercise-editor {
@@ -197,7 +197,7 @@ function commitRename(row: WeekRow, index: number): void {
   gap: 4px;
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 2px 10px;
   font-size: 13px;
 }
@@ -214,7 +214,7 @@ function commitRename(row: WeekRow, index: number): void {
 .chip-input {
   width: 96px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 2px 6px;
 }
 .add-row {

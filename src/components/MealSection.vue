@@ -198,7 +198,7 @@ function feelingLabel(feeling: NonNullable<MealFeeling>): string {
   border: 1px solid var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 3px 12px;
   font-size: 13px;
 }
@@ -224,7 +224,7 @@ function feelingLabel(feeling: NonNullable<MealFeeling>): string {
   gap: 10px;
   flex-wrap: wrap;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 8px 12px;
   background: var(--panel);
 }
@@ -249,7 +249,7 @@ function feelingLabel(feeling: NonNullable<MealFeeling>): string {
 .meal-item select {
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 6px 8px;
 }
 </style>

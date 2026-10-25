@@ -348,7 +348,7 @@ function startTimer(): void {
   flex: none;
   width: 104px;
   height: 146px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -359,8 +359,8 @@ function startTimer(): void {
 .summary-main { flex: 1; min-width: 0; }
 .detail-title { margin: 0 0 4px; font-size: 22px; }
 .detail-author { margin: 0 0 10px; color: var(--muted); }
-.progress-track { height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.progress-track { height: 8px; border-radius: var(--radius); background: var(--panel-2); overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: var(--radius); }
 .detail-pages { margin: 8px 0 4px; color: var(--muted); }
 .remaining { margin: 4px 0; color: var(--accent); font-weight: 600; }
 .page-input { width: 140px; }
@@ -369,7 +369,7 @@ function startTimer(): void {
 .excerpt-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .excerpt-row {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 10px 12px;
   display: flex;
   flex-direction: column;

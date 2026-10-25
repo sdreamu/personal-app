@@ -122,7 +122,7 @@ function canStart(plan: Plan): boolean {
   height: calc(24 * 44px);
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 .hour-line {
@@ -144,7 +144,7 @@ function canStart(plan: Plan): boolean {
   padding: 4px 6px;
   background: var(--accent-soft);
   border: 1px solid var(--accent);
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
   font-size: 12px;
 }

@@ -354,14 +354,14 @@ function onKeydown(event: KeyboardEvent): void {
   flex: 1;
   max-width: 360px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--panel-2);
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius);
 }
 .info-row {
   display: flex;

@@ -84,7 +84,7 @@ const percent = computed(() => {
   flex: none;
   width: 78px;
   height: 108px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,17 +97,17 @@ const percent = computed(() => {
 .book-author { margin: 0; color: var(--muted); font-size: 13px; }
 .progress-track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--panel-2);
   overflow: hidden;
 }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: var(--radius); }
 .book-pages { margin: 0; color: var(--muted); font-size: 12px; }
 .book-ops { display: flex; align-items: center; gap: 6px; margin-top: auto; }
 .book-status {
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 3px 6px;
   font-size: 13px;
 }

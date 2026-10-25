@@ -288,7 +288,7 @@ function formatMinutes(sec: number): string {
   gap: 10px;
   flex-wrap: wrap;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 8px 12px;
 }
 .record-note { color: var(--muted); font-size: 13px; }

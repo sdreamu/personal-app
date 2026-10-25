@@ -88,7 +88,7 @@ function onDateInput(event: Event): void {
 .date-jump-field { display: flex; align-items: center; gap: 10px; }
 .date-jump-input {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--panel);
   padding: 4px 8px;
 }

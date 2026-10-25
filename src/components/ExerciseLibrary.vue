@@ -61,7 +61,7 @@ const items = computed(() => props.names.filter((name) => name.trim() !== ''));
   border: 1px solid var(--border);
   background: var(--panel);
   color: inherit;
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 6px 14px;
   cursor: pointer;
   font-size: 14px;

@@ -41,11 +41,11 @@ const maxBar = computed(() => Math.max(0, ...props.bars));
 .chart-track {
   width: 100%;
   height: 64px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--panel-2);
   display: flex;
   align-items: flex-end;
 }
-.chart-bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--accent); }
+.chart-bar { width: 100%; border-radius: 0; background: var(--accent); }
 .chart-label { font-size: 11px; color: var(--muted); }
 </style>

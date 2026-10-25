@@ -82,7 +82,7 @@ async function addMit(): Promise<void> {
   width: 100%;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 10px 14px;
   margin-bottom: 8px;
   text-align: left;
@@ -96,7 +96,7 @@ async function addMit(): Promise<void> {
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-soft);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 1px 8px;
 }
 .hint-text {

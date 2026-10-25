@@ -170,7 +170,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 .date-label {
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 2px 10px;
   cursor: pointer;
 }

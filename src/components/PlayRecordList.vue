@@ -150,14 +150,14 @@ async function saveForm(): Promise<void> {
 .progress-track {
   height: 12px;
   background: var(--panel-2);
-  border-radius: 999px;
+  border-radius: var(--radius);
   overflow: hidden;
   margin: 10px 0 6px;
 }
 .progress-bar {
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius);
   transition: width 0.2s ease;
 }
 .progress-bar.over {
@@ -178,7 +178,7 @@ async function saveForm(): Promise<void> {
   margin: 0;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .record-row {
   display: flex;

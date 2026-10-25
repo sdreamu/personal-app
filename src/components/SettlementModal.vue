@@ -306,7 +306,7 @@ async function onPlanConfirm(): Promise<void> {
 .settlement-modal textarea {
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 8px 10px;
   resize: vertical;
   font: inherit;

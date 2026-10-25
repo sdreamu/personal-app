@@ -316,7 +316,7 @@ input, select { font: inherit; color: inherit; }
 }
 .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
 
-.segmented { display: inline-flex; border: var(--line-w) solid var(--border-ink); border-radius: var(--radius); overflow: hidden; }
+.segmented { display: inline-flex; width: fit-content; max-width: 100%; border: var(--line-w) solid var(--border-ink); border-radius: var(--radius); overflow: hidden; }
 .seg-btn { border: none; background: var(--panel); padding: 8px 22px; }
 .seg-btn.on { background: var(--text); color: var(--panel); font-weight: 600; }
 
