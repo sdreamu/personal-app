@@ -67,8 +67,8 @@ test('AC-68 跟随系统主题：三选一、系统切换即时生效、手选�
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
-/** AC-68 附属：index.html 的 theme-color 与 UI_GUIDE 的 --accent 一致（#2A4BD7）。 */
+/** AC-68 附属：index.html 的 theme-color 与 UI_GUIDE 的 --accent 一致（#12352A）。 */
 test('AC-68 theme-color 与 UI_GUIDE 主色一致', async ({ page }) => {
   await gotoHash(page, 'settings');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#2A4BD7');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#12352A');
 });
