@@ -1044,3 +1044,26 @@ test:e2e   playwright test
 | 1 | **P5** e2e 欠账补齐（日程页三泳道 / 首页新面板） | `e2e/global.spec.ts` 新增 AC-80：首页「接下来」三行封顶 + 就地完成重新聚合、首页「本周学习」7 柱与当天高亮、日程页 7 天概览三泳道与件数；过程中发现并修掉 `HomeNext` 的时间显示 Bug（偏移当墙上时间、nowOffset 量纲不一致） | AC-80 |
 
 | 1 | **P6** 技术债 6 条一次性清 | P6-1 `workout.addExercise` 先取可编辑记录再 upsert（N3 已随重写修掉）；P6-2 `library.normalizeSortIndexes`（`loadBooks` 时把缺失/非数字的 `sort_index` 按列内顺序回填 10、20、30 并落库，不再只靠 `?? Infinity`）；P6-3 `BookCard` 加 ↑/↓ 按钮 + `library.moveBy` + `utils/dragSort.movedIndex`（键盘/触屏排序，与拖动同一写回路径，列首/列尾 disabled）；P6-4 `testTimeout` 15s→8s（基线：整轮 40~46s、单条最慢 4.1s）；P6-5 备份版本策略写进 §14.7（接受单设备事实标准，不退 `SCHEMA_VERSION`）；P6-6 新页面结构说明随每次交付补齐（`#/mistakes` 已进 §3 路由表 / §4.1 表清单） | AC-81 |
+
+### Z.1 本批交付的验收记录（2026-06-02）
+
+11 个 AC（AC-71 ~ AC-81）一次性交付完成，三道验证全绿：
+
+| 验证 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `npx vue-tsc --noEmit` | 0 error |
+| 单测 | `npx vitest run` | **643 passed / 70 files**，整轮 41~59s |
+| e2e | `npx playwright test` | **87 passed / 18 files**，整轮 5.5~23min（机器负载而定） |
+
+AC 与实现的对照见 `e2e/AC-MATRIX.md`（AC-71 收尾补缺 / AC-72 喝水减一杯 / AC-73 项目库 CRUD 与一键整组 /
+AC-74 动效三条 / AC-75 计划三档视图 / AC-76 错题本 / AC-77 心情精力曲线 / AC-78 错题照片 /
+AC-79 侧栏折叠 / AC-80 首页新面板 e2e / AC-81 技术债）。
+
+过程中一并修掉的真 Bug（都不是"顺手改需求"，而是验收暴露出来的）：
+1. 5 个弹窗点 ✕ 关不掉（B1/AC-71）；
+2. `HomeNext` 把 `start_min`（相对一天起点的偏移）当墙上时间显示，09:00 显示成 05:00，
+   "下一个时间块"也用了不同量纲的 `minutesOfDay`（AC-80）；
+3. `.modal` 没有限高，长表单把「保存」顶出屏幕（AC-78）；
+4. 书架卡片加了 ↑/↓ 之后，卡片正中落到「改到第 __ 页」这一行，点卡片中间不再进详情
+   （AC-27/28/29/30、AC-36、AC-47、AC-53 一起挂）（AC-81）；
+5. `ExerciseLibrary` 的 hover 里残留 `var(--danger, #b5342c)` 十六进制兜底（AC-81）。
