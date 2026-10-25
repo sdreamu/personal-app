@@ -287,7 +287,7 @@ const ticks = computed(() =>
   font-weight: 700;
   color: var(--hero-ink);
   /* 小色块压住下面的刻度字，免得“现在 08:30”和 08:00 叠在一起 */
-  padding: 0 3px;
+  padding: 0 5px;
   background: var(--field-2);
 }
 .now-label.flip {

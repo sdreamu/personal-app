@@ -57,6 +57,11 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', onKeydown);
   void load();
+  // 顶栏「＋ 记一笔」带 ?new=1 过来：直接开新增弹窗，并把参数抹掉避免刷新反复弹
+  if (router.currentRoute.value.query['new'] === '1') {
+    openCreate();
+    void router.replace({ path: '/plan' });
+  }
 });
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown);

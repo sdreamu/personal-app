@@ -134,6 +134,32 @@ export function computeStudyAggregate(records: readonly StudyRecord[], goalMin: 
   return { totalSec, goalMin: safeGoal, progressPercent };
 }
 
+export interface WeekStudySummary {
+  days: Array<{ date: string; sec: number }>;
+  totalSec: number;
+  /** 一周目标（分钟）= 每天目标 × 7。 */
+  goalMin: number;
+}
+
+/** 本周学习：按天累计学习秒数（weekDates 由调用方给，通常是周一到周日）。 */
+export function summarizeWeekStudy(
+  records: readonly StudyRecord[],
+  weekDates: readonly string[],
+  dailyGoalMin: number,
+): WeekStudySummary {
+  const byDate = new Map<string, number>();
+  for (const record of records) {
+    byDate.set(record.date, (byDate.get(record.date) ?? 0) + record.duration_sec);
+  }
+  const days = weekDates.map((date) => ({ date, sec: byDate.get(date) ?? 0 }));
+  const safeGoal = Number.isFinite(dailyGoalMin) && dailyGoalMin > 0 ? dailyGoalMin : 0;
+  return {
+    days,
+    totalSec: days.reduce((sum, day) => sum + day.sec, 0),
+    goalMin: safeGoal * weekDates.length,
+  };
+}
+
 /** 在读书籍中取最近更新的一本。 */
 export function pickMainReadingBook(books: readonly Book[]): Book | null {
   const reading = books.filter((book) => book.status === 'reading');

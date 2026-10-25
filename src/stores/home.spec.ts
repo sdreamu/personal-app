@@ -25,6 +25,7 @@ import {
   pickHomeHints,
   pickMainReadingBook,
   summarizeTodayPlans,
+  summarizeWeekStudy,
   useHomeStore,
 } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
@@ -577,5 +578,31 @@ describe('首页 store 聚合与动作', () => {
 
     const rows = await listAliveByDate('water', TODAY);
     expect(rows.reduce((sum, row) => sum + row.ml, 0)).toBe(250);
+  });
+});
+
+describe('home.summarizeWeekStudy（本周学习）', () => {
+  const week = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'];
+
+  function record(date: string, sec: number): StudyRecord {
+    return { date, duration_sec: sec } as StudyRecord;
+  }
+
+  it('按天汇总，没有记录的那天记 0', () => {
+    const summary = summarizeWeekStudy([record('2026-10-19', 600), record('2026-10-19', 300), record('2026-10-22', 60)], week, 120);
+    expect(summary.days).toHaveLength(7);
+    expect(summary.days.map((day) => day.sec)).toEqual([900, 0, 0, 60, 0, 0, 0]);
+    expect(summary.totalSec).toBe(960);
+  });
+
+  it('一周目标 = 每天目标 × 天数；非法目标当 0', () => {
+    expect(summarizeWeekStudy([], week, 120).goalMin).toBe(840);
+    expect(summarizeWeekStudy([], week, Number.NaN).goalMin).toBe(0);
+    expect(summarizeWeekStudy([], week, -5).goalMin).toBe(0);
+  });
+
+  it('本周之外的记录不算进来', () => {
+    const summary = summarizeWeekStudy([record('2026-10-18', 3600), record('2026-10-26', 3600)], week, 120);
+    expect(summary.totalSec).toBe(0);
   });
 });

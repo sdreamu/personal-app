@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { showsDateSwitch } from '@/config/nav';
 import { useDateStore } from '@/stores/date';
 import { useModalStore } from '@/stores/modal';
@@ -14,6 +14,7 @@ const dateStore = useDateStore();
 const modalStore = useModalStore();
 const timerStore = useTimerStore();
 const route = useRoute();
+const router = useRouter();
 
 const dateLabel = computed(() => formatDateCNWeekday(dateStore.selectedDate));
 /** 顶栏右侧的「W43 · 周六」：这一周在整年里的坐标，比再写一遍日期更有信息。 */
@@ -28,6 +29,11 @@ const showDateControls = computed(() => showsDateSwitch(route.path));
 watch(showDateControls, (visible) => {
   if (!visible) jumpOpen.value = false;
 });
+
+/** 顶栏常驻的「记一笔」：跳到日程并直接打开新增弹窗（日程是唯一能落计划的地方）。 */
+function quickAdd(): void {
+  void router.push({ path: '/plan', query: { new: '1' } });
+}
 
 function onJumpSelect(date: string): void {
   dateStore.setSelected(date);
@@ -117,6 +123,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
       {{ weekLabel }}<span class="topbar-meta-sep"> · </span>{{ weekdayLabel }}
     </span>
     <SaveStatus />
+    <button type="button" class="quick-add" data-test="quick-add" title="记一笔：去日程新增计划" @click="quickAdd">
+      ＋ 记一笔
+    </button>
     <DateJumpPopover
       v-if="jumpOpen"
       :selected-date="dateStore.selectedDate"
@@ -127,6 +136,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </template>
 
 <style scoped>
+.quick-add {
+  flex: none;
+  padding: 5px 12px;
+  background: var(--text);
+  color: var(--panel);
+  border: var(--line-w) solid var(--border-ink);
+  box-shadow: 2px 2px 0 var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.quick-add:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+@media (max-width: 768px) {
+  .quick-add {
+    display: none;
+  }
+}
 .topbar-meta {
   font-size: 12px;
   color: var(--muted);

@@ -77,6 +77,18 @@ function press(key: string): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
 }
 
+describe('顶栏常驻「＋ 记一笔」', () => {
+  it('任何页面都在，点了带 ?new=1 跳到日程页', async () => {
+    const mounted = await mountAt('/home');
+    const button = mounted.wrapper.find('[data-test="quick-add"]');
+    expect(button.exists()).toBe(true);
+    await button.trigger('click');
+    await flushPromises();
+    expect(mounted.router.currentRoute.value.path).toBe('/plan');
+    expect(mounted.router.currentRoute.value.query['new']).toBe('1');
+  });
+});
+
 describe('顶栏日期控件的显示范围（AC-59）', () => {
   it('5 个日期相关页面显示：前一天 / 日期标签 / 后一天 / 回到今天', async () => {
     for (const path of DATE_PAGES) {

@@ -4,15 +4,17 @@ import HomeCards from '@/components/HomeCards.vue';
 import HomeDayBand from '@/components/HomeDayBand.vue';
 import HomeHero from '@/components/HomeHero.vue';
 import HomeHintBar from '@/components/HomeHintBar.vue';
+import HomeNext from '@/components/HomeNext.vue';
 import HomeSevenDays from '@/components/HomeSevenDays.vue';
 import HomeTiles from '@/components/HomeTiles.vue';
+import HomeWeekStudy from '@/components/HomeWeekStudy.vue';
 import { useDateStore } from '@/stores/date';
 import { useHomeStore } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
 
 /**
  * 首页（v5）：一屏只讲「今天大概什么样」。
- * 版面：松绿场（问候 + 四个目标 + 一条粗时间带）→ 提示条 → 未来七天 → 各模块一句话状态。
+ * 版面：松绿场（问候 + 四个目标 + 一条粗时间带）→ 提示条 → 接下来 / 本周学习 → 未来七天 → 各模块一句话状态。
  * 打开首页即把顶栏日期切回今天，内容始终按「今天」聚合，不随顶栏日期变化。
  */
 const home = useHomeStore();
@@ -62,6 +64,10 @@ watch(
     </section>
 
     <HomeHintBar />
+    <div class="home-pair">
+      <HomeNext />
+      <HomeWeekStudy />
+    </div>
     <HomeSevenDays />
     <HomeCards />
   </section>
@@ -97,6 +103,17 @@ watch(
   justify-content: space-between;
   gap: 20px;
   padding-bottom: 18px;
+}
+.home-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 26px;
+}
+@media (max-width: 980px) {
+  .home-pair {
+    grid-template-columns: 1fr;
+  }
 }
 .home-shelf {
   position: relative;
