@@ -170,7 +170,8 @@ input, select { font: inherit; color: inherit; }
   border-color: var(--warning);
   color: var(--warning);
   font-weight: 700;
-  animation: pulse 1.2s ease-in-out infinite;
+  /* N4 硬约束：单次动画 ≤300ms 且不循环 —— 用 300ms × 2 次的有限闪烁代替原来的 1.2s 无限循环 */
+  animation: pulse 300ms ease-in-out 2 alternate;
 }
 @keyframes pulse { 50% { opacity: 0.55; } }
 
@@ -331,6 +332,65 @@ input, select { font: inherit; color: inherit; }
   box-shadow: 3px 3px 0 var(--border);
 }
 .primary-btn:hover { opacity: 0.9; }
+/* ---------- N4 交互手感：按下 = 硬投影被按进去（2px 位移 + 阴影消失） ---------- */
+.primary-btn,
+.ghost-btn,
+.danger-btn,
+.home-card,
+.book-card,
+.seg-btn,
+.timeline-block,
+.todo-item {
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out, background 90ms ease-out;
+}
+.primary-btn:active,
+.ghost-btn:active,
+.danger-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.home-card:active,
+.book-card:active,
+.todo-item:active,
+.timeline-block:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+/* 完成反馈：勾选瞬间 mark 闪一下（只在"变成完成"时由脚本挂上这个类，打开页面不动） */
+@keyframes done-flash {
+  from {
+    background-color: var(--mark);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.done-flash {
+  animation: done-flash 180ms ease-out;
+}
+/* 页面切换：140ms 淡入 + 4px 位移 */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 140ms ease-out, transform 140ms ease-out;
+}
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+/* 系统开启"减少动态效果"：所有过渡/动画时长归零（状态切换仍即时生效，只是不再有过程） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
 .ghost-btn {
   border: var(--line-w) solid var(--border-ink);
   background: var(--panel);

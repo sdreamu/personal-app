@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useDoneFlash } from '@/composables/useDoneFlash';
 import { errorMessage, type Plan } from '@/db';
 import EmptyState from '@/components/EmptyState.vue';
 import PlanFormModal from '@/components/PlanFormModal.vue';
@@ -27,6 +28,8 @@ const planStore = usePlanStore();
 const modalStore = useModalStore();
 const timerStore = useTimerStore();
 const toast = useToastStore();
+/** N4 完成反馈：勾选「变成完成」时该行闪一下（取消勾选不播）。 */
+const doneFlash = useDoneFlash();
 
 const formOpen = ref(false);
 const editingPlan = ref<Plan | null>(null);
@@ -104,6 +107,12 @@ async function handleFormSave(payload: PlanFormPayload): Promise<void> {
 
 function runOneClick(fn: () => Promise<unknown>): void {
   void fn().catch(() => undefined);
+}
+
+/** 勾选待办：只有「从未完成变成完成」才播完成态（灰化 + 划线由 .done 样式负责）。 */
+function toggleTodo(plan: Plan): void {
+  if (!plan.done) doneFlash.flash(plan.id);
+  runOneClick(() => planStore.toggleDone(plan));
 }
 
 async function rollOver(): Promise<void> {
@@ -261,7 +270,7 @@ function onKeydown(event: KeyboardEvent): void {
             v-for="plan in planStore.todoPlans"
             :key="plan.id"
             class="todo-item"
-            :class="{ done: plan.done }"
+            :class="{ done: plan.done, 'done-flash': doneFlash.isFlashing(plan.id) }"
             data-test="todo-item"
           >
             <label class="todo-check">
@@ -269,7 +278,7 @@ function onKeydown(event: KeyboardEvent): void {
                 type="checkbox"
                 :checked="plan.done"
                 data-test="todo-check"
-                @change="runOneClick(() => planStore.toggleDone(plan))"
+                @change="toggleTodo(plan)"
               />
             </label>
             <div class="todo-main">

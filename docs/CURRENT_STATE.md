@@ -1013,3 +1013,5 @@ test:e2e   playwright test
 | 1 | **N1** 首页喝水可加可减 | `homeStore.removeWater()`（复用 `diet.addWater(today,-1)`）；`HomeCards` 喝水卡改为 `−1 杯`(ghost, 0ml 时 disabled) + `+1 杯`(primary)，均 `@click.stop` | AC-72 |
 
 | 1 | **N3** 健身：项目库可编写 + 今日训练置顶 + 一键整组完成（Q2/Q3/Q8 按建议：默认 3 组、撞名合并、周计划默认折叠） | `workoutStore.createLibraryExercise / deleteLibraryExercise / renameLibraryExercise / completeExercise`；`libraryItems` getter；`ExerciseLibrary` 加输入框 + ✕ 删除（软删除 + 5 秒撤销）；`WorkoutDay` 加「一键完成全部组」+ 组表头（完成/重量(kg)/次数）+ 备注提示行；`LifeWorkoutView` 顺序改为 今日训练 → 每周计划（可折叠，`localStorage` 无关、默认收起）→ 历史，卡标题带日期与状态；`addExercise` 改为先落当天记录再维护项目库（P6-1） | AC-73 |
+
+| 1 | **N4** 交互与沉浸感（核心 3 条 + 减少动效） | `main.css`：主按钮/卡片 `:active` 2px 位移 + 阴影消失（`transition 90ms`）、`done-flash` 180ms 一次性完成高亮、`.page-fade-*` 140ms 淡入 + 4px、`@media (prefers-reduced-motion: reduce)` 全量归零；`App.vue`：`<RouterView>` 包 `<Transition name="page-fade">`（key=route.path）；新增 `useDoneFlash()` composable，接在计划页待办勾选、首页「接下来」的完成、健身组勾选上；计时胶囊 pulse 改 300ms×2 有限闪烁 | AC-74 |

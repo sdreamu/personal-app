@@ -479,3 +479,30 @@ describe('N3 一键整组完成（AC-73）', () => {
     }, WAIT_OPTS);
   });
 });
+
+describe('N4 训练组完成反馈（AC-74）', () => {
+  it('勾选一组：该行挂 done-flash 并出现右侧对勾；未勾选的组没有', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="set-row"]').length !== 3) throw new Error('组未就绪');
+    }, WAIT_OPTS);
+    const card = () => wrapper.find('[data-test="day-card"]');
+    expect(card().findAll('[data-test="set-done-mark"]')).toHaveLength(0);
+
+    await card().findAll('[data-test="set-done"]')[0]!.trigger('change');
+    await vi.waitFor(() => {
+      if (card().findAll('[data-test="set-row"].done-flash').length !== 1) {
+        throw new Error('完成态没有闪一下');
+      }
+    }, WAIT_OPTS);
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      if (rows[0]?.exercises[0]?.sets[0]?.done !== true) throw new Error('勾选未写入');
+    }, WAIT_OPTS);
+    await vi.waitFor(() => {
+      if (card().findAll('[data-test="set-done-mark"]').length !== 1) throw new Error('没有对勾');
+    }, WAIT_OPTS);
+    expect(card().findAll('[data-test="set-row"].set-row-done')).toHaveLength(1);
+  });
+});

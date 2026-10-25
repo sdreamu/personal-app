@@ -152,3 +152,17 @@ describe('首页接下来', () => {
     listAliveByDate.mockReset();
   });
 });
+
+describe('N4 首页「完成」的完成反馈（AC-74）', () => {
+  it('点「完成」后该行挂 done-flash，其它行不挂', async () => {
+    const wrapper = await mountNext();
+    vi.spyOn(usePlanStore(), 'toggleDone').mockResolvedValue(undefined);
+    expect(wrapper.findAll('.next-row.done-flash')).toHaveLength(0);
+
+    await wrapper.find('[data-test="next-done-1"]').trigger('click');
+    await flushPromises();
+    const flashing = wrapper.findAll('.next-row.done-flash');
+    expect(flashing).toHaveLength(1);
+    expect(flashing[0]?.text()).toContain('买牛奶');
+  });
+});

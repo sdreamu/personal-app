@@ -5,6 +5,7 @@ import { listAliveByDate, type Plan } from '@/db';
 import { useDateStore } from '@/stores/date';
 import { usePlanStore } from '@/stores/plan';
 import { useSettingsStore } from '@/stores/settings';
+import { useDoneFlash } from '@/composables/useDoneFlash';
 import { addDays, logicalToday, minutesOfDay, pad2 } from '@/utils/date';
 
 /**
@@ -24,6 +25,8 @@ const settings = useSettingsStore();
 const dateStore = useDateStore();
 const planStore = usePlanStore();
 const rows = ref<NextRow[]>([]);
+/** N4 完成反馈：点「完成」时该行闪一下。 */
+const doneFlash = useDoneFlash();
 
 /** 时间块在前（按开始时间），无时间的排最后——首页只关心「下一件」。 */
 function sortForHome(plans: readonly Plan[]): Plan[] {
@@ -101,6 +104,12 @@ onMounted(() => {
 });
 
 watch(() => settings.dayStartMin, () => void load());
+
+/** 点「完成」：先播一次完成高亮，再走统一动作。 */
+function runDone(row: NextRow): void {
+  doneFlash.flash(row.key);
+  run(row);
+}
 </script>
 
 <template>
@@ -108,7 +117,13 @@ watch(() => settings.dayStartMin, () => void load());
     <span class="panel-tab">接下来</span>
     <RouterLink class="next-more" to="/plan">日程 →</RouterLink>
     <ul v-if="rows.length > 0" class="next-list">
-      <li v-for="(row, index) in rows" :key="row.key" class="next-row" :data-test="`next-row-${index}`">
+      <li
+        v-for="(row, index) in rows"
+        :key="row.key"
+        class="next-row"
+        :class="{ 'done-flash': doneFlash.isFlashing(row.key) }"
+        :data-test="`next-row-${index}`"
+      >
         <span class="next-when num">{{ row.when }}</span>
         <span class="next-title">
           <mark v-if="index === 0" class="hl">{{ row.title }}</mark>
@@ -129,7 +144,7 @@ watch(() => settings.dayStartMin, () => void load());
             type="button"
             class="ghost-btn next-btn"
             :data-test="`next-done-${index}`"
-            @click="run(row)"
+            @click="runDone(row)"
           >
             完成
           </button>

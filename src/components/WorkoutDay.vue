@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useDoneFlash } from '@/composables/useDoneFlash';
 import type { WorkoutDayView } from '@/stores/workout';
 import ExerciseLibrary from './ExerciseLibrary.vue';
 
@@ -43,6 +44,17 @@ const renamingIndex = ref<number | null>(null);
 const renamingName = ref('');
 const notingIndex = ref<number | null>(null);
 const notingValue = ref('');
+/** N4 完成反馈：勾选一组（变成完成）时该行闪一下。 */
+const doneFlash = useDoneFlash();
+
+function setKey(exerciseIndex: number, setIndex: number): string {
+  return exerciseIndex + '-' + setIndex;
+}
+
+function toggleSet(exerciseIndex: number, setIndex: number, done: boolean): void {
+  if (!done) doneFlash.flash(setKey(exerciseIndex, setIndex));
+  emit('toggle-set', exerciseIndex, setIndex);
+}
 
 function parseNullableNumber(value: string): number | null {
   if (value.trim() === '') return null;
@@ -231,6 +243,7 @@ function onDurationChange(event: Event): void {
               v-for="(set, setIndex) in exercise.sets"
               :key="setIndex"
               class="set-row"
+              :class="{ 'set-row-done': set.done, 'done-flash': doneFlash.isFlashing(setKey(exerciseIndex, setIndex)) }"
               data-test="set-row"
             >
               <label class="set-check">
@@ -238,7 +251,7 @@ function onDurationChange(event: Event): void {
                   type="checkbox"
                   :checked="set.done"
                   data-test="set-done"
-                  @change="emit('toggle-set', exerciseIndex, setIndex)"
+                  @change="toggleSet(exerciseIndex, setIndex, set.done)"
                 />
               </label>
               <span class="set-index">第 {{ setIndex + 1 }} 组</span>
@@ -264,6 +277,7 @@ function onDurationChange(event: Event): void {
                 @change="onRepsChange(exerciseIndex, setIndex, $event)"
               />
               <span class="unit">次</span>
+              <span v-if="set.done" class="set-done-mark" data-test="set-done-mark">✓</span>
             </div>
           </div>
         </details>
@@ -414,6 +428,16 @@ function onDurationChange(event: Event): void {
 .set-head {
   color: var(--muted);
   font-size: 12px;
+}
+.set-row-done .set-index {
+  text-decoration: line-through;
+}
+.set-row-done .set-input {
+  opacity: 0.6;
+}
+.set-done-mark {
+  color: var(--accent);
+  font-weight: 700;
 }
 .set-head .set-label {
   min-width: 88px;

@@ -411,3 +411,34 @@ describe('计划页 #/plan', () => {
     expect(wrapper.find('[data-test="workout-row"]').exists()).toBe(false);
   });
 });
+
+describe('N4 完成反馈（AC-74）', () => {
+  it('勾选待办那一刻该行挂 done-flash；已完成的待办打开页面时不会自己动', async () => {
+    await createRecord('plans', planData(TODAY, '待勾选'));
+    await createRecord('plans', planData(TODAY, '早就完成', { done: true, done_at: BASE }));
+    wrapper = await mountPage();
+
+    const rows = wrapper.findAll('[data-test="todo-item"]');
+    expect(rows).toHaveLength(2);
+    // 打开页面：没有任何行在播完成动画
+    expect(wrapper.findAll('[data-test="todo-item"].done-flash')).toHaveLength(0);
+
+    const undone = rows.find((row) => !row.classes('done'))!;
+    await undone.find('[data-test="todo-check"]').trigger('change');
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="todo-item"].done-flash').length !== 1) {
+        throw new Error('完成态没有闪一下');
+      }
+    }, { timeout: 3000, interval: 20 });
+
+    // 等这次闪烁结束（180ms）后，取消勾选不应再播（只对"变成完成"方向）
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="todo-item"].done-flash').length !== 0) {
+        throw new Error('闪烁还没结束');
+      }
+    }, { timeout: 3000, interval: 20 });
+    await wrapper.find('[data-test="todo-item"].done [data-test="todo-check"]').trigger('change');
+    await flushPromises();
+    expect(wrapper.findAll('[data-test="todo-item"].done-flash')).toHaveLength(0);
+  });
+});

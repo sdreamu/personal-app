@@ -230,3 +230,20 @@
 - 健身页：项目库新增落库、同名不重复、空名字不加；删除后 5 秒撤销恢复；一键完成全部组 → 3/3 组 —— src/views/life-workout-view.spec.ts
 
 覆盖完整性：AC-73 有 1 条 e2e（含置顶位置、折叠、增删撤销、一键整组）+ 16 条单测/组件/视图断言，无 skip / only；AC-64 / AC-65 原有断言未改动，仍全绿（周计划改为默认折叠后，e2e 通过新增的 `openWeekPlan()` helper 展开，只改操作路径）。
+
+## 交互与沉浸感（AC-74）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-74 | AC-74 按下手感：2px 位移 + 阴影消失 | e2e/motion.spec.ts |
+| AC-74 | AC-74 完成反馈：勾选瞬间 flash，最终变灰划线 | e2e/motion.spec.ts |
+| AC-74 | AC-74 prefers-reduced-motion 下所有过渡归零 | e2e/motion.spec.ts |
+
+补充（机械守卫 + 组件层）：
+- **机械守卫**：全站 `transition` / `animation` 单次时长 ≤ 300ms、**不允许 `infinite` 循环**；`prefers-reduced-motion: reduce` 块把时长全部归零；`.primary-btn/.ghost-btn/.danger-btn/.home-card/.book-card` 都有 `:active` 位移 2px + 阴影消失；`done-flash` 为 180ms 一次性 mark 闪烁；App.vue 有 `<Transition name="page-fade">` + `:key="route.path"`，样式为 140ms 淡入 + 4px 位移 —— src/assets/motion.spec.ts
+- 计划页：勾选待办那一刻该行挂 `done-flash`；**打开页面时已完成的待办不会自己动**；取消勾选不播 —— src/views/plan-view.spec.ts
+- 首页「接下来」：点「完成」后只有那一行挂 `done-flash` —— src/components/home-next.spec.ts
+- 健身页：勾选一组 → 该行 `done-flash` + 右侧出现对勾（`set-done-mark`）+ `set-row-done` 划线 —— src/views/life-workout-view.spec.ts
+
+覆盖完整性：AC-74 有 3 条 e2e（按下 / 完成 / 减少动态效果）+ 10 条单测与组件断言，无 skip / only。
+既有断言未改动：计时胶囊「待结算」的 `pulse` 从 1.2s 无限循环改成 300ms×2 次有限闪烁（硬约束要求），其它动效断言与 AC-11~AC-25、AC-43~AC-45 全绿。

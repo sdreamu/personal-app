@@ -40,7 +40,11 @@ async function exportNow(): Promise<void> {
         <div v-if="!dateStore.isToday" class="viewing-banner" data-test="viewing-banner">
           你正在查看 {{ formatDateCN(dateStore.selectedDate) }}
         </div>
-        <RouterView />
+        <RouterView v-slot="{ Component, route }">
+          <Transition name="page-fade" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </RouterView>
       </main>
     </div>
     <BottomNav />
