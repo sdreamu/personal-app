@@ -493,16 +493,8 @@ input, select { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .bottom-tab .nav-icon { width: 21px; height: 21px; }
-.bottom-tab.active { color: var(--text); font-weight: 700; }
-.bottom-tab.active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--text);
-}
+.bottom-tab.active { background: var(--text); color: var(--panel); font-weight: 700; }
+.bottom-tab.active::before { content: none; }
 .bottom-tab-label { line-height: 1.2; white-space: nowrap; }
 
 .bottom-sheet-backdrop {
