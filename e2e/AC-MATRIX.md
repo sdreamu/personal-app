@@ -299,3 +299,11 @@
 - 导出：`exportText` 里只写「题目 n 张 / 订正 n 张」，**不写 base64**；备份导出 → 导入后图片字节一致（Q6：图片进备份）
 
 顺带修：`.modal` 之前没有限高，长表单（带两个图片录入）会把「保存」顶到屏幕外，现在 `max-height: calc(100vh - 32px)` + `.modal-body` 自己滚动。
+
+## 侧栏折叠（AC-79）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-79 | AC-79 侧栏折叠与记忆 | e2e/global.spec.ts |
+
+补充（组件层）：默认展开；点 `side-collapse` 收起（`data-collapsed="true"`、按钮 `aria-expanded=false`/`aria-label=展开侧栏`）并写 `localStorage.evan-sidebar-collapsed = '1'`；重挂载读回仍是折叠；折叠态每个链接仍有 `title`、分组按钮仍有 `title` + `aria-label`；样式纪律（212px / 折叠 68px / 响应式断点已由 64px 统一成 68px）—— src/components/nav.spec.ts（4 条）

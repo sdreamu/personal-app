@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent } from 'vue';
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia } from 'pinia';
-import { bottomTabs, navItems } from '@/config/nav';
+import { bottomTabs, navItems, SIDEBAR_COLLAPSED_KEY } from '@/config/nav';
 import SideNav from './SideNav.vue';
 
 const Stub = defineComponent({ template: '<div class="stub-page" />' });
@@ -26,6 +28,7 @@ const routes: RouteRecordRaw[] = [
 let router: ReturnType<typeof createRouter>;
 
 beforeEach(() => {
+  window.localStorage.clear();
   router = createRouter({ history: createWebHashHistory(), routes });
 });
 
@@ -135,5 +138,61 @@ describe('底部导航配置（5 个一级入口）', () => {
     const bottomGroups = bottomTabs.filter((item) => item.kind === 'group');
     expect(bottomGroups.map((g) => g.key)).toEqual(['study', 'life']);
     expect(bottomGroups).toEqual(sidebarGroups);
+  });
+});
+
+describe('P4 侧栏主动折叠（AC-79）', () => {
+  function mountNav() {
+    return mount(SideNav, { global: { plugins: [router, createPinia()] } });
+  }
+
+  it('默认展开：data-collapsed=false，按钮 aria-expanded=true', async () => {
+    const wrapper = mountNav();
+    await router.isReady();
+    expect(wrapper.find('[data-test="side-nav"]').attributes('data-collapsed')).toBe('false');
+    const toggle = wrapper.find('[data-test="side-collapse"]');
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+    expect(toggle.attributes('aria-label')).toBe('收起侧栏');
+    expect(wrapper.find('.nav-label').exists()).toBe(true);
+  });
+
+  it('点一下收起：折叠态落 localStorage，入口仍有 title / aria-label', async () => {
+    const wrapper = mountNav();
+    await router.isReady();
+
+    await wrapper.find('[data-test="side-collapse"]').trigger('click');
+    expect(wrapper.find('[data-test="side-nav"]').attributes('data-collapsed')).toBe('true');
+    expect(wrapper.find('[data-test="side-collapse"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.find('[data-test="side-collapse"]').attributes('aria-label')).toBe('展开侧栏');
+    expect(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY)).toBe('1');
+
+    // 折叠后每个入口依然能被读屏/悬浮识别
+    for (const link of wrapper.findAll('a.nav-link')) {
+      expect(link.attributes('title')).toBeTruthy();
+    }
+    for (const group of wrapper.findAll('[data-test="nav-group"]')) {
+      expect(group.attributes('title')).toBeTruthy();
+      expect(group.attributes('aria-label')).toBeTruthy();
+    }
+  });
+
+  it('刷新后保持折叠（读回 localStorage）；再点一下展开并写回 0', async () => {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+    const wrapper = mountNav();
+    await router.isReady();
+    expect(wrapper.find('[data-test="side-nav"]').attributes('data-collapsed')).toBe('true');
+
+    await wrapper.find('[data-test="side-collapse"]').trigger('click');
+    expect(wrapper.find('[data-test="side-nav"]').attributes('data-collapsed')).toBe('false');
+    expect(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY)).toBe('0');
+  });
+
+  it('样式纪律：展开 212px、折叠 68px，响应式断点里的 64px 已统一成 68px', () => {
+    const css = readFileSync(join(process.cwd(), 'src/assets/main.css'), 'utf8');
+    expect(css).toMatch(/\.side-nav \{\s*width: 212px;/);
+    expect(css).toMatch(/\.side-nav\.collapsed \{ width: 68px;/);
+    // 窄屏断点里也是 68px（不再有 64px）
+    expect(css).toMatch(/\.side-nav \{ width: 68px; padding: 8px 6px; \}/);
+    expect(css).not.toContain('.side-nav { width: 64px');
   });
 });

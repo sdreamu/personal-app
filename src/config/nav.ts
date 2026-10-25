@@ -90,6 +90,12 @@ export const navMain: readonly NavItem[] = navItems.filter(
 /** 手机底部导航的 5 个一级入口；设置留在侧边栏之外由顶栏/首页进入。 */
 export const bottomTabs: readonly NavItem[] = navItems.filter((item) => item.key !== 'settings');
 
+/**
+ * P4 侧栏折叠状态的 localStorage 键：'1' = 收起（68px 只留图标），'0' / 缺省 = 展开（212px）。
+ * 只存浏览器本地，不动 settings 表（避免升 DB 版本）。
+ */
+export const SIDEBAR_COLLAPSED_KEY = 'evan-sidebar-collapsed';
+
 /** 当前路由是否命中该入口（含详情子路由，如 /study/books/:id 归属 /study/books）。 */
 export function isActivePath(currentPath: string, to: string): boolean {
   return currentPath === to || currentPath.startsWith(`${to}/`);

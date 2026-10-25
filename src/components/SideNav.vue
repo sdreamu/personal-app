@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useSettingsStore } from '@/stores/settings';
 import { logicalToday } from '@/utils/date';
@@ -9,6 +9,7 @@ import {
   isItemActive,
   navFooter,
   navMain,
+  SIDEBAR_COLLAPSED_KEY,
   type NavGroupItem,
 } from '@/config/nav';
 
@@ -23,6 +24,35 @@ const handDate = computed(() => {
   const key = logicalToday(settings.dayStartMin);
   return `${key.slice(5, 7)}.${key.slice(8, 10)} · 写给今天`;
 });
+/* ---------- P4 侧栏主动折叠（212 ⇄ 68，状态记在 localStorage） ---------- */
+const collapsed = ref(false);
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistCollapsed(value: boolean): void {
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, value ? '1' : '0');
+  } catch {
+    /* 隐私模式写不进去也不影响使用 */
+  }
+}
+
+function toggleCollapsed(): void {
+  collapsed.value = !collapsed.value;
+}
+
+watch(collapsed, (value) => persistCollapsed(value));
+
+onMounted(() => {
+  collapsed.value = readCollapsed();
+});
+
 /** 分组默认展开；当前路由所在分组自动展开（沿用原有规则）。 */
 const openGroups = reactive<Record<string, boolean>>({ study: true, life: true });
 
@@ -42,14 +72,31 @@ watch(
 </script>
 
 <template>
-  <nav class="side-nav" data-test="side-nav" aria-label="主导航">
+  <nav
+    class="side-nav"
+    :class="{ collapsed }"
+    data-test="side-nav"
+    :data-collapsed="collapsed ? 'true' : 'false'"
+    aria-label="主导航"
+  >
     <div class="side-brand">
       <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true">
         <rect x="1" y="6" width="3" height="9" />
         <rect x="6.5" y="1" width="3" height="14" />
         <rect class="brand-mark-accent" x="12" y="8.5" width="3" height="6.5" />
       </svg>
-      <span>EVAN</span>
+      <span class="brand-text">EVAN</span>
+      <button
+        type="button"
+        class="icon-btn side-collapse"
+        data-test="side-collapse"
+        :aria-expanded="collapsed ? 'false' : 'true'"
+        :aria-label="collapsed ? '展开侧栏' : '收起侧栏'"
+        :title="collapsed ? '展开侧栏' : '收起侧栏'"
+        @click="toggleCollapsed"
+      >
+        {{ collapsed ? '»' : '«' }}
+      </button>
     </div>
 
     <template v-for="item in navMain" :key="item.key">
@@ -58,6 +105,8 @@ watch(
           type="button"
           class="nav-group-toggle"
           :class="{ active: isItemActive(route.path, item) }"
+          :title="item.label"
+          :aria-label="item.label"
           data-test="nav-group"
           :aria-expanded="openGroups[item.key] ? 'true' : 'false'"
           :aria-controls="`side-nav-group-${item.key}`"
@@ -142,6 +191,12 @@ watch(
 }
 .brand-mark-accent {
   fill: var(--danger);
+}
+.side-collapse {
+  margin-left: auto;
+  padding: 2px 6px;
+  font-size: 13px;
+  line-height: 1;
 }
 .side-footer {
   margin-top: auto;

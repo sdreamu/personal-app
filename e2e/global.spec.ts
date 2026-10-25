@@ -149,3 +149,37 @@ test('AC-16 快捷键 N Esc Space', async ({ page }) => {
   await page.keyboard.press('Space');
   await expect(page.locator('[data-test="resume-btn"]')).toBeVisible();
 });
+
+/** AC-79：侧栏可主动折叠到 68px，状态记在 localStorage，刷新保持，入口仍可访问。 */
+test('AC-79 侧栏折叠与记忆', async ({ page }) => {
+  const nav = page.locator('[data-test="side-nav"]');
+  await expect(nav).toBeVisible();
+
+  const widthOf = async (): Promise<number> => (await nav.boundingBox())?.width ?? 0;
+  expect(Math.round(await widthOf())).toBe(212);
+
+  await page.click('[data-test="side-collapse"]');
+  await expect(nav).toHaveAttribute('data-collapsed', 'true');
+  await expect.poll(async () => Math.round(await widthOf())).toBe(68);
+  expect(await page.evaluate(() => localStorage.getItem('evan-sidebar-collapsed'))).toBe('1');
+
+  // 折叠后入口还在（图标 + title 仍可访问）
+  await expect(page.locator('.side-nav a.nav-link').first()).toHaveAttribute('title', '今天');
+
+  // 刷新保持
+  await page.reload();
+  await expect(page.locator('[data-test="side-nav"]')).toHaveAttribute('data-collapsed', 'true');
+  await expect.poll(async () => Math.round(await widthOf())).toBe(68);
+
+  // 展开回去，宽度回到 212，记忆置 0
+  await page.click('[data-test="side-collapse"]');
+  await expect(nav).toHaveAttribute('data-collapsed', 'false');
+  await expect.poll(async () => Math.round(await widthOf())).toBe(212);
+  expect(await page.evaluate(() => localStorage.getItem('evan-sidebar-collapsed'))).toBe('0');
+
+  // 折叠状态下点图标也能进页面
+  await page.click('[data-test="side-collapse"]');
+  await expect(nav).toHaveAttribute('data-collapsed', 'true');
+  await page.locator('.side-nav a.nav-link', { hasText: '' }).first().click();
+  await expect(page.locator('[data-test="home-view"]')).toBeVisible();
+});
