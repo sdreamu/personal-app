@@ -74,8 +74,18 @@ const skillDirs = existsSync(SKILLS_ROOT)
 const skillNameOf = (dir: string) => dir.split(/[\\/]/).pop() as string;
 
 describe('已安装的技能（.dsh/skills）', () => {
-  it('至少安装了 design-taste-frontend（视觉提升 UI 技能）', () => {
-    expect(existsSync(join(SKILLS_ROOT, 'design-taste-frontend', 'SKILL.md'))).toBe(true);
+  it('设计/评审相关技能都已安装（目录包形态）', () => {
+    const expected = [
+      'design-taste-frontend',
+      'frontend-design',
+      'general-design-review',
+      'cognitive-load-conversion',
+      'mobile-app-design',
+      'grill-me',
+      'grilling', // grill-me 的正文只做转发，真正干活的是 grilling，缺了它 grill-me 不可用
+    ];
+    const missing = expected.filter((name) => !existsSync(join(SKILLS_ROOT, name, 'SKILL.md')));
+    expect(missing).toEqual([]);
   });
 
   it('每个技能的 frontmatter 都能被严格解析，含必需的 name / description', () => {
