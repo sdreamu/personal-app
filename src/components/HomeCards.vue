@@ -138,34 +138,48 @@ async function completeNext(): Promise<void> {
 </template>
 
 <style scoped>
+/* v5：六块并成一张「各模块」纸——2px 外框 + 1px 内格，不再各自飘一张卡片 */
 .home-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 22px;
+  background: var(--panel);
+  border: var(--line-w) solid var(--border-ink);
+  box-shadow: 5px 5px 0 var(--slab);
 }
 .home-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 16px 18px;
-  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
+.home-card:nth-child(3n) {
+  border-right: none;
+}
+.home-card:nth-last-child(-n + 3) {
+  border-bottom: none;
+}
 .home-card:hover {
-  border-color: var(--accent);
+  background: var(--panel-2);
 }
 .home-card h2 {
-  margin: 0 0 10px;
-  font-size: 16px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 .card-main {
   margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .card-sub {
   margin: 0 0 10px;
+  font-size: 13px;
   color: var(--text);
 }
 .muted {
@@ -176,16 +190,15 @@ async function completeNext(): Promise<void> {
   color: var(--danger);
 }
 .progress-track {
-  height: 8px;
-  border-radius: 999px;
+  height: 6px;
   background: var(--panel-2);
+  border: 1px solid var(--border);
   overflow: hidden;
   margin: 8px 0 12px;
 }
 .progress-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
   transition: width 0.2s ease;
 }
 .card-empty {
@@ -195,5 +208,32 @@ async function completeNext(): Promise<void> {
   gap: 10px;
   color: var(--muted);
   margin-bottom: 10px;
+}
+/* 卡片里的按钮降一档：一排黑按钮会抢走松绿场的主角 */
+.home-card .primary-btn {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 2px 2px 0 var(--border-ink);
+}
+.home-card .primary-btn:hover {
+  background: var(--panel-2);
+  opacity: 1;
+}
+@media (max-width: 980px) {
+  .home-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-card:nth-child(3n) {
+    border-right: 1px solid var(--border);
+  }
+  .home-card:nth-child(2n) {
+    border-right: none;
+  }
+  .home-card:nth-last-child(-n + 3) {
+    border-bottom: 1px solid var(--border);
+  }
+  .home-card:nth-last-child(-n + 2) {
+    border-bottom: none;
+  }
 }
 </style>

@@ -18,6 +18,7 @@ import {
   timeToOffset,
   weekdayCN,
   weekStart,
+  isoWeekNumber,
 } from './date';
 
 function localTs(year: number, month: number, day: number, hour: number, minute: number, second = 0): number {
@@ -151,5 +152,11 @@ describe('备份提醒', () => {
 
   it('备份文件名时间戳', () => {
     expect(backupTimestamp(localTs(2026, 6, 1, 14, 30))).toBe('20260601-1430');
+  });
+
+  it('isoWeekNumber：ISO 周数（2026-10-24 属于 W43）', () => {
+    expect(isoWeekNumber('2026-10-24')).toBe(43);
+    expect(isoWeekNumber('2026-01-01')).toBe(1);
+    expect(isoWeekNumber('2026-12-31')).toBe(53);
   });
 });

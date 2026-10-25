@@ -130,6 +130,17 @@ export function weekStart(dateKey: string): string {
 
 const WEEKDAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'] as const;
 
+/** ISO 周数（周一为一周第一天，跨年按 ISO 规则归属）。顶栏用「W43 · 周六」标记当周。 */
+export function isoWeekNumber(dateKey: string): number {
+  const parsed = parseDateKey(dateKey);
+  const date = parsed === null ? new Date() : parsed;
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  return Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
 export function weekdayCN(dateKey: string): string {
   const d = parseDateKey(dateKey);
   if (!d) throw new Error(`非法日期：${dateKey}`);

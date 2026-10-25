@@ -45,25 +45,26 @@ afterEach(() => {
 });
 
 describe('首页主视觉', () => {
-  it('渲染问候语、中文日期与 HH:mm:ss 实时时间', () => {
+  it('渲染问候语、中文日期（含星期）与 HH:mm 时间', () => {
     const wrapper = mountHero();
     expect(wrapper.find('[data-test="hero-greeting"]').text()).toBe('你好，Evan');
-    expect(wrapper.find('[data-test="hero-date"]').text()).toBe('2026年2月14日 周六');
-    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05:03');
+    expect(wrapper.find('[data-test="hero-date"]').text()).toBe('2026年2月14日');
+    expect(wrapper.text()).toContain('周六');
+    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05');
     wrapper.unmount();
   });
 
-  it('每秒刷新时间：推进一秒后时间文本随之变化', async () => {
+  it('时间只到分钟：跳秒不刷屏，满一分钟后才变', async () => {
     const wrapper = mountHero();
-    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05:03');
+    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05');
 
     vi.advanceTimersByTime(1000);
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05:04');
+    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05');
 
-    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(60_000);
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05:06');
+    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:06');
     wrapper.unmount();
   });
 
@@ -80,8 +81,8 @@ describe('首页主视觉', () => {
   it('日期按一天起点算逻辑日期：凌晨 02:00 仍显示前一天', () => {
     vi.setSystemTime(new Date(2026, 1, 15, 2, 0, 0));
     const wrapper = mountHero();
-    expect(wrapper.find('[data-test="hero-date"]').text()).toBe('2026年2月14日 周六');
-    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('02:00:00');
+    expect(wrapper.find('[data-test="hero-date"]').text()).toBe('2026年2月14日');
+    expect(wrapper.find('[data-test="hero-time"]').text()).toBe('02:00');
     wrapper.unmount();
   });
 });

@@ -5,7 +5,7 @@ import { showsDateSwitch } from '@/config/nav';
 import { useDateStore } from '@/stores/date';
 import { useModalStore } from '@/stores/modal';
 import { useTimerStore } from '@/stores/timer';
-import { formatDateCNWeekday } from '@/utils/date';
+import { formatDateCNWeekday, isoWeekNumber, weekdayCN } from '@/utils/date';
 import DateJumpPopover from './DateJumpPopover.vue';
 import SaveStatus from './SaveStatus.vue';
 import TimerCapsule from './TimerCapsule.vue';
@@ -16,6 +16,9 @@ const timerStore = useTimerStore();
 const route = useRoute();
 
 const dateLabel = computed(() => formatDateCNWeekday(dateStore.selectedDate));
+/** 顶栏右侧的「W43 · 周六」：这一周在整年里的坐标，比再写一遍日期更有信息。 */
+const weekLabel = computed(() => `W${isoWeekNumber(dateStore.selectedDate)}`);
+const weekdayLabel = computed(() => weekdayCN(dateStore.selectedDate));
 const jumpOpen = ref(false);
 
 /** 日期控件（前一天/日期标签/后一天/回到今天）只在日期相关页面显示，唯一来源见 config/nav.ts。 */
@@ -110,6 +113,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
     </div>
     <div class="spacer"></div>
     <TimerCapsule />
+    <span class="topbar-meta num" data-test="topbar-meta">
+      {{ weekLabel }}<span class="topbar-meta-sep"> · </span>{{ weekdayLabel }}
+    </span>
     <SaveStatus />
     <DateJumpPopover
       v-if="jumpOpen"
@@ -121,6 +127,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </template>
 
 <style scoped>
+.topbar-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  padding: 2px 10px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.topbar-meta-sep {
+  color: var(--border);
+}
 .date-label {
   border: 1px solid transparent;
   background: transparent;

@@ -123,6 +123,10 @@ input, select { font: inherit; color: inherit; }
   flex: none;
 }
 .brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+/* 桌面端品牌在侧栏（EVAN），顶栏不再重复一次 */
+@media (min-width: 981px) {
+  .topbar .brand { display: none; }
+}
 .date-switch { display: flex; align-items: center; gap: 6px; }
 .date-label { min-width: 110px; text-align: center; font-weight: 600; }
 .icon-btn {
