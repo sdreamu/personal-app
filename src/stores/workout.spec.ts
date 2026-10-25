@@ -10,6 +10,7 @@ import {
   softDelete,
   type WorkoutRecord,
 } from '@/db';
+import { useToastStore } from '@/stores/toast';
 import {
   REST_TYPE_NAME,
   TEMP_WORKOUT_TYPE_NAME,
@@ -575,3 +576,99 @@ describe('M5 libraryNames getter', () => {
   });
 });
 
+describe('N3 项目库可增删（AC-73）', () => {
+  it('createLibraryExercise：新建一行；再建同名不产生第二行', async () => {
+    vi.setSystemTime(BASE);
+    const created = await store.createLibraryExercise('  深蹲 ');
+    expect(created.name).toBe('深蹲');
+    expect((await listAlive('exercises')).length).toBe(1);
+
+    const again = await store.createLibraryExercise('深蹲');
+    expect(again.id).toBe(created.id);
+    expect((await listAlive('exercises')).length).toBe(1);
+  });
+
+  it('createLibraryExercise：空名字抛错', async () => {
+    await expect(store.createLibraryExercise('   ')).rejects.toThrow('动作名称不能为空');
+    expect((await listAlive('exercises')).length).toBe(0);
+  });
+
+  it('libraryItems：带 id 且排序与 libraryNames 一致', async () => {
+    vi.setSystemTime(BASE);
+    await createRecord('exercises', { name: '卧推' });
+    await createRecord('exercises', { name: '飞鸟' });
+    await store.load(TODAY);
+    expect(store.libraryItems.map((item) => item.name)).toEqual(store.libraryNames);
+    expect(store.libraryItems.every((item) => typeof item.id === 'string' && item.id !== '')).toBe(true);
+  });
+
+  it('deleteLibraryExercise：软删除、列表消失、撤销后回来；当天训练里的同名动作不动', async () => {
+    vi.setSystemTime(BASE);
+    const created = await store.createLibraryExercise('深蹲');
+    await store.startTemporaryWorkout(TODAY);
+    await store.addExercise(TODAY, '深蹲');
+
+    expect(await store.deleteLibraryExercise(created.id)).toBe(true);
+    expect(await listAlive('exercises')).toHaveLength(0);
+    expect(store.libraryItems).toHaveLength(0);
+
+    // 训练记录里的动作仍是名字快照，不受项目库删除影响
+    const day = await listAliveByDate('workout_records', TODAY);
+    expect(day[0]?.exercises.map((e) => e.name)).toEqual(['深蹲']);
+
+    // 5 秒内撤销
+    const undoToast = useToastStore().items.at(-1);
+    expect(undoToast?.message).toBe('已删除动作，可撤销');
+    expect(undoToast?.undo?.label).toBe('撤销');
+    await undoToast?.undo?.action();
+    expect((await listAlive('exercises')).length).toBe(1);
+  });
+
+  it('deleteLibraryExercise：不存在的 id 返回 false', async () => {
+    expect(await store.deleteLibraryExercise('不存在')).toBe(false);
+  });
+
+  it('renameLibraryExercise：没有撞名就改名', async () => {
+    vi.setSystemTime(BASE);
+    const created = await store.createLibraryExercise('深蹲');
+    const renamed = await store.renameLibraryExercise(created.id, '  杠铃深蹲 ');
+    expect(renamed?.name).toBe('杠铃深蹲');
+    const rows = await listAlive('exercises');
+    expect(rows.map((row) => row.name)).toEqual(['杠铃深蹲']);
+  });
+
+  it('renameLibraryExercise：撞同名合并成一条（被改的那条软删除）', async () => {
+    vi.setSystemTime(BASE);
+    const a = await store.createLibraryExercise('深蹲');
+    const b = await store.createLibraryExercise('卧推');
+
+    const merged = await store.renameLibraryExercise(b.id, '深蹲');
+    expect(merged?.id).toBe(a.id);
+    const rows = await listAlive('exercises');
+    expect(rows.map((row) => row.name)).toEqual(['深蹲']);
+    expect(store.libraryItems.map((item) => item.name)).toEqual(['深蹲']);
+  });
+});
+
+describe('N3 一键整组完成与置顶（AC-73）', () => {
+  it('completeExercise：把该动作所有组标完成、其他动作不动；重复调用不重复写', async () => {
+    vi.setSystemTime(BASE);
+    await addCategory('workout_types', '胸');
+    await store.load(TODAY);
+    await store.saveTemplate(1, { type_name: '胸', exercise_names: ['卧推', '飞鸟'] });
+    await store.loadDay(TODAY);
+
+    await store.completeExercise(TODAY, 0);
+    const rows = await listAliveByDate('workout_records', TODAY);
+    const exercises = rows[0]?.exercises ?? [];
+    expect(exercises[0]?.sets.every((set) => set.done)).toBe(true);
+    expect(exercises[0]?.sets).toHaveLength(3);
+    expect(exercises[1]?.sets.some((set) => set.done)).toBe(false);
+
+    const before = rows[0]?.updated_at;
+    vi.setSystemTime(BASE + 60_000);
+    await store.completeExercise(TODAY, 0);
+    const after = (await listAliveByDate('workout_records', TODAY))[0]?.updated_at;
+    expect(after).toBe(before);
+  });
+});

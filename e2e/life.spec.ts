@@ -10,6 +10,7 @@ import {
   logicalToday,
   weekdayOf,
   thisWeekDate,
+  openWeekPlan,
 } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -79,6 +80,7 @@ test('AC-43 周三模板带出/上次数值/勾选持久', async ({ page }) => {
   await addWorkoutType(page, '背+二头');
 
   await gotoHash(page, 'life/workout');
+  await openWeekPlan(page);
   const wedRow = page.locator('[data-test="week-row"][data-weekday="3"]');
   await wedRow.locator('[data-test="type-select"]').selectOption({ label: '背+二头' });
   await expect(wedRow.locator('[data-test="exercise-editor"]')).toBeVisible();
@@ -122,6 +124,7 @@ test('AC-44 完成训练自动用时与首页历史同步', async ({ page }) => 
   const todayWeekday = weekdayOf(logicalToday());
 
   await gotoHash(page, 'life/workout');
+  await openWeekPlan(page);
   const row = page.locator('[data-test="week-row"][data-weekday="' + todayWeekday + '"]');
   await row.locator('[data-test="type-select"]').selectOption({ label: '胸+三头' });
   await expect(row.locator('[data-test="exercise-editor"]')).toBeVisible();

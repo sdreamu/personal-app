@@ -9,6 +9,7 @@ import {
   addDays,
   logicalToday,
   weekdayOf,
+  openWeekPlan,
 } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -31,6 +32,7 @@ async function addWorkoutType(page: Page, name: string): Promise<void> {
 async function seedTodayWorkout(page: Page, typeName: string, exercise: string): Promise<void> {
   const todayWeekday = weekdayOf(logicalToday());
   await gotoHash(page, 'life/workout');
+  await openWeekPlan(page);
   const row = page.locator('[data-test="week-row"][data-weekday="' + todayWeekday + '"]');
   await row.locator('[data-test="type-select"]').selectOption({ label: typeName });
   await expect(row.locator('[data-test="exercise-editor"]')).toBeVisible();

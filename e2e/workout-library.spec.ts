@@ -158,3 +158,61 @@ test('AC-65 动作备注写入/刷新/清空与回归', async ({ page }) => {
   expect(record?.exercises[0]?.note).toBe('AC65备注');
   expect(await page.locator('[data-test="day-card"] [data-test="set-row"]').count()).toBe(3);
 });
+
+/** AC-73：今日训练置顶 + 周计划默认折叠 + 项目库可增删（软删除 5 秒撤销）+ 一键整组完成。 */
+test('AC-73 项目库可编写 / 一键整组完成 / 今日训练置顶', async ({ page }) => {
+  await ensureDayEditor(page, TODAY);
+
+  // 今日训练置顶：day-card 在 week-plan 之前
+  const dayBox = await page.locator('[data-test="day-card"]').boundingBox();
+  const weekBox = await page.locator('[data-test="week-plan-card"]').boundingBox();
+  expect(dayBox).not.toBeNull();
+  expect(weekBox).not.toBeNull();
+  expect(dayBox!.y).toBeLessThan(weekBox!.y);
+  await expect(page.locator('[data-test="day-card-title"]')).toContainText('训练');
+
+  // 周计划默认收成一行摘要，点开才显示编辑器
+  await expect(page.locator('[data-test="week-plan-toggle"]')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('[data-test="week-plan-body"]')).toBeHidden();
+  await page.click('[data-test="week-plan-toggle"]');
+  await expect(page.locator('[data-test="week-plan-body"]')).toBeVisible();
+  await expect(page.locator('[data-test="week-row"]').first()).toBeVisible();
+  await page.click('[data-test="week-plan-toggle"]');
+  await expect(page.locator('[data-test="week-plan-body"]')).toBeHidden();
+
+  // 项目库新建动作
+  await page.fill('[data-test="library-add-input"]', '深蹲');
+  await page.click('[data-test="library-add-btn"]');
+  await expect(page.locator('[data-test="library-item"]', { hasText: '深蹲' })).toBeVisible();
+  expect(await countExerciseRows(page, '深蹲')).toBe(1);
+
+  // 再建同名：不产生第二条
+  await page.fill('[data-test="library-add-input"]', '深蹲');
+  await page.click('[data-test="library-add-btn"]');
+  await expect(page.locator('[data-test="library-item"]', { hasText: '深蹲' })).toHaveCount(1);
+  expect(await countExerciseRows(page, '深蹲')).toBe(1);
+
+  // 点项目库条目 → 加入当天训练（默认 3 组）
+  await page.locator('[data-test="library-item"]', { hasText: '深蹲' }).click();
+  const squatRow = page
+    .locator('[data-test="day-card"] [data-test="exercise-item"]')
+    .filter({ hasText: '深蹲' });
+  await expect(squatRow).toHaveCount(1);
+  await expect(squatRow.locator('[data-test="set-row"]')).toHaveCount(3);
+
+  // 一键整组完成
+  await squatRow.locator('[data-test="exercise-complete-all"]').click();
+  await expect(squatRow.locator('[data-test="exercise-progress"]')).toContainText('3/3');
+
+  // 删除项目：列表消失 + 软删除 + 5 秒内撤销恢复
+  await page.locator('[data-test="library-remove"]').first().click();
+  await expect(page.locator('[data-test="library-item"]', { hasText: '深蹲' })).toHaveCount(0);
+  expect(await countExerciseRows(page, '深蹲')).toBe(0);
+  // 当天训练里的同名动作不受影响（记录存的是名字快照）
+  await expect(squatRow).toHaveCount(1);
+
+  await expect(page.locator('[data-test="toast-undo"]')).toBeVisible();
+  await page.click('[data-test="toast-undo"]');
+  await expect(page.locator('[data-test="library-item"]', { hasText: '深蹲' })).toBeVisible();
+  expect(await countExerciseRows(page, '深蹲')).toBe(1);
+});

@@ -2,8 +2,12 @@ import { defineStore } from 'pinia';
 import {
   createRecord,
   errorMessage,
+  getRecord,
+  isAlive,
   listAlive,
   listAliveByDate,
+  softDelete,
+  undoDelete,
   updateRecord,
   type Exercise,
   type ExerciseEntry,
@@ -233,10 +237,26 @@ export const useWorkoutStore = defineStore('workout', {
       return names;
     },
 
-    /** 项目库区块的按钮列表：来自 exercises 表，最近使用优先，无历史按名字升序。 */
+    /** 项目库动作名列表（旧接口，等价于 libraryItems 的名字）：最近使用优先，无历史按名字升序。 */
     libraryNames(state): string[] {
       const names = state.exerciseLibrary.map((e) => e.name.trim()).filter((n) => n !== '');
       return recentOrder(names, state.history);
+    },
+
+    /**
+     * 项目库区块的条目：{ id, name }，排序同 libraryNames。
+     * 带 id 是为了支持删除（软删除按 id 走），同名多条只取最前面一条。
+     */
+    libraryItems(state): { id: string; name: string }[] {
+      const byName = new Map<string, { id: string; name: string }>();
+      for (const row of state.exerciseLibrary) {
+        const name = row.name.trim();
+        if (name === '' || byName.has(name)) continue;
+        byName.set(name, { id: row.id, name });
+      }
+      return recentOrder([...byName.keys()], state.history).map(
+        (name) => byName.get(name) as { id: string; name: string },
+      );
     },
   },
   actions: {
@@ -281,6 +301,62 @@ export const useWorkoutStore = defineStore('workout', {
       if (rows.some((row) => row.name.trim() === trimmed)) return;
       await createRecord('exercises', { name: trimmed });
       await this.refreshLibrary();
+    },
+
+    /**
+     * 项目库新建动作：trim 后为空抛错；同名（trim 后相等）已有有效行则直接复用那一条，
+     * 不产生第二条。返回库里的那一条（新建或复用的）。
+     */
+    async createLibraryExercise(name: string): Promise<Exercise> {
+      const trimmed = name.trim();
+      if (trimmed === '') throw new Error('动作名称不能为空');
+      const rows = await listAlive('exercises');
+      const existing = rows.find((row) => row.name.trim() === trimmed);
+      if (existing) return existing;
+      const created = await this.runWithSaveStatus(() =>
+        createRecord('exercises', { name: trimmed }),
+      );
+      await this.refreshLibrary();
+      return created;
+    },
+
+    /**
+     * 项目库删除动作：软删除 + 5 秒撤销。
+     * 当天/历史训练记录里已有的动作**不动**（记录存的是名字快照，与项目库解耦）。
+     */
+    async deleteLibraryExercise(id: string): Promise<boolean> {
+      const row = await getRecord('exercises', id);
+      if (!row || !isAlive(row)) return false;
+      await this.runWithSaveStatus(() => softDelete('exercises', id));
+      await this.refreshLibrary();
+      useToastStore().undoable('已删除动作，可撤销', async () => {
+        await this.runWithSaveStatus(() => undoDelete('exercises', id));
+        await this.refreshLibrary();
+      });
+      return true;
+    },
+
+    /**
+     * 项目库改名：撞同名（另一条有效行）时**合并** —— 被改的那条软删除，保留已有的同名条目；
+     * 没有撞名则直接改名。返回合并/改名后仍然有效的那一条。
+     */
+    async renameLibraryExercise(id: string, name: string): Promise<Exercise | null> {
+      const trimmed = name.trim();
+      if (trimmed === '') throw new Error('动作名称不能为空');
+      const rows = await listAlive('exercises');
+      const target = rows.find((row) => row.id === id) ?? null;
+      if (target === null) return null;
+      if (target.name.trim() === trimmed) return target;
+
+      const duplicate = rows.find((row) => row.id !== id && row.name.trim() === trimmed) ?? null;
+      if (duplicate !== null) {
+        await this.runWithSaveStatus(() => softDelete('exercises', id));
+        await this.refreshLibrary();
+        return duplicate;
+      }
+      await this.runWithSaveStatus(() => updateRecord('exercises', id, { name: trimmed }));
+      await this.refreshLibrary();
+      return (await getRecord('exercises', id)) ?? null;
     },
 
     /** 载入周计划（模板按星期几全局复用，date 只做合法性校验）。 */
@@ -459,6 +535,23 @@ export const useWorkoutStore = defineStore('workout', {
       }
     },
 
+    /**
+     * 一键把某个动作的所有组标记为完成（Q2：默认 3 组，逐组点太累）。
+     * 已经全部完成时不做任何写入（幂等），组数据保持不变。
+     */
+    async completeExercise(date: string, exerciseIndex: number): Promise<void> {
+      const record = await this.getEditableRecord(date);
+      const exercises = cloneExercises(record.exercises);
+      const exercise = exercises[exerciseIndex];
+      if (!exercise) throw new Error('动作不存在');
+      if (exercise.sets.every((set) => set.done)) return;
+      for (const set of exercise.sets) set.done = true;
+      await this.persistExercises(record, exercises);
+      if (this.loadedDate === date && this.firstCheckAtMs === null) {
+        this.firstCheckAtMs = Date.now();
+      }
+    },
+
     async updateSet(
       date: string,
       exerciseIndex: number,
@@ -477,15 +570,18 @@ export const useWorkoutStore = defineStore('workout', {
     async addExercise(date: string, name: string): Promise<void> {
       const trimmed = name.trim();
       if (!trimmed) throw new Error('动作名称不能为空');
+      // 先拿到"可编辑的当天记录"再写项目库：休息日里拿记录失败的场景不会留下
+      // "库里有、今天没加上"的一半状态（P6-1）。
+      const record = await this.getEditableRecord(date);
+      if (!record.exercises.some((e) => e.name.trim() === trimmed)) {
+        const exercises = [
+          ...record.exercises,
+          { name: trimmed, sets: defaultSetsForExercise(trimmed, this.history) },
+        ];
+        await this.persistExercises(record, exercises);
+      }
       // 项目库自动维护：即使当天已有同名动作，也确保项目库里有这一条（幂等）
       await this.upsertLibraryExercise(trimmed);
-      const record = await this.getEditableRecord(date);
-      if (record.exercises.some((e) => e.name.trim() === trimmed)) return;
-      const exercises = [
-        ...record.exercises,
-        { name: trimmed, sets: defaultSetsForExercise(trimmed, this.history) },
-      ];
-      await this.persistExercises(record, exercises);
     },
 
     async removeExercise(date: string, exerciseIndex: number): Promise<void> {

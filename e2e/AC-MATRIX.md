@@ -211,3 +211,22 @@
 - 点减号只调用一次 `home.removeWater()`，不触发卡片跳转 —— src/components/home-cards.spec.ts
 
 覆盖完整性：AC-72 有 1 条 e2e + 5 条单测/组件断言；既有 AC-17（首页 +1 杯）断言未改动仍全绿。
+
+## 健身专区：项目库可编写 + 今日训练置顶（AC-73）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-73 | AC-73 项目库可编写 / 一键整组完成 / 今日训练置顶 | e2e/workout-library.spec.ts |
+
+补充（单测/组件/视图层）：
+- `createLibraryExercise`：trim 后新建一行；再建同名复用同一条（不产生第二行）；空名字抛错 —— src/stores/workout.spec.ts
+- `libraryItems`：带 id、排序与 `libraryNames` 一致 —— src/stores/workout.spec.ts
+- `deleteLibraryExercise`：软删除 + 列表消失 + `toast.undoable('已删除动作，可撤销')` 撤销后恢复；当天训练里的同名动作保留（名字快照）；不存在 id 返回 false —— src/stores/workout.spec.ts
+- `renameLibraryExercise`：无撞名改名成功；撞同名**合并**（被改那条软删除，保留已有条目）—— src/stores/workout.spec.ts
+- `completeExercise`：该动作全部组置完成（默认 3 组）、其他动作不动、重复调用不重复写 —— src/stores/workout.spec.ts
+- `addExercise` 顺序改为「先写当天记录、再维护项目库」（P6-1）—— 既有 AC-64 断言原样通过
+- 项目库区块：输入框 + 添加按钮（回车/按钮都 emit add、空名字不 emit）、每条 ✕ emit remove(id)、空态文案改为「这里是你自己的动作清单，先写下来，练的时候点一下」—— src/components/exercise-library.spec.ts
+- 健身页：顺序 = 今日训练 → 每周计划 → 历史；`day-card-title` 带日期/星期/状态（未开始·进行中·已完成）；周计划默认折叠（`aria-expanded=false` + summary「周一 胸」）—— src/views/life-workout-view.spec.ts
+- 健身页：项目库新增落库、同名不重复、空名字不加；删除后 5 秒撤销恢复；一键完成全部组 → 3/3 组 —— src/views/life-workout-view.spec.ts
+
+覆盖完整性：AC-73 有 1 条 e2e（含置顶位置、折叠、增删撤销、一键整组）+ 16 条单测/组件/视图断言，无 skip / only；AC-64 / AC-65 原有断言未改动，仍全绿（周计划改为默认折叠后，e2e 通过新增的 `openWeekPlan()` helper 展开，只改操作路径）。

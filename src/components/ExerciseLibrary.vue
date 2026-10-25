@@ -1,34 +1,68 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 /**
- * 训练项目库区块（M5）：按钮列表来自 exercises 表，已由父组件按
- * “最近使用优先、无历史按名字升序”排好序。点一下即把该动作加入当天训练。
+ * 训练项目库区块（M5 / N3）：用户自己的动作清单，可自己写、可删（5 秒撤销）。
+ * 点条目 = 把该动作加入当天训练；排序由父组件（store getter）算好传进来。
  */
-const props = withDefaults(defineProps<{ names?: string[] }>(), { names: () => [] });
+const props = withDefaults(defineProps<{ items?: { id: string; name: string }[] }>(), {
+  items: () => [],
+});
 
 const emit = defineEmits<{
   (e: 'select', name: string): void;
+  (e: 'add', name: string): void;
+  (e: 'remove', id: string): void;
 }>();
 
-const items = computed(() => props.names.filter((name) => name.trim() !== ''));
+const items = computed(() => props.items.filter((item) => item.name.trim() !== ''));
+const newName = ref('');
+
+function submitAdd(): void {
+  const name = newName.value.trim();
+  if (name === '') return;
+  emit('add', name);
+  newName.value = '';
+}
 </script>
 
 <template>
   <section class="exercise-library" data-test="exercise-library">
     <h3 class="library-title">项目库</h3>
+    <div class="library-add">
+      <input
+        v-model="newName"
+        class="text-input"
+        data-test="library-add-input"
+        placeholder="写下一个动作（例如：深蹲）"
+        @keyup.enter="submitAdd"
+      />
+      <button type="button" class="primary-btn" data-test="library-add-btn" @click="submitAdd">
+        添加
+      </button>
+    </div>
     <p v-if="items.length === 0" class="hint" data-test="library-empty">
-      还没有常用动作，添加动作后会自动收录到这里
+      这里是你自己的动作清单，先写下来，练的时候点一下
     </p>
     <ul v-else class="library-list" data-test="library-list">
-      <li v-for="name in items" :key="name">
+      <li v-for="item in items" :key="item.id" class="library-row">
         <button
           type="button"
           class="library-item"
           data-test="library-item"
-          @click="emit('select', name)"
+          @click="emit('select', item.name)"
         >
-          {{ name }}
+          {{ item.name }}
+        </button>
+        <button
+          type="button"
+          class="library-remove"
+          data-test="library-remove"
+          :aria-label="'删除 ' + item.name"
+          :title="'删除 ' + item.name"
+          @click="emit('remove', item.id)"
+        >
+          ✕
         </button>
       </li>
     </ul>
@@ -49,6 +83,23 @@ const items = computed(() => props.names.filter((name) => name.trim() !== ''));
   color: var(--muted);
   font-weight: 600;
 }
+.library-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.library-add .text-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.library-add .primary-btn {
+  padding: 6px 14px;
+  font-size: 14px;
+}
 .library-list {
   list-style: none;
   margin: 0;
@@ -57,16 +108,35 @@ const items = computed(() => props.names.filter((name) => name.trim() !== ''));
   flex-wrap: wrap;
   gap: 8px;
 }
+.library-row {
+  display: inline-flex;
+  align-items: stretch;
+}
 .library-item {
   border: 1px solid var(--border);
   background: var(--panel);
   color: inherit;
-  border-radius: var(--radius);
+  border-radius: var(--radius) 0 0 var(--radius);
   padding: 6px 14px;
   cursor: pointer;
   font-size: 14px;
 }
 .library-item:hover {
   border-color: var(--accent);
+}
+.library-remove {
+  border: 1px solid var(--border);
+  border-left: none;
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 6px 9px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.library-remove:hover {
+  color: var(--danger, #b5342c);
+  border-color: var(--danger, #b5342c);
 }
 </style>

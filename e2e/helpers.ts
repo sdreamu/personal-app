@@ -70,6 +70,16 @@ export async function gotoHash(page: Page, hash: string): Promise<void> {
   await page.goto('/#' + hash);
 }
 
+/** 展开健身页的「每周计划」（N3 之后默认收成一行摘要，点开才显示编辑器）。 */
+export async function openWeekPlan(page: Page): Promise<void> {
+  const toggle = page.locator('[data-test="week-plan-toggle"]');
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await toggle.click();
+  }
+  await expect(page.locator('[data-test="week-plan-body"]')).toBeVisible();
+}
+
 /** 切换顶栏日期到指定逻辑日期（通过 localStorage 注入，刷新后生效）。 */
 export async function setSelectedDate(page: Page, date: string): Promise<void> {
   await page.evaluate((d) => {

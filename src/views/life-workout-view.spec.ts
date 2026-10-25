@@ -10,6 +10,7 @@ import {
   type WorkoutRecord,
 } from '@/db';
 import { useDateStore } from '@/stores/date';
+import { useToastStore } from '@/stores/toast';
 import { useWorkoutStore } from '@/stores/workout';
 import LifeWorkoutView from './LifeWorkoutView.vue';
 
@@ -346,6 +347,135 @@ describe('健身页 #/life/workout', () => {
     }, WAIT_OPTS);
     await vi.waitFor(() => {
       if (wrapper.find('[data-test="exercise-note-text"]').exists()) throw new Error('清空后仍显示备注');
+    }, WAIT_OPTS);
+  });
+});
+
+describe('N3 今日训练置顶 + 周计划折叠（AC-73）', () => {
+  it('页面顺序：今日训练 → 每周计划 → 历史训练记录', async () => {
+    wrapper = await mountPage();
+    const html = wrapper.html();
+    const dayIndex = html.indexOf('data-test="day-card"');
+    const weekIndex = html.indexOf('data-test="week-plan-card"');
+    const historyIndex = html.indexOf('历史训练记录');
+    expect(dayIndex).toBeGreaterThan(-1);
+    expect(weekIndex).toBeGreaterThan(dayIndex);
+    expect(historyIndex).toBeGreaterThan(weekIndex);
+  });
+
+  it('今日训练卡标题带日期与状态（未开始 / 进行中 / 已完成）', async () => {
+    wrapper = await mountPage();
+    const title = wrapper.find('[data-test="day-card-title"]');
+    expect(title.text()).toContain('6月1日');
+    expect(title.text()).toContain('周一');
+    expect(wrapper.find('[data-test="day-status"]').text()).toContain('未开始');
+    wrapper.unmount();
+
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="day-status"]').text()).toContain('进行中');
+    wrapper.unmount();
+
+    await createRecord('workout_records', makeRecord(TODAY, { type_name: '胸', done: true }));
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="day-status"]').text()).toContain('已完成');
+  });
+
+  it('每周计划默认收成一行摘要，点开才看到编辑器', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+
+    const toggle = wrapper.find('[data-test="week-plan-toggle"]');
+    expect(toggle.attributes('aria-expanded')).toBe('false');
+    const body = wrapper.find('[data-test="week-plan-body"]');
+    expect(body.attributes('style')).toContain('display: none');
+    expect(wrapper.find('[data-test="week-plan-summary"]').text()).toContain('周一 胸');
+
+    await toggle.trigger('click');
+    expect(wrapper.find('[data-test="week-plan-toggle"]').attributes('aria-expanded')).toBe('true');
+    expect(wrapper.find('[data-test="week-plan-body"]').attributes('style') ?? '').not.toContain(
+      'display: none',
+    );
+  });
+});
+
+describe('N3 项目库可编写（AC-73）', () => {
+  it('输入框 + 添加按钮新建动作：落 exercises 表；同名不重复；空名字不加', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+
+    await wrapper.find('[data-test="library-add-input"]').setValue('深蹲');
+    await wrapper.find('[data-test="library-add-btn"]').trigger('click');
+    await vi.waitFor(() => {
+      const rows = wrapper.findAll('[data-test="library-item"]');
+      if (!rows.some((row) => row.text() === '深蹲')) throw new Error('项目库未出现深蹲');
+    }, WAIT_OPTS);
+    expect((await listAlive('exercises')).map((row) => row.name)).toEqual(['深蹲']);
+
+    // 回车也能加；同名不产生第二行
+    const input = wrapper.find('[data-test="library-add-input"]');
+    await input.setValue('深蹲');
+    await input.trigger('keyup.enter');
+    await flushPromises();
+    expect((await listAlive('exercises')).length).toBe(1);
+
+    // 空名字不加
+    await input.setValue('   ');
+    await input.trigger('keyup.enter');
+    await flushPromises();
+    expect((await listAlive('exercises')).length).toBe(1);
+  });
+
+  it('删项目：软删除、列表消失、5 秒内可撤销恢复', async () => {
+    await seedTypeTemplate(1, '胸', []);
+    await createRecord('exercises', { name: '深蹲' });
+    wrapper = await mountPage();
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="library-item"]').length !== 1) throw new Error('项目库未就绪');
+    }, WAIT_OPTS);
+
+    await wrapper.find('[data-test="library-remove"]').trigger('click');
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="library-item"]').length !== 0) throw new Error('删除后列表未消失');
+    }, WAIT_OPTS);
+    expect(await listAlive('exercises')).toHaveLength(0);
+
+    const undoToast = useToastStore().items.at(-1);
+    expect(undoToast?.message).toBe('已删除动作，可撤销');
+    await undoToast?.undo?.action();
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="library-item"]').length !== 1) throw new Error('撤销后未恢复');
+    }, WAIT_OPTS);
+    expect((await listAlive('exercises')).map((row) => row.name)).toEqual(['深蹲']);
+  });
+
+  it('项目库空态给出「自己的动作清单」引导语', async () => {
+    await seedTypeTemplate(1, '胸', []);
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="library-empty"]').text()).toContain(
+      '这里是你自己的动作清单，先写下来，练的时候点一下',
+    );
+  });
+});
+
+describe('N3 一键整组完成（AC-73）', () => {
+  it('点「一键完成全部组」：3 组全部打勾、进度显示 3/3', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="set-row"]').length !== 3) throw new Error('组未就绪');
+    }, WAIT_OPTS);
+
+    await wrapper.find('[data-test="exercise-complete-all"]').trigger('click');
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      const sets = rows[0]?.exercises[0]?.sets ?? [];
+      if (!sets.every((set) => set.done)) throw new Error('组未全部完成');
+    }, WAIT_OPTS);
+    await vi.waitFor(() => {
+      if (!wrapper.find('[data-test="exercise-progress"]').text().includes('3/3')) {
+        throw new Error('进度未更新');
+      }
     }, WAIT_OPTS);
   });
 });

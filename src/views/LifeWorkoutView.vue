@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { errorMessage, type WorkoutRecord } from '@/db';
 import WorkoutDay from '@/components/WorkoutDay.vue';
 import WorkoutHistory from '@/components/WorkoutHistory.vue';
@@ -7,7 +7,7 @@ import WorkoutWeekPlanEditor from '@/components/WorkoutWeekPlanEditor.vue';
 import { useDateStore } from '@/stores/date';
 import { useToastStore } from '@/stores/toast';
 import { useWorkoutStore, weekdayOf, type WorkoutTemplatePatch } from '@/stores/workout';
-import { formatDateCN } from '@/utils/date';
+import { formatDateCN, weekdayCN } from '@/utils/date';
 
 /**
  * 健身页 #/life/workout（PRD §5.6，AC-43~45）：
@@ -20,7 +20,22 @@ const toast = useToastStore();
 
 const selectedDate = computed(() => dateStore.selectedDate);
 const suggestions = computed(() => store.exerciseNames);
-const libraryNames = computed(() => store.libraryNames);
+const libraryItems = computed(() => store.libraryItems);
+/** 周计划折叠态（Q8）：今日训练置顶后，周计划默认收成一行摘要，点开再编辑。 */
+const weekOpen = ref(false);
+const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const weekSummary = computed(() => {
+  const templates = [...store.week].sort((a, b) => a.weekday - b.weekday);
+  if (templates.length === 0) return '还没排计划';
+  return templates
+    .map((template) => `${WEEKDAY_LABELS[template.weekday - 1] ?? ''} ${template.type_name}`)
+    .join(' · ');
+});
+/** 今日训练状态：未开始（还没有记录）/ 进行中 / 已完成。 */
+const dayStatus = computed(() => {
+  if (store.day === null) return '未开始';
+  return store.day.done ? '已完成' : '进行中';
+});
 
 async function load(): Promise<void> {
   try {
@@ -93,6 +108,18 @@ function handleSetDuration(minutes: number | null): void {
   runAction(() => store.setDuration(selectedDate.value, minutes));
 }
 
+function handleCompleteExercise(exerciseIndex: number): void {
+  runAction(() => store.completeExercise(selectedDate.value, exerciseIndex));
+}
+
+function handleLibraryAdd(name: string): void {
+  runAction(() => store.createLibraryExercise(name));
+}
+
+function handleLibraryRemove(id: string): void {
+  runAction(() => store.deleteLibraryExercise(id));
+}
+
 function handleStartTemporary(): void {
   runAction(() => store.startTemporaryWorkout(selectedDate.value));
 }
@@ -141,21 +168,15 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
       正在加载健身数据…
     </div>
 
-    <div class="settings-card">
-      <h2>每周计划</h2>
-      <WorkoutWeekPlanEditor
-        :templates="store.week"
-        :workout-types="store.workoutTypes"
-        @save="handleTemplateSave"
-      />
-    </div>
-
     <div class="settings-card" data-test="day-card">
-      <h2>{{ formatDateCN(selectedDate) }} 训练</h2>
+      <h2 data-test="day-card-title">
+        {{ formatDateCN(selectedDate) }} {{ weekdayCN(selectedDate) }} 训练
+        <span class="badge" data-test="day-status">· {{ dayStatus }}</span>
+      </h2>
       <WorkoutDay
         :record="store.day"
         :suggestions="suggestions"
-        :library="libraryNames"
+        :library="libraryItems"
         @start-temporary="handleStartTemporary"
         @toggle-set="handleToggleSet"
         @update-set="handleUpdateSet"
@@ -164,8 +185,32 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
         @rename-exercise="handleRenameExercise"
         @set-note="handleSetNote"
         @set-duration="handleSetDuration"
+        @complete-exercise="handleCompleteExercise"
+        @library-add="handleLibraryAdd"
+        @library-remove="handleLibraryRemove"
         @finish="handleFinish"
       />
+    </div>
+
+    <div class="settings-card" data-test="week-plan-card">
+      <button
+        type="button"
+        class="week-plan-toggle"
+        data-test="week-plan-toggle"
+        :aria-expanded="weekOpen"
+        @click="weekOpen = !weekOpen"
+      >
+        <span class="week-plan-title">每周计划</span>
+        <span class="hint week-plan-summary" data-test="week-plan-summary">{{ weekSummary }}</span>
+        <span class="week-plan-action">{{ weekOpen ? '收起 ▲' : '展开 ▼' }}</span>
+      </button>
+      <div v-show="weekOpen" data-test="week-plan-body">
+        <WorkoutWeekPlanEditor
+          :templates="store.week"
+          :workout-types="store.workoutTypes"
+          @save="handleTemplateSave"
+        />
+      </div>
     </div>
 
     <div class="settings-card">
@@ -183,3 +228,34 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
     </div>
   </section>
 </template>
+
+<style scoped>
+.week-plan-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.week-plan-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+.week-plan-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.week-plan-action {
+  color: var(--muted);
+  font-size: 13px;
+}
+</style>

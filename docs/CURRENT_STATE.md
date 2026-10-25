@@ -1011,3 +1011,5 @@ test:e2e   playwright test
 |---|---|---|---|
 | 1 | **B1** 弹窗 ✕ / 遮罩 / Esc 关不掉（7 处漏绑 `@close`） | `StudySubjectsView`(3)、`StudyBooksView`(1)、`StudyBookDetailView`(3) 补 `@close`；`BaseModal` 的 ✕ 补 `type="button"` + `data-test="modal-close"`；新增全库扫描守卫 `base-modal-close.spec.ts` | AC-71 |
 | 1 | **N1** 首页喝水可加可减 | `homeStore.removeWater()`（复用 `diet.addWater(today,-1)`）；`HomeCards` 喝水卡改为 `−1 杯`(ghost, 0ml 时 disabled) + `+1 杯`(primary)，均 `@click.stop` | AC-72 |
+
+| 1 | **N3** 健身：项目库可编写 + 今日训练置顶 + 一键整组完成（Q2/Q3/Q8 按建议：默认 3 组、撞名合并、周计划默认折叠） | `workoutStore.createLibraryExercise / deleteLibraryExercise / renameLibraryExercise / completeExercise`；`libraryItems` getter；`ExerciseLibrary` 加输入框 + ✕ 删除（软删除 + 5 秒撤销）；`WorkoutDay` 加「一键完成全部组」+ 组表头（完成/重量(kg)/次数）+ 备注提示行；`LifeWorkoutView` 顺序改为 今日训练 → 每周计划（可折叠，`localStorage` 无关、默认收起）→ 历史，卡标题带日期与状态；`addExercise` 改为先落当天记录再维护项目库（P6-1） | AC-73 |

@@ -8,8 +8,8 @@ const props = withDefaults(
     record: WorkoutDayView | null;
     suggestions?: string[];
     mode?: 'day' | 'history';
-    /** 项目库动作名（最近使用优先，已排序）；为空则不显示按钮，仅给空状态提示。 */
-    library?: string[];
+    /** 项目库条目（{ id, name }，最近使用优先，已排序）；为空则只显示新增输入框与空状态提示。 */
+    library?: { id: string; name: string }[];
   }>(),
   { suggestions: () => [], mode: 'day', library: () => [] },
 );
@@ -29,6 +29,12 @@ const emit = defineEmits<{
   (e: 'set-note', exerciseIndex: number, note: string | null): void;
   (e: 'set-duration', minutes: number | null): void;
   (e: 'finish'): void;
+  /** 一键把某个动作的所有组标记为完成。 */
+  (e: 'complete-exercise', exerciseIndex: number): void;
+  /** 项目库新增动作。 */
+  (e: 'library-add', name: string): void;
+  /** 项目库删除动作（按 id 软删除，父组件负责撤销提示）。 */
+  (e: 'library-remove', id: string): void;
 }>();
 
 const suggestionListId = 'workout-suggestions-' + Math.random().toString(36).slice(2, 10);
@@ -171,7 +177,14 @@ function onDurationChange(event: Event): void {
                 data-test="exercise-note-text"
                 @click.stop.prevent="mode === 'day' ? startNote(exerciseIndex, exercise.note) : undefined"
               >
-                {{ exercise.note }}
+                备注：{{ exercise.note }}
+              </p>
+              <p
+                v-else-if="mode === 'day' && renamingIndex !== exerciseIndex && notingIndex !== exerciseIndex"
+                class="exercise-note hint"
+                data-test="exercise-note-hint"
+              >
+                备注：还没写（如「4 组 12 次」「跑步 30 分钟」）
               </p>
             </div>
             <span class="exercise-ops">
@@ -201,6 +214,19 @@ function onDurationChange(event: Event): void {
             </span>
           </summary>
           <div class="set-list">
+            <div v-if="mode === 'day'" class="set-row set-head" data-test="set-head">
+              <span class="set-index">完成</span>
+              <span class="set-label">重量(kg)</span>
+              <span class="set-label">次数</span>
+              <button
+                type="button"
+                class="ghost-btn complete-all"
+                data-test="exercise-complete-all"
+                @click.prevent="emit('complete-exercise', exerciseIndex)"
+              >
+                一键完成全部组
+              </button>
+            </div>
             <div
               v-for="(set, setIndex) in exercise.sets"
               :key="setIndex"
@@ -265,8 +291,10 @@ function onDurationChange(event: Event): void {
 
     <ExerciseLibrary
       v-if="mode === 'day'"
-      :names="props.library"
+      :items="props.library"
       @select="(name: string) => emit('add-exercise', name)"
+      @add="(name: string) => emit('library-add', name)"
+      @remove="(id: string) => emit('library-remove', id)"
     />
   </div>
 
@@ -382,6 +410,18 @@ function onDurationChange(event: Event): void {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 6px 8px;
+}
+.set-head {
+  color: var(--muted);
+  font-size: 12px;
+}
+.set-head .set-label {
+  min-width: 88px;
+}
+.set-head .complete-all {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 12px;
 }
 .set-list {
   padding: 10px 12px;
