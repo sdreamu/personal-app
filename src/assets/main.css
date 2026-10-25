@@ -1,5 +1,7 @@
 /* Evan的专属APP —— 手写样式，无第三方 UI 库；浅色/深色通过 CSS 变量切换 */
 :root {
+  /* 让原生控件/滚动条跟着主题走 */
+  color-scheme: light;
   /* ===== 颜色令牌（唯一依据 docs/UI_GUIDE.md §2 · 浅色表） =====
      v5「灰绿纸 + 松绿 + 朱砂」：四支颜色全部 ≥4.8:1，都能直接当文字用。 */
   --bg: #f1f1e8;
@@ -62,6 +64,7 @@
   --line-w: 2px;
 }
 [data-theme='dark'] {
+  color-scheme: dark;
   /* UI_GUIDE §2 · 深色表：只重定义变量，不写组件样式 */
   --bg: #141712;
   --panel: #1c2018;
@@ -99,7 +102,6 @@ html, body, #app { height: 100%; margin: 0; }
 body {
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
   background-color: var(--bg);
-  background-image: var(--grid-paper);
   color: var(--text);
   font-size: 15px;
   line-height: 1.45;
@@ -109,7 +111,12 @@ body {
 button { font: inherit; color: inherit; }
 input, select { font: inherit; color: inherit; }
 
-.app-shell { display: flex; flex-direction: column; height: 100%; }
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg);
+}
 
 /* ---------- 顶栏 ---------- */
 .topbar {
@@ -254,13 +261,21 @@ input, select { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .nav-group-toggle:hover { background: var(--panel-2); }
-.nav-group-toggle.active { color: var(--nav-active-text); }
+.nav-group-toggle.active { color: var(--text); }
 .nav-group-children { padding-left: 8px; margin: 1px 0 4px; }
 .nav-link-child { font-size: 13px; }
 .nav-link-child .nav-icon { width: 16px; height: 16px; }
 .chevron { color: var(--muted); font-size: 12px; }
 
-.content { flex: 1; min-width: 0; overflow-y: auto; padding: 20px 26px 26px; }
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px 26px 26px;
+  /* 网格纸纹理只铺在内容区：侧栏/顶栏是实心纸，不跟着滚动 */
+  background-image: var(--grid-paper);
+  background-repeat: repeat;
+}
 
 .viewing-banner {
   background: var(--accent-soft);
@@ -455,13 +470,14 @@ input, select { font: inherit; color: inherit; }
   display: flex;
   align-items: stretch;
   background: var(--bottom-nav-bg);
-  border-top: 1px solid var(--border);
+  border-top: var(--line-w) solid var(--border-ink);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: var(--shadow-up);
 }
 .bottom-tab {
   position: relative;
   flex: 1 1 0;
+  padding-bottom: 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -477,17 +493,15 @@ input, select { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .bottom-tab .nav-icon { width: 21px; height: 21px; }
-.bottom-tab.active { color: var(--nav-active-text); font-weight: 600; }
+.bottom-tab.active { color: var(--text); font-weight: 700; }
 .bottom-tab.active::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 26px;
+  left: 0;
+  right: 0;
   height: 3px;
-  border-radius: 0 0 3px 3px;
-  background: var(--nav-active-bar);
+  background: var(--text);
 }
 .bottom-tab-label { line-height: 1.2; white-space: nowrap; }
 

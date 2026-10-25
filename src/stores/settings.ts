@@ -8,6 +8,7 @@ import {
   type ThemeMode,
 } from '@/db';
 import { DEFAULT_DAY_START_MIN, parseDayStart } from '@/utils/date';
+import { writeBootTheme } from '@/utils/themeBoot';
 import { useSaveStatusStore } from './saveStatus';
 import { useToastStore } from './toast';
 
@@ -68,6 +69,8 @@ export function refreshSystemPrefersDark(): boolean {
 export function applyTheme(mode: ThemeMode): ResolvedTheme {
   const resolved = resolveTheme(normalizeTheme(mode), prefersDarkScheme());
   document.documentElement.dataset['theme'] = resolved;
+  // 记一笔给下次启动用，避免首屏先亮后暗（见 utils/themeBoot.ts）
+  writeBootTheme(resolved);
   return resolved;
 }
 

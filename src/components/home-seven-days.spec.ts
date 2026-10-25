@@ -5,6 +5,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import type { Plan } from '@/db';
 import { useDateStore } from '@/stores/date';
+import type { SettingsRecord } from '@/db';
 import { useSettingsStore } from '@/stores/settings';
 
 /** 只替换「按日期取计划」，其余 db 导出保持原样（组件只用这一个函数）。 */
@@ -48,6 +49,24 @@ const routes: RouteRecordRaw[] = [
   { path: '/:pathMatch(.*)*', redirect: '/plan' },
 ];
 
+/** 一天起点 04:00 的设置记录（settings store 的 dayStartMin 是派生 getter）。 */
+function settingsRecord(): SettingsRecord {
+  return {
+    key: 'app',
+    id: 'settings-1',
+    created_at: 1,
+    updated_at: 1,
+    deleted_at: null,
+    daily_study_min: 120,
+    daily_water_ml: 2000,
+    cup_ml: 250,
+    daily_play_min: 60,
+    day_start: '04:00',
+    theme: 'light',
+    last_backup_at: null,
+  };
+}
+
 let pinia: Pinia;
 let router: ReturnType<typeof createRouter>;
 
@@ -57,7 +76,7 @@ beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
   router = createRouter({ history: createWebHashHistory(), routes });
-  useSettingsStore().$patch({ loaded: true, dayStartMin: 240 });
+  useSettingsStore().$patch({ loaded: true, data: settingsRecord() });
   useDateStore().$patch({ selectedDate: '2026-10-25' });
 });
 

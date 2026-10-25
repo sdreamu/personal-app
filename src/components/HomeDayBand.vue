@@ -286,6 +286,9 @@ const ticks = computed(() =>
   font-size: 10px;
   font-weight: 700;
   color: var(--hero-ink);
+  /* 小色块压住下面的刻度字，免得“现在 08:30”和 08:00 叠在一起 */
+  padding: 0 3px;
+  background: var(--field-2);
 }
 .now-label.flip {
   left: auto;
@@ -302,6 +305,10 @@ const ticks = computed(() =>
   color: var(--field-sub);
 }
 @media (max-width: 980px) {
+  /* 窄屏只留三个刻度（04/12/20），不然数字会叠成一排 */
+  .band-tick:nth-child(2n) {
+    display: none;
+  }
   .band-lanes {
     height: 60px;
   }

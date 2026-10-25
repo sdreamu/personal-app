@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import type { Plan } from '@/db';
 import { useHomeStore } from '@/stores/home';
+import type { SettingsRecord } from '@/db';
 import { useSettingsStore } from '@/stores/settings';
 import HomeDayBand from './HomeDayBand.vue';
 
@@ -29,12 +30,30 @@ function plan(partial: Partial<Plan> & { id: string; title: string }): Plan {
   } as Plan;
 }
 
+/** 一天起点 04:00 的设置记录（settings store 的 dayStartMin 是派生 getter）。 */
+function settingsRecord(): SettingsRecord {
+  return {
+    key: 'app',
+    id: 'settings-1',
+    created_at: 1,
+    updated_at: 1,
+    deleted_at: null,
+    daily_study_min: 120,
+    daily_water_ml: 2000,
+    cup_ml: 250,
+    daily_play_min: 60,
+    day_start: '04:00',
+    theme: 'light',
+    last_backup_at: null,
+  };
+}
+
 let pinia: Pinia;
 
 beforeEach(() => {
   pinia = createPinia();
   setActivePinia(pinia);
-  useSettingsStore().$patch({ loaded: true, dayStartMin: 240 });
+  useSettingsStore().$patch({ loaded: true, data: settingsRecord() });
 });
 
 function mountBand(plans: Plan[]) {
