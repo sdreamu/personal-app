@@ -202,7 +202,7 @@ describe('.vue 不得含硬编码颜色', () => {
   });
 });
 
-describe('.vue 圆角只用令牌（直角语言）', () => {
+describe('圆角只用令牌（直角语言）', () => {
   function walk(dir: string, out: string[]): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = resolve(dir, entry.name);
@@ -212,23 +212,33 @@ describe('.vue 圆角只用令牌（直角语言）', () => {
     return out;
   }
 
-  /** 允许的三种写法：0 / var(--radius...) / 50%（水杯、日历点这种真圆）。 */
+  /** 允许的写法：0 / var(--radius*) / 50%（水杯、日历点这种真圆）。 */
   const allowed = /^(0|50%|var\(\s*--radius[A-Za-z0-9-]*\s*\))$/;
 
-  it('圆角只允许 0 / var(--radius) / 50%，不得写死 px 圆角', () => {
-    const offenders: string[] = [];
-    for (const file of walk(resolve(root, 'src'), [])) {
-      const text = readFileSync(file, 'utf8');
+  /** 逐行扫 border-radius，允许用 /* keep: … *\/ 显式豁免（目前只有手划痕那一处）。 */
+  function offendersIn(file: string): string[] {
+    const found: string[] = [];
+    const lines = readFileSync(file, 'utf8').split('\n');
+    for (const line of lines) {
+      if (line.includes('keep:')) continue;
       const re = /border-radius:\s*([^;]+);/g;
       let m: RegExpExecArray | null;
-      while ((m = re.exec(text)) !== null) {
-        const value = m[1].trim();
-        // 四值写法（如 2px 2px 0 0）也按四段逐段校验
-        const parts = value.split(/\s+/);
-        const ok = parts.every((part) => allowed.test(part));
-        if (!ok) offenders.push(`${file.replace(root, '')}: border-radius: ${value}`);
+      while ((m = re.exec(line)) !== null) {
+        const parts = m[1].trim().split(/\s+/);
+        if (!parts.every((part) => allowed.test(part))) {
+          found.push(file.replace(root, '') + ': border-radius: ' + m[1].trim());
+        }
       }
     }
+    return found;
+  }
+
+  it('.vue 里不得写死 px 圆角', () => {
+    const offenders = walk(resolve(root, 'src'), []).flatMap(offendersIn);
     expect(offenders).toEqual([]);
+  });
+
+  it('main.css 里同样只能用令牌（手划痕那处已用 keep: 豁免）', () => {
+    expect(offendersIn(cssPath)).toEqual([]);
   });
 });
