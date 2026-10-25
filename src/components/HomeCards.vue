@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router';
 import { useHomeStore } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
+import { useTimerStore } from '@/stores/timer';
 import { formatDuration, offsetToTime } from '@/utils/date';
 
 /**
@@ -11,6 +12,7 @@ import { formatDuration, offsetToTime } from '@/utils/date';
 const router = useRouter();
 const home = useHomeStore();
 const settings = useSettingsStore();
+const timerStore = useTimerStore();
 
 function go(path: string): void {
   void router.push(path);
@@ -18,6 +20,36 @@ function go(path: string): void {
 
 function timeRange(startMin: number, endMin: number): string {
   return `${offsetToTime(startMin, settings.dayStartMin)}–${offsetToTime(endMin, settings.dayStartMin)}`;
+}
+
+/**
+ * 学习卡的「开始计时」：带着当前在读的书直接开计时（PRD §3.2 把这里列在"可直接操作"）。
+ * 已经有计时在跑就只跳到对应的计时页，让用户继续/结算，不重复开工。
+ */
+async function startStudy(): Promise<void> {
+  if (timerStore.timer !== null) {
+    go(timerStore.targetRoute);
+    return;
+  }
+  const book = home.mainBook;
+  if (book !== null) {
+    try {
+      const result = await timerStore.startTimer({
+        type: 'book',
+        targetId: book.id,
+        targetTitle: book.title,
+        mode: 'stopwatch',
+      });
+      if (!result.ok) {
+        go('/study/timer');
+        return;
+      }
+    } catch {
+      go('/study/timer');
+      return;
+    }
+  }
+  go('/study/timer');
 }
 
 async function addWater(): Promise<void> {
@@ -75,7 +107,7 @@ async function completeNext(): Promise<void> {
       <div class="progress-track" data-test="study-progress">
         <div class="progress-fill" :style="{ width: home.study.progressPercent + '%' }" />
       </div>
-      <button class="primary-btn" data-test="study-start" @click.stop="go('/study/timer')">开始计时</button>
+      <button class="primary-btn" data-test="study-start" @click.stop="startStudy">开始计时</button>
     </article>
 
     <!-- 阅读 -->

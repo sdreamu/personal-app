@@ -3,9 +3,10 @@ import { defineComponent } from 'vue';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import type { Book, Plan, PlayRecord, SettingsRecord, StudyRecord, Water, WorkoutRecord, WorkoutTemplate } from '@/db';
+import { resetDbForTests, type Book, type Plan, type PlayRecord, type SettingsRecord, type StudyRecord, type Water, type WorkoutRecord, type WorkoutTemplate } from '@/db';
 import { useHomeStore } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
+import { useTimerStore } from '@/stores/timer';
 import HomeCards from './HomeCards.vue';
 
 const Stub = defineComponent({ template: '<div />' });
@@ -165,7 +166,8 @@ function mountCards() {
   return mount(HomeCards, { global: { plugins: [pinia, router] } });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await resetDbForTests();
   pinia = createPinia();
   setActivePinia(pinia);
   router = makeRouter();
@@ -263,8 +265,11 @@ describe('首页六张卡片渲染', () => {
 
     const wrapper = mountCards();
     await wrapper.find('[data-test="study-start"]').trigger('click');
-    await flushPromises();
-    expect(router.currentRoute.value.path).toBe('/study/timer');
+    // 点了就直接开计时（写库要走几轮微任务），所以等导航落定再断言
+    await vi.waitFor(() => {
+      if (router.currentRoute.value.path !== '/study/timer') throw new Error('还没跳到计时页');
+    });
+    expect(useTimerStore().timer?.target_title).toBe('新书');
 
     await wrapper.find('[data-test="reading-continue"]').trigger('click');
     await flushPromises();
@@ -297,5 +302,28 @@ describe('首页六张卡片渲染', () => {
     await wrapper.find('[data-test="play-card"]').trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.path).toBe('/life/play');
+  });
+  it('已经有计时在跑时，「开始计时」只跳过去不重复开一条', async () => {
+    const home = useHomeStore();
+    home.$patch({
+      today: TODAY,
+      studyRecords: [],
+      books: [bookFixture('新书', 100, 200)],
+      plans: [],
+      waterRecords: [],
+      todayWorkoutTemplate: null,
+      todayWorkoutRecord: null,
+      playRecords: [],
+    });
+    const timer = useTimerStore();
+    await timer.startTimer({ type: 'book', targetId: 'book-新书', targetTitle: '新书', mode: 'stopwatch' });
+    const startedAt = timer.timer?.started_at;
+
+    const wrapper = mountCards();
+    await wrapper.find('[data-test="study-start"]').trigger('click');
+    await vi.waitFor(() => {
+      if (router.currentRoute.value.path !== '/study/timer') throw new Error('还没跳到计时页');
+    });
+    expect(timer.timer?.started_at).toBe(startedAt);
   });
 });

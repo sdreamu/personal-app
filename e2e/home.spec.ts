@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearApp, gotoHash, addPlan, seedSubject, startStudyTimer } from './helpers';
+import { clearApp, gotoHash, addPlan, seedBook, seedSubject, startStudyTimer } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await clearApp(page);
@@ -67,4 +67,22 @@ test('AC-20 昨天MIT今天显示并防重复加入', async ({ page }) => {
   await expect(page.locator('[data-test="mit-row"]')).toBeVisible();
   await expect(page.locator('[data-test="todo-title"]', { hasText: 'AC20最重要的一件事' })).toBeVisible();
   await expect(page.locator('[data-test="mit-added"]')).toContainText('已加入今日待办 ✓');
+});
+
+/** AC-70：首页「学习」卡的「开始计时」带着当前在读的书直接开计时（PRD §3.2 可直接操作）。 */
+test('AC-70 首页开始计时带对象直接开', async ({ page }) => {
+  await seedBook(page, { title: 'AC70书', totalPages: 200, status: 'reading' });
+  await gotoHash(page, 'home');
+
+  await page.click('[data-test="study-start"]');
+  await expect(page).toHaveURL(/#\/study\/timer$/);
+  // 计时已经开在这本书上：计时页显示对象与运行中的时钟
+  await expect(page.locator('[data-test="timer-target"]')).toContainText('AC70书');
+  await expect(page.locator('[data-test="end-btn"]')).toBeVisible();
+
+  // 再回首页点一次：不重复开计时，只跳过去
+  await gotoHash(page, 'home');
+  await page.click('[data-test="study-start"]');
+  await expect(page).toHaveURL(/#\/study\/timer$/);
+  await expect(page.locator('[data-test="timer-target"]')).toContainText('AC70书');
 });
