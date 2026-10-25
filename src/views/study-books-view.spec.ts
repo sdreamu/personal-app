@@ -386,3 +386,29 @@ describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
     expect(wantRows[0]?.sort_index).toBe(10);
   });
 });
+
+describe('卡片可点区域（P6-3 回归：加了 ↑/↓ 之后不能把"点卡片开详情"挤掉）', () => {
+  it('点卡片空白（含「改到第」那行的空白）进详情；点页码输入框 / 操作行不跳转', async () => {
+    const book = await makeBook('reading', '甲书', 0, 300, 10);
+    const wrapper = await mountBooks();
+    await waitFor(() => wrapper.findAll('[data-test="book-card"]').length === 1, '卡片未渲染');
+    const card = cardWith(wrapper, '甲书');
+
+    // 页码输入框自己吃掉点击：只聚焦，不跳详情
+    await card.find('[data-test="book-page-input"]').trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/study/books');
+
+    // 操作行（含 ↑/↓）也吃掉点击
+    await card.find('.book-ops').trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/study/books');
+
+    // 「改到第 ___ 页」那一行的空白仍然冒泡到卡片 → 进详情
+    await card.find('[data-test="book-page-quick"]').trigger('click');
+    await waitFor(
+      () => router.currentRoute.value.path === '/study/books/' + book.id,
+      '点空白没有进详情',
+    );
+  });
+});

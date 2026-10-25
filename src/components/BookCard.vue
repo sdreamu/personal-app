@@ -71,7 +71,8 @@ const percent = computed(() => {
         <div class="progress-fill" :style="{ width: percent + '%' }" data-test="book-progress" />
       </div>
       <p class="book-pages" data-test="book-pages">{{ book.current_page }}/{{ book.total_pages }} 页（{{ percent }}%）</p>
-      <div class="page-quick" data-test="book-page-quick" @click.stop>
+      <div class="page-quick" data-test="book-page-quick">
+        <!-- 只有真正可交互的控件吃掉点击，其它空白仍然点开详情（卡片中心的点击不能失灵） -->
         <label class="page-quick-label" :for="pageInputId">改到第</label>
         <input
           :id="pageInputId"
@@ -82,6 +83,7 @@ const percent = computed(() => {
           :max="book.total_pages"
           :value="book.current_page"
           data-test="book-page-input"
+          @click.stop
           @keydown.enter.prevent="commitPage($event)"
           @change="commitPage($event)"
         />
@@ -98,7 +100,7 @@ const percent = computed(() => {
         </select>
         <button
           type="button"
-          class="ghost-btn"
+          class="ghost-btn book-move"
           data-test="book-move-up"
           :disabled="!props.canMoveUp"
           :aria-label="`把《${book.title}》上移一位`"
@@ -109,7 +111,7 @@ const percent = computed(() => {
         </button>
         <button
           type="button"
-          class="ghost-btn"
+          class="ghost-btn book-move"
           data-test="book-move-down"
           :disabled="!props.canMoveDown"
           :aria-label="`把《${book.title}》下移一位`"
@@ -159,7 +161,15 @@ const percent = computed(() => {
 }
 .progress-fill { height: 100%; background: var(--accent); border-radius: var(--radius); }
 .book-pages { margin: 0; color: var(--muted); font-size: 12px; }
-.page-quick { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.page-quick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  /* 贴右边：卡片正中间保持"空白可点 = 开详情"，不会被输入框吃掉 */
+  justify-content: flex-end;
+}
 .page-quick-input {
   width: 56px;
   border: 1px solid var(--border);
@@ -173,7 +183,13 @@ const percent = computed(() => {
   outline-offset: 1px;
   background: var(--panel);
 }
-.book-ops { display: flex; align-items: center; gap: 6px; margin-top: auto; }
+.book-ops { display: flex; align-items: center; gap: 6px; margin-top: auto; flex-wrap: nowrap; }
+/* 上移 / 下移做成紧凑按钮：一行放得下，不会把卡片撑高（撑高会挤掉"点卡片开详情"的可点区域） */
+.book-move {
+  padding: 3px 7px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
 .book-status {
   border: 1px solid var(--border);
   background: var(--panel);
