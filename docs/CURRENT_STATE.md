@@ -5,6 +5,8 @@
 > 验证方式：除静态阅读外，实际执行了 `pnpm run typecheck`、`pnpm run test`、`pnpm run test:e2e`，结果见 §16 与附录 B。
 >
 > **2026-10-24 更新（M1 复盘增加两栏）**：§5.2、§7.2、§12.1、§12.2 已同步为最新口径，交付记录见 §12.3。
+>
+> **2026-10-26 更新（本轮 M2~M5/M8/UI 改造收尾）**：剩余工作、未修问题与交接说明见 **`docs/REMAINING_WORK.md`**（含逐项改法、验收标准与已知技术债）。
 
 ---
 
@@ -939,7 +941,7 @@ test:e2e   playwright test
 2. **计时器页空状态没有主按钮**。PRD §10 AC-15 要求"在数据为空时打开每个页面，每页显示引导语和主按钮"，`StudyTimerView.vue` 的 `target-empty` 只有一句"暂无…，请先到对应页面添加。"，没有跳转按钮（e2e AC-15 只断言这句文案，所以没被拦住）。
 3. ~~**"训练项目库"（`exercises` 表）没有接进任何 UI**~~ **已在 M5 解决**：`addExercise`/`renameExercise`/`saveTemplate` 自动 upsert 到 `exercises`，健身页当天编辑区新增「项目库」区块（`ExerciseLibrary.vue`，最近使用优先排序，点一下加入当天训练）；动作补全仍来自历史记录（`workoutStore.exerciseNames`）。做法详见 §11.4。
 4. **"错题本"（`mistakes` 表）没有页面/入口**：schema、图片压缩工具（`src/utils/image.ts`）、文本导出（`src/db/exportText.ts`）都写好了，但路由、视图、store 全缺。
-5. **复盘 `record_worthy` / `day_summary` 没有输入 UI**：`ReviewView.vue` 只有三栏文字，`reviewStore.ReviewPatch` 也把这两个字段排除在外；它们只出现在 schema、备份补默认值、文本导出里。
+5. ~~**复盘 `record_worthy` / `day_summary` 没有输入 UI**~~ **已解决（M1）**：`ReviewView.vue` 已加「今天一件值得记录的事」多行 textarea 与「一句话总结今天」单行 input（`maxlength=100`，带字数计数），`ReviewPatch` 已纳入两字段并走 300ms 防抖保存。交付记录见 §12.3。
 6. ~~**文本导出（Markdown）没有入口**~~ **已在 M8 解决**：设置页「数据管理」新增「导出文本」区块（最近 7 天 / 最近 30 天 / 全部 / 自定义起止日期 → 下载 `evan-text-YYYYMMDD-YYYYMMDD.md`），内容复用 `exportText()`，数据由 `src/db/exportSource.ts` 装载；导出不刷新备份时间。做法详见 §14.5 / §14.6，e2e AC-66。注：`exportText` / `exportSource` 仍不在 `src/db/index.ts` 的 barrel 里，设置页按路径直接导入（与 `dateStats.ts` 一致）。
 7. **首页"学习"卡片的"开始计时"只是跳转**：`HomeCards.vue` 的按钮 `router.push("/study/timer")`，不会带着对象直接开始计时（PRD §3.2 把它列在"可直接操作"列）。
 
