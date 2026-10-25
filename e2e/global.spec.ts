@@ -10,8 +10,8 @@ test('AC-11 十一路由导航与高亮', async ({ page }) => {
   await seedBook(page, { title: 'AC11导航书', totalPages: 100, status: 'reading' });
 
   const routes: Array<{ label: string; hash: string; test: string }> = [
-    { label: '首页', hash: '#/home', test: 'home-view' },
-    { label: '计划', hash: '#/plan', test: 'plan-view' },
+    { label: '今天', hash: '#/home', test: 'home-view' },
+    { label: '日程', hash: '#/plan', test: 'plan-view' },
     { label: '读书', hash: '#/study/books', test: 'books-view' },
     { label: '科目', hash: '#/study/subjects', test: 'subjects-view' },
     { label: '计时器', hash: '#/study/timer', test: 'study-timer-view' },
@@ -23,14 +23,15 @@ test('AC-11 十一路由导航与高亮', async ({ page }) => {
   ];
 
   for (const route of routes) {
-    await page.getByRole('link', { name: route.label }).click();
+    // 侧栏里点（首页的「接下来 / 未来七天」也有「日程」字样，不加作用域会撞 strict mode）
+    await page.locator('.side-nav a.nav-link', { hasText: route.label }).first().click();
     await expect(page).toHaveURL(new RegExp(route.hash + '$'));
     await expect(page.locator('[data-test="' + route.test + '"]')).toBeVisible();
     await expect(page.locator('a.nav-link.active')).toContainText(route.label);
   }
 
   // 第 11 个入口：书详情页（从书架卡片进入）
-  await page.getByRole('link', { name: '读书' }).click();
+  await page.locator('.side-nav a.nav-link', { hasText: '读书' }).first().click();
   await page.click('[data-test="book-card"]');
   await expect(page).toHaveURL(/#\/study\/books\/[^/]+$/);
   await expect(page.locator('[data-test="detail-view"]')).toBeVisible();
@@ -105,6 +106,8 @@ test('AC-15 全页面空状态引导', async ({ page }) => {
 
   await gotoHash(page, 'study/timer');
   await expect(page.locator('[data-test="target-empty"]')).toBeVisible();
+  // 空状态必须有主按钮（PRD §10 AC-15），点它去对应页面添加对象
+  await expect(page.locator('[data-test="empty-add-target"]')).toBeVisible();
 
   await gotoHash(page, 'life/diet');
   await expect(page.locator('[data-test="diet-empty"]')).toBeVisible();

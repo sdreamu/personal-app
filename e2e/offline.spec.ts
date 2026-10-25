@@ -25,8 +25,8 @@ test('AC-10 离线使用零外部请求', async ({ page }) => {
   const external = (page as any).__externalRequests as string[];
 
   const navs: Array<{ label: string; test: string }> = [
-    { label: '首页', test: 'home-view' },
-    { label: '计划', test: 'plan-view' },
+    { label: '今天', test: 'home-view' },
+    { label: '日程', test: 'plan-view' },
     { label: '读书', test: 'books-view' },
     { label: '科目', test: 'subjects-view' },
     { label: '计时器', test: 'study-timer-view' },
@@ -38,25 +38,25 @@ test('AC-10 离线使用零外部请求', async ({ page }) => {
   ];
 
   for (const nav of navs) {
-    await page.getByRole('link', { name: nav.label }).click();
+    await page.locator('.side-nav a.nav-link', { hasText: nav.label }).first().click();
     await expect(page.locator('[data-test="' + nav.test + '"]')).toBeVisible();
   }
 
   // 再走几个真实操作：新增计划、添加书籍、喝水、打开计时器
-  await page.getByRole('link', { name: '计划' }).click();
+  await page.locator('.side-nav a.nav-link', { hasText: '日程' }).first().click();
   await page.click('[data-test="add-plan-btn"]');
   await page.fill('[data-test="plan-form-title"]', 'AC10计划');
   await page.click('[data-test="plan-form-save"]');
   await expect(page.locator('[data-test="plan-form"]')).toHaveCount(0);
 
-  await page.getByRole('link', { name: '读书' }).click();
+  await page.locator('.side-nav a.nav-link', { hasText: '读书' }).first().click();
   await page.click('[data-test="add-book-btn"]');
   await page.fill('[data-test="book-form-title"]', 'AC10书');
   await page.locator('[data-test="book-form-status"]').selectOption('reading');
   await page.click('[data-test="book-form-save"]');
   await expect(page.locator('[data-test="book-form"]')).toHaveCount(0);
 
-  await page.getByRole('link', { name: '饮食' }).click();
+  await page.locator('.side-nav a.nav-link', { hasText: '饮食' }).first().click();
   await page.locator('[data-test="water-tracker"] [data-test="water-plus"]').click();
   await expect(page.locator('[data-test="water-total"]')).toHaveText('250 ml');
 
