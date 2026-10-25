@@ -103,17 +103,18 @@ test:e2e   playwright test
 | 4 | `#/study/books/:id` | study-book-detail | `src/views/StudyBookDetailView.vue` |
 | 5 | `#/study/subjects` | study-subjects | `src/views/StudySubjectsView.vue` |
 | 6 | `#/study/timer` | study-timer | `src/views/StudyTimerView.vue` |
-| 7 | `#/life/diet` | life-diet | `src/views/LifeDietView.vue` |
-| 8 | `#/life/workout` | life-workout | `src/views/LifeWorkoutView.vue` |
-| 9 | `#/life/play` | life-play | `src/views/LifePlayView.vue` |
-| 10 | `#/review` | review | `src/views/ReviewView.vue` |
-| 11 | `#/settings` | settings | `src/views/SettingsView.vue` |
+| 7 | `#/mistakes` | mistakes | `src/views/MistakesView.vue`（P1 新增，错题本 M9） |
+| 8 | `#/life/diet` | life-diet | `src/views/LifeDietView.vue` |
+| 9 | `#/life/workout` | life-workout | `src/views/LifeWorkoutView.vue` |
+| 10 | `#/life/play` | life-play | `src/views/LifePlayView.vue` |
+| 11 | `#/review` | review | `src/views/ReviewView.vue` |
+| 12 | `#/settings` | settings | `src/views/SettingsView.vue` |
 
 另外两条：`/` → redirect `/home`；`/:pathMatch(.*)*` → redirect `/home`。全部组件都是懒加载 `() => import(...)`。
 
-导航入口（`navItems`）：首页、计划、学习（读书/科目/计时器）、生活（饮食/健身/娱乐）、复盘、设置 —— 共 10 个一级项，覆盖上面 11 条路由；`bottomTabs` 去掉「设置」用于手机底部导航。
+导航入口（`navItems`）：首页、计划、学习（读书/科目/计时器/错题本）、生活（饮食/健身/娱乐）、复盘、设置 —— 共 11 个页面入口 + 2 个分组，覆盖上面 12 条路由；`bottomTabs` 去掉「设置」用于手机底部导航（仍是 5 个一级入口，错题本落在「学习」分组里，不占底部栏）。
 
-顶栏日期控件（前一天 / 日期标签 / 后一天 / 回到今天）的显示范围唯一来源：`src/config/nav.ts` 的 `dateSwitchPaths` + `showsDateSwitch(path)` —— 只在 `#/plan`、`#/life/diet`、`#/life/workout`、`#/life/play`、`#/review` 显示；`#/home`、`#/study/books`、`#/study/books/:id`、`#/study/subjects`、`#/study/timer`、`#/settings` 完全不显示。快捷键 ← / → / T / Home 不受影响，仍全局生效（见 §6.3）。
+顶栏日期控件（前一天 / 日期标签 / 后一天 / 回到今天）的显示范围唯一来源：`src/config/nav.ts` 的 `dateSwitchPaths` + `showsDateSwitch(path)` —— 只在 `#/plan`、`#/life/diet`、`#/life/workout`、`#/life/play`、`#/mistakes`、`#/review` 显示；`#/home`、`#/study/books`、`#/study/books/:id`、`#/study/subjects`、`#/study/timer`、`#/settings` 完全不显示。快捷键 ← / → / T / Home 不受影响，仍全局生效（见 §6.3）。
 
 ---
 
@@ -1017,3 +1018,6 @@ test:e2e   playwright test
 | 1 | **N4** 交互与沉浸感（核心 3 条 + 减少动效） | `main.css`：主按钮/卡片 `:active` 2px 位移 + 阴影消失（`transition 90ms`）、`done-flash` 180ms 一次性完成高亮、`.page-fade-*` 140ms 淡入 + 4px、`@media (prefers-reduced-motion: reduce)` 全量归零；`App.vue`：`<RouterView>` 包 `<Transition name="page-fade">`（key=route.path）；新增 `useDoneFlash()` composable，接在计划页待办勾选、首页「接下来」的完成、健身组勾选上；计时胶囊 pulse 改 300ms×2 有限闪烁 | AC-74 |
 
 | 1 | **N2** 日程页三档视图 + 跨周窗口 | `PlanView.vue`：`7 天概览 / 单日时间轴 / 列表` 三档切换（`.on` 选中态），列表按时间排序（时间 / 标题 / 分类 / 状态 / 勾选 / 删除），视图选择存 `localStorage.evan-plan-view`；`ScheduleWeek.vue`：新增 `windowStart` prop + `← 上一周 / 回到今天 / 下一周 →`（`emit('nav')`）+ 窗口区间标签 `week-range`，窗口起点存 `localStorage.evan-plan-week-start`，「回到今天」清掉；点某天 `emit('pick')` → 自动下钻单日时间轴 | AC-75 |
+
+| 1 | **P1** 错题本·文字录入（M9，Q5：一题一卡 + 4 个预设原因 + 进日期切换） | 新 `src/stores/mistakes.ts`（`load/create/save/toggleMastered/remove`，`reasons` 落库前展开成普通数组避开 IndexedDB 结构化克隆报错；删除给 5 秒撤销）；新 `src/views/MistakesView.vue`（筛选 全部/未掌握 + 科目筛选、卡片 = 科目/难度★/已掌握徽标/题干/订正/原因 chips/备注，弹窗里可写自定义原因、1~5 难度、已掌握开关）；路由 `#/mistakes` + `src/config/nav.ts` 学习分组新增「错题本」+ `dateSwitchPaths` 加入 `/mistakes`（顶栏日期控件可用）；不升 `DB_VERSION`（复用现成 `mistakes` 表） | AC-76 |
+| 1 | **P1 附带** 路由/导航计数回归 | `router.spec`（12 条路由）、`nav.spec`（11 入口 / 7 个子页面链接）、`bottom-nav.spec`（学习面板 4 项）、`top-bar.spec`（dateSwitchPaths 6 条）、`e2e/global.spec` AC-11（多测一页）同步更新；断言只增不减 | AC-11 |

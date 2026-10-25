@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { appRoutePaths, router } from './index';
 
-describe('hash 路由（PRD §2.2 的 11 条地址）', () => {
-  it('11 条路由全部可切换且地址与 PRD §2.2 一致（hash 模式，刷新停留在当前页）', async () => {
+describe('hash 路由（PRD §2.2 的 11 条地址 + P1 新增的错题本）', () => {
+  it('12 条路由全部可切换且地址与 PRD §2.2 一致（hash 模式，刷新停留在当前页）', async () => {
     expect(appRoutePaths).toEqual([
       '/home',
       '/plan',
@@ -10,6 +10,7 @@ describe('hash 路由（PRD §2.2 的 11 条地址）', () => {
       '/study/books/:id',
       '/study/subjects',
       '/study/timer',
+      '/mistakes',
       '/life/diet',
       '/life/workout',
       '/life/play',
@@ -17,7 +18,7 @@ describe('hash 路由（PRD §2.2 的 11 条地址）', () => {
       '/settings',
     ]);
     // 说明：jsdom 中 hash 路由的自动首次导航由 app.use(router) 触发（真实应用 main.ts 已安装）；
-    // 测试环境直接手动导航，覆盖全部 11 条地址。
+    // 测试环境直接手动导航，覆盖全部 12 条地址（含 P1 新增 /mistakes）。
     const targets = [
       '/home',
       '/plan',
@@ -25,6 +26,7 @@ describe('hash 路由（PRD §2.2 的 11 条地址）', () => {
       '/study/books/test-book-1',
       '/study/subjects',
       '/study/timer',
+      '/mistakes',
       '/life/diet',
       '/life/workout',
       '/life/play',

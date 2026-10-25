@@ -15,6 +15,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/study/books/:id', component: Stub },
   { path: '/study/subjects', component: Stub },
   { path: '/study/timer', component: Stub },
+  { path: '/mistakes', component: Stub },
   { path: '/life/diet', component: Stub },
   { path: '/life/workout', component: Stub },
   { path: '/life/play', component: Stub },
@@ -29,18 +30,19 @@ beforeEach(() => {
 });
 
 describe('左侧导航', () => {
-  it('渲染全部 10 个页面入口、2 个分组，且每个入口都带内联图标', async () => {
+  it('渲染全部 11 个页面入口、2 个分组，且每个入口都带内联图标', async () => {
     const wrapper = mount(SideNav, { global: { plugins: [router, createPinia()] } });
     await router.isReady();
 
     const links = wrapper.findAll('a.nav-link');
-    expect(links).toHaveLength(10);
+    expect(links).toHaveLength(11);
     expect(links.map((l) => l.text())).toEqual([
       '今天',
       '日程',
       '读书',
       '科目',
       '计时器',
+      '错题本',
       '饮食',
       '健身',
       '娱乐',
@@ -66,6 +68,7 @@ describe('左侧导航', () => {
       '/study/books',
       '/study/subjects',
       '/study/timer',
+      '/mistakes',
       '/life/diet',
       '/life/workout',
       '/life/play',
@@ -73,8 +76,8 @@ describe('左侧导航', () => {
     for (const to of groupPaths) {
       expect(router.resolve(to).matched.length, `${to} 应有对应路由`).toBeGreaterThan(0);
     }
-    // 分组内的 6 个子页面在侧边栏里各有 1 个链接
-    expect(wrapper.findAll('a.nav-link-child')).toHaveLength(6);
+    // 分组内的 7 个子页面在侧边栏里各有 1 个链接
+    expect(wrapper.findAll('a.nav-link-child')).toHaveLength(7);
   });
 
   it('当前页高亮；书详情子路由归属“读书”', async () => {
@@ -103,17 +106,18 @@ describe('左侧导航', () => {
   it('分组可折叠；切到组内页面时该组自动展开', async () => {
     const wrapper = mount(SideNav, { global: { plugins: [router, createPinia()] } });
     await router.isReady();
-    expect(wrapper.findAll('a.nav-link')).toHaveLength(10);
+    expect(wrapper.findAll('a.nav-link')).toHaveLength(11);
 
     const studyToggle = wrapper.findAll('[data-test="nav-group"]')[0]!;
     expect(studyToggle.attributes('aria-expanded')).toBe('true');
     await studyToggle.trigger('click');
     expect(studyToggle.attributes('aria-expanded')).toBe('false');
+    // 收起学习组：少掉学习组的 4 个子页面链接
     expect(wrapper.findAll('a.nav-link')).toHaveLength(7);
 
     await router.push('/study/timer');
     await flushPromises();
-    expect(wrapper.findAll('a.nav-link')).toHaveLength(10);
+    expect(wrapper.findAll('a.nav-link')).toHaveLength(11);
     expect(wrapper.find('a.nav-link.active').text()).toBe('计时器');
   });
 });

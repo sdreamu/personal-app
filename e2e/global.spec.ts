@@ -5,8 +5,8 @@ test.beforeEach(async ({ page }) => {
   await clearApp(page);
 });
 
-/** AC-11：依次点击导航中的 11 个页面入口——每页正常打开，当前页高亮，地址栏地址对应。 */
-test('AC-11 十一路由导航与高亮', async ({ page }) => {
+/** AC-11：依次点击导航里的每个页面入口——每页正常打开，当前页高亮，地址栏地址对应（含 P1 新增错题本）。 */
+test('AC-11 全站页面路由导航与高亮', async ({ page }) => {
   await seedBook(page, { title: 'AC11导航书', totalPages: 100, status: 'reading' });
 
   const routes: Array<{ label: string; hash: string; test: string }> = [
@@ -15,6 +15,7 @@ test('AC-11 十一路由导航与高亮', async ({ page }) => {
     { label: '读书', hash: '#/study/books', test: 'books-view' },
     { label: '科目', hash: '#/study/subjects', test: 'subjects-view' },
     { label: '计时器', hash: '#/study/timer', test: 'study-timer-view' },
+    { label: '错题本', hash: '#/mistakes', test: 'mistakes-view' },
     { label: '饮食', hash: '#/life/diet', test: 'diet-view' },
     { label: '健身', hash: '#/life/workout', test: 'workout-view' },
     { label: '娱乐', hash: '#/life/play', test: 'play-page' },
@@ -30,7 +31,7 @@ test('AC-11 十一路由导航与高亮', async ({ page }) => {
     await expect(page.locator('a.nav-link.active')).toContainText(route.label);
   }
 
-  // 第 11 个入口：书详情页（从书架卡片进入）
+  // 最后一个入口：书详情页（从书架卡片进入）
   await page.locator('.side-nav a.nav-link', { hasText: '读书' }).first().click();
   await page.click('[data-test="book-card"]');
   await expect(page).toHaveURL(/#\/study\/books\/[^/]+$/);

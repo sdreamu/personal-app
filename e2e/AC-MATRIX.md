@@ -259,3 +259,16 @@
 - **PlanView**：`plan-view-seg` 三档切换（`plan-view-week / plan-view-day / plan-view-list`，选中态 `.on`）；`day-view` 整页 `PlanTimeline`；`list-view` 按时间排序的行（时间 / 标题 / 分类 / 状态 / 勾选 / 删除）；视图与窗口起点分别记在 `localStorage: evan-plan-view`、`evan-plan-week-start`（「回到今天」清掉后者）；点概览某天下钻到单日视图 —— src/views/plan-view.spec.ts（6 条）
 
 行为口径：某天没有任何计划时仍显示全局空状态引导（`plan-empty`），此时三档视图主体不渲染；既有 AC-21~AC-25 全部保持绿。
+
+## 错题本（AC-76）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-76 | AC-76 错题本文字录入与卡片操作 | e2e/mistakes.spec.ts |
+
+补充（store / 组件层）：
+- store：新增落库 1 行（逻辑日期、难度、原因、空备注存 null）、题目与订正全空时不写空卡片、编辑后落库且越界难度夹到 1~5、`mastered` 翻转、软删除 + 撤销恢复、按日期读取 + 科目/未掌握筛选 + 预先排序 —— src/stores/mistakes.spec.ts（7 条）
+- 视图：空态引导、新增卡片、自定义原因、编辑同步、已掌握徽标与筛选、删除 + 撤销、跟随日期切换、弹窗 ✕ 关闭不写库 —— src/views/mistakes-view.spec.ts（7 条）
+- 导航回归：AC-11 现在覆盖 12 个页面（含错题本）。
+
+口径：一题一卡（Q5）；4 个预设错误原因 = 概念不清 / 计算失误 / 审题错误 / 时间不够，另可自定义；日期取 `dateStore.selectedDate`（顶栏日期控件在 `#/mistakes` 生效）；`mistakes` 表结构未动、`DB_VERSION` 未升。

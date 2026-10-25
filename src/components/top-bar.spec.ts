@@ -118,8 +118,15 @@ describe('顶栏日期控件的显示范围（AC-59）', () => {
     }
   });
 
-  it('唯一来源 config/nav.ts：dateSwitchPaths 恰好 5 条，判定函数区分 11 条路由', () => {
-    expect(dateSwitchPaths).toEqual(['/plan', '/life/diet', '/life/workout', '/life/play', '/review']);
+  it('唯一来源 config/nav.ts：dateSwitchPaths 恰好 6 条，判定函数区分 12 条路由', () => {
+    expect(dateSwitchPaths).toEqual([
+      '/plan',
+      '/life/diet',
+      '/life/workout',
+      '/life/play',
+      '/mistakes',
+      '/review',
+    ]);
     for (const path of dateSwitchPaths) expect(showsDateSwitch(path), path).toBe(true);
     for (const path of NON_DATE_PAGES) expect(showsDateSwitch(path), path).toBe(false);
   });

@@ -37,6 +37,7 @@ const ICONS = {
   books: 'M12 6.8C10.6 5.4 8.4 4.8 5.5 4.8v13c2.9 0 5.1.6 6.5 2 1.4-1.4 3.6-2 6.5-2v-13c-2.9 0-5.1.6-6.5 2zM12 6.8v13',
   subjects: 'M12 3.5 3.5 8 12 12.5 20.5 8zM3.5 12.2 12 16.7l8.5-4.5M3.5 16.4 12 20.9l8.5-4.5',
   timer: 'M12 4.2a7.8 7.8 0 1 0 0 15.6 7.8 7.8 0 0 0 0-15.6zM12 8v4.4l3 1.8M9.5 2.5h5',
+  mistakes: 'M6 3.5h9.5v17L12 18l-3.5 2.5zM9 8.5h4.5M9 12h4.5',
   diet: 'M3.5 11.5h17a8.5 8.5 0 0 1-17 0zM8.5 8.2c0-1.6 1.3-2 1.3-3.4M12 8.2c0-1.6 1.3-2 1.3-3.4M15.5 8.2c0-1.6 1.3-2 1.3-3.4',
   workout: 'M4 9.5v5M7 7.5v9M17 7.5v9M20 9.5v5M7 12h10',
   play: 'M9.5 7.6l7 4.4-7 4.4zM12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8z',
@@ -55,6 +56,7 @@ export const navItems: readonly NavItem[] = [
       { to: '/study/books', label: '读书', icon: ICONS.books },
       { to: '/study/subjects', label: '科目', icon: ICONS.subjects },
       { to: '/study/timer', label: '计时器', icon: ICONS.timer },
+      { to: '/mistakes', label: '错题本', icon: ICONS.mistakes },
     ],
   },
   {
@@ -108,7 +110,14 @@ export function isItemActive(currentPath: string, item: NavItem): boolean {
  * 只有“和日期有关”的页面显示：计划、饮食、健身、娱乐、复盘；
  * 首页、读书/书详情、科目、计时器、设置不显示。快捷键不受此限制，仍全局生效。
  */
-export const dateSwitchPaths: readonly string[] = ['/plan', '/life/diet', '/life/workout', '/life/play', '/review'];
+export const dateSwitchPaths: readonly string[] = [
+  '/plan',
+  '/life/diet',
+  '/life/workout',
+  '/life/play',
+  '/mistakes',
+  '/review',
+];
 
 /** 当前路由是否显示顶栏日期控件（子路由按 isActivePath 规则归属）。 */
 export function showsDateSwitch(currentPath: string): boolean {

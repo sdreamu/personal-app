@@ -13,6 +13,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/study/books/:id', component: Stub },
   { path: '/study/subjects', component: Stub },
   { path: '/study/timer', component: Stub },
+  { path: '/mistakes', component: Stub },
   { path: '/life/diet', component: Stub },
   { path: '/life/workout', component: Stub },
   { path: '/life/play', component: Stub },
@@ -80,7 +81,12 @@ describe('手机底部导航', () => {
     const sheet = wrapper.find('[data-test="bottom-sheet"]');
     expect(sheet.exists()).toBe(true);
     expect(sheet.attributes('role')).toBe('dialog');
-    expect(sheet.findAll('a.bottom-sheet-link').map((l) => l.text())).toEqual(['读书', '科目', '计时器']);
+    expect(sheet.findAll('a.bottom-sheet-link').map((l) => l.text())).toEqual([
+      '读书',
+      '科目',
+      '计时器',
+      '错题本',
+    ]);
     expect(wrapper.find('[data-test="bottom-sheet-backdrop"]').exists()).toBe(true);
     // 展开面板不改变路由
     expect(router.currentRoute.value.path).toBe('/home');
