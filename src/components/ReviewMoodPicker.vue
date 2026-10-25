@@ -103,7 +103,7 @@ function toggleEnergy(value: number): void {
 .pick-label {
   min-width: 64px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 .pick-options {
   display: inline-flex;
@@ -112,30 +112,32 @@ function toggleEnergy(value: number): void {
 .pick-btn {
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  color: var(--muted);
   padding: 4px 10px;
   line-height: 1.3;
-  color: var(--muted);
+  cursor: pointer;
 }
 .pick-btn:hover {
-  background: var(--panel-2);
+  border-color: var(--border-ink);
+  color: var(--text);
 }
+/* 选中 = 反相块（墨底反白），和侧栏当前项同一套语法 */
 .pick-btn.on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--text);
+  border-color: var(--border-ink);
+  color: var(--panel);
   font-weight: 700;
 }
 .star {
-  font-size: 18px;
-  padding: 2px 6px;
+  font-size: 17px;
+  padding: 2px 7px;
 }
 .face {
   font-size: 18px;
-  padding: 2px 8px;
+  padding: 2px 9px;
 }
 .energy {
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 1px;
 }
 </style>

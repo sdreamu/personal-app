@@ -190,8 +190,11 @@ function onSelectDate(date: string): void {
     <template v-else>
       <ReviewMetrics v-if="reviewStore.metrics" :metrics="reviewStore.metrics" />
 
-      <div class="settings-card review-self" data-test="review-self">
-        <h2>今日自评</h2>
+      <div class="review-self" data-test="review-self">
+        <div class="self-head">
+          <h2>今日自评</h2>
+          <span class="self-note">三段话随便写，写完点确认才落库</span>
+        </div>
         <ReviewMoodPicker
           :rating="rating"
           :mood="mood"
@@ -303,35 +306,55 @@ function onSelectDate(date: string): void {
 </template>
 
 <style scoped>
-.review-self h2 {
+.review-self {
+  margin-bottom: 18px;
+  padding: 16px 16px 12px;
+  background: var(--panel);
+  border: var(--line-w) solid var(--border-ink);
+  box-shadow: 5px 5px 0 var(--slab);
+}
+.self-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
+}
+.self-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.self-note {
+  font-size: 11px;
+  color: var(--muted);
 }
 .review-highlights {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
   margin-top: 16px;
 }
 .review-texts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: 14px;
+  margin-top: 14px;
 }
 .review-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: relative;
 }
 .review-field-label {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 .review-field textarea,
 .review-field input {
   border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 8px;
+  background: var(--panel-2);
   padding: 8px 10px;
   resize: vertical;
   color: var(--text);
@@ -341,16 +364,24 @@ function onSelectDate(date: string): void {
 .review-field input {
   min-height: 0;
 }
+.review-field textarea::placeholder,
+.review-field input::placeholder {
+  color: var(--muted);
+}
 .review-field textarea:focus,
 .review-field input:focus {
-  outline: 2px solid var(--accent-soft);
-  border-color: var(--accent);
+  outline: 2px solid var(--border-ink);
+  outline-offset: 1px;
+  border-color: var(--border-ink);
+  background: var(--panel);
 }
 .review-counter {
-  align-self: flex-end;
+  position: absolute;
+  right: 2px;
+  bottom: -16px;
   color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 .review-actions {
   display: flex;
@@ -358,9 +389,9 @@ function onSelectDate(date: string): void {
   justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 16px;
+  margin-top: 26px;
   padding-top: 12px;
-  border-top: 1px dashed var(--border);
+  border-top: var(--line-w) solid var(--border-ink);
 }
 .review-actions-hint {
   color: var(--muted);

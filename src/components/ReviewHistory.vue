@@ -108,8 +108,11 @@ function energyBars(energy: number | null): string {
 </script>
 
 <template>
-  <div class="review-history settings-card" data-test="review-history">
-    <h2>历史复盘</h2>
+  <div class="review-history" data-test="review-history">
+    <div class="history-head">
+      <h2>历史复盘</h2>
+      <span class="history-span num">{{ rangeDayCount }} 天</span>
+    </div>
 
     <div class="history-range" data-test="history-range">
       <div class="preset-row">
@@ -210,6 +213,23 @@ function energyBars(energy: number | null): string {
 </template>
 
 <style scoped>
+.review-history {
+  padding: 16px 16px 14px;
+  background: var(--panel);
+  border: var(--line-w) solid var(--border-ink);
+  box-shadow: 5px 5px 0 var(--slab);
+}
+.history-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.history-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
 .history-range {
   display: flex;
   align-items: center;
@@ -226,20 +246,19 @@ function energyBars(energy: number | null): string {
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
-  border-radius: 999px;
   padding: 4px 12px;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
 .preset-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--border-ink);
+  color: var(--text);
 }
 .preset-btn.on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
+  background: var(--text);
+  border-color: var(--border-ink);
+  color: var(--panel);
+  font-weight: 700;
 }
 .range-field {
   display: inline-flex;
@@ -250,12 +269,16 @@ function energyBars(energy: number | null): string {
 }
 .range-field input {
   border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 8px;
+  background: var(--panel-2);
   padding: 4px 8px;
   color: var(--text);
-  font: inherit;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.history-span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
 }
 .history-stats {
   color: var(--muted);
@@ -272,7 +295,6 @@ function energyBars(energy: number | null): string {
 }
 .history-item {
   border: 1px solid var(--border);
-  border-radius: 8px;
   overflow: hidden;
 }
 .history-row {
@@ -291,8 +313,9 @@ function energyBars(energy: number | null): string {
   background: var(--panel-2);
 }
 .history-date {
-  font-weight: 600;
-  min-width: 110px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  min-width: 104px;
 }
 .history-meta {
   display: inline-flex;
@@ -301,7 +324,7 @@ function energyBars(energy: number | null): string {
   font-variant-numeric: tabular-nums;
 }
 .history-rating {
-  color: var(--warning);
+  color: var(--text);
   letter-spacing: 1px;
 }
 .history-energy {
@@ -317,7 +340,8 @@ function energyBars(energy: number | null): string {
   color: var(--muted);
 }
 .history-detail {
-  border-top: 1px dashed var(--border);
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
   padding: 12px;
   display: grid;
   gap: 10px;
