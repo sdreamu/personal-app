@@ -6,7 +6,7 @@ import { useDateStore } from '@/stores/date';
 import { usePlanStore } from '@/stores/plan';
 import { useSettingsStore } from '@/stores/settings';
 import { useDoneFlash } from '@/composables/useDoneFlash';
-import { addDays, logicalToday, minutesOfDay, pad2 } from '@/utils/date';
+import { addDays, logicalToday, minutesOfDay, offsetToTime } from '@/utils/date';
 
 /**
  * 接下来（v5）：首页只回答一件事——现在该干什么。
@@ -35,9 +35,12 @@ function sortForHome(plans: readonly Plan[]): Plan[] {
   );
 }
 
+/**
+ * start_min / end_min 是「相对一天起点（settings.day_start，默认 04:00）」的偏移分钟，
+ * 不是凌晨起的分钟数——显示时必须换回墙上时间，否则 09:00 的时间块会显示成 05:00。
+ */
 function hhmm(offsetMin: number): string {
-  const safe = ((offsetMin % 1440) + 1440) % 1440;
-  return `${pad2(Math.floor(safe / 60))}:${pad2(safe % 60)}`;
+  return offsetToTime(offsetMin, settings.dayStartMin);
 }
 
 function span(plan: Plan): string {
@@ -60,7 +63,8 @@ async function load(): Promise<void> {
   }
 
   const undone = sortForHome(todayPlans.filter((plan) => !plan.done));
-  const nowOffset = minutesOfDay(Date.now());
+  // 「现在」也要换算成同一套一天起点偏移，才能和 start_min 直接比
+  const nowOffset = (minutesOfDay(Date.now()) - settings.dayStartMin + 1440) % 1440;
   const next: NextRow[] = [];
 
   const upcoming = undone.find((plan) => plan.start_min !== null && plan.start_min >= nowOffset) ?? null;

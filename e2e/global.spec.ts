@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { clearApp, gotoHash, addPlan, seedBook, seedSubject, addWater } from './helpers';
+import {
+  clearApp,
+  gotoHash,
+  gotoDate,
+  addPlan,
+  addDays,
+  logicalToday,
+  seedBook,
+  seedSubject,
+  addWater,
+} from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await clearApp(page);
@@ -182,4 +192,49 @@ test('AC-79 侧栏折叠与记忆', async ({ page }) => {
   await expect(nav).toHaveAttribute('data-collapsed', 'true');
   await page.locator('.side-nav a.nav-link', { hasText: '' }).first().click();
   await expect(page.locator('[data-test="home-view"]')).toBeVisible();
+});
+
+/** AC-80（P5 补欠账）：首页「接下来」「本周学习」两块新面板 + 日程页 7 天概览三泳道。 */
+test('AC-80 首页接下来 / 本周学习 / 日程页三泳道', async ({ page }) => {
+  const today = logicalToday();
+  const tomorrow = addDays(today, 1);
+
+  // 今天：一个时间块（学习）+ 一个无时间待办（生活）；明天：一件早读
+  await addPlan(page, { title: 'AC80时间块', category: 'study', start: '09:00', end: '10:00' });
+  await addPlan(page, { title: 'AC80无时间待办', category: 'life' });
+  await gotoDate(page, tomorrow, '/plan');
+  await addPlan(page, { title: 'AC80明天早读', category: 'study', start: '08:00', end: '08:30' });
+  await page.evaluate(() => localStorage.removeItem('evan-app:selected-date'));
+
+  // ---- 首页「接下来」：三行封顶、第一行反白、第二行是无时间待办且能就地完成 ----
+  await gotoDate(page, today, '/home');
+  const next = page.locator('[data-test="home-next"]');
+  await expect(next).toBeVisible();
+  await expect(next.locator('[data-test="next-row-0"]')).toContainText('09:00');
+  await expect(next.locator('[data-test="next-row-0"]')).toContainText('AC80时间块');
+  await expect(next.locator('[data-test="next-row-0"] mark.hl')).toHaveCount(1);
+  await expect(next.locator('[data-test="next-row-1"]')).toContainText('AC80无时间待办');
+  await expect(next.locator('[data-test="next-row-2"]')).toContainText('明天');
+  await expect(next.locator('[data-test="next-row-2"]')).toContainText('AC80明天早读');
+
+  // 就地完成第二行：重新聚合，那一行换掉
+  await next.locator('[data-test="next-done-1"]').click();
+  await expect(next.locator('[data-test="next-row-1"]')).not.toContainText('AC80无时间待办');
+
+  // ---- 首页「本周学习」：7 根柱子 + 合计文案 ----
+  const week = page.locator('[data-test="home-week-study"]');
+  await expect(week).toBeVisible();
+  await expect(week.locator('[data-test^="week-bar-"]')).toHaveCount(7);
+  await expect(week.locator('[data-test="week-bar-' + today + '"]')).toHaveClass(/today/);
+  await expect(week).toContainText('本周');
+
+  // ---- 日程页 7 天概览：三泳道（学习 / 生活 / 其它）各就位 ----
+  await gotoHash(page, 'plan');
+  const todayColumn = page.locator('[data-test="week-day-' + today + '"]');
+  await expect(todayColumn).toBeVisible();
+  await expect(todayColumn).toHaveClass(/today/);
+  await expect(todayColumn.locator('.lane-study .bar')).toHaveCount(1);
+  await expect(todayColumn.locator('.lane-life .bar')).toHaveCount(0);
+  await expect(todayColumn.locator('.lane-other .bar')).toHaveCount(0);
+  await expect(todayColumn.locator('.day-count')).toHaveText('2 件');
 });

@@ -11,7 +11,8 @@ import { useSettingsStore } from '@/stores/settings';
 const TODAY = '2026-10-25';
 const TOMORROW = '2026-10-26';
 
-/** 今天：一个未完成时间块（12:00 起）+ 一个无时间待办；明天：一件 08:00 的晨读。 */
+/** 今天：一个未完成时间块（起点偏移 720 = 16:00 起）+ 一个无时间待办；明天：一件偏移 480 = 12:00 的晨读。
+ *  一天起点是 04:00（settings.day_start），所以偏移要加 4 小时才是墙上时间。 */
 const listAliveByDate = vi.fn(async (_table: string, date: string): Promise<Plan[]> => {
   if (date === TODAY) {
     return [
@@ -108,11 +109,11 @@ describe('首页接下来', () => {
     const wrapper = await mountNext();
     const rows = wrapper.findAll('.next-row');
     expect(rows).toHaveLength(3);
-    expect(rows[0]?.text()).toContain('12:00–13:00');
+    expect(rows[0]?.text()).toContain('16:00–17:00');
     expect(rows[0]?.text()).toContain('微积分习题');
     expect(rows[1]?.text()).toContain('无时间');
     expect(rows[1]?.text()).toContain('买牛奶');
-    expect(rows[2]?.text()).toContain('明天 08:00');
+    expect(rows[2]?.text()).toContain('明天 12:00');
     expect(rows[2]?.text()).toContain('晨读');
     // 已完成的那条不出现
     expect(wrapper.text()).not.toContain('已完成的事');
@@ -148,7 +149,7 @@ describe('首页接下来', () => {
     const wrapper = await mountNext();
     const rows = wrapper.findAll('.next-row');
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.text()).toContain('明天 08:00');
+    expect(rows[0]?.text()).toContain('明天 12:00');
     listAliveByDate.mockReset();
   });
 });
