@@ -1023,3 +1023,5 @@ test:e2e   playwright test
 | 1 | **P1 附带** 路由/导航计数回归 | `router.spec`（12 条路由）、`nav.spec`（11 入口 / 7 个子页面链接）、`bottom-nav.spec`（学习面板 4 项）、`top-bar.spec`（dateSwitchPaths 6 条）、`e2e/global.spec` AC-11（多测一页）同步更新；断言只增不减 | AC-11 |
 
 | 1 | **P3** 心情 / 精力曲线（M7，Q7：放复盘页底部） | 新 `src/utils/sparkline.ts`（`buildSparkline` / `recentDates` / `alignSeries` / `summarize`，纯函数）；新 `src/components/TrendChart.vue`（两条 SVG `polyline`，缺日期分段断线，图例「n 天 · 平均 x」，全空时只给空态）；`ReviewView.vue` 底部新增 `review-trend` 卡（窗口 = 最近 14 天，含逻辑今天，数据直读 `reviews.mood / energy`）；无图表库、颜色全走 CSS 变量、不升 DB 版本 | AC-77 |
+
+| 1 | **P2** 错题照片录入（M10，Q6：图片进备份，单组 4+4 张） | 新 `src/components/ImageInput.vue`（选图 → `compressImageToDataUrl` 1400px/0.72/JPEG → dataURL 数组；缩略图 + ✕ 删除、满了 disabled、超选/读不出都有中文提示）；`mistakes` store 加 `questionImages / correctionImages`（落库前 `slice(0, 4)`）；`MistakesView` 题/订正各一个 ImageInput、卡片出缩略图；`exportText` 只写图片张数不写 base64；`.modal` 补 `max-height` + `.modal-body` 滚动（长表单不再把按钮顶出屏幕） | AC-78 |

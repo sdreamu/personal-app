@@ -2,9 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import BaseModal from '@/components/BaseModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import ImageInput from '@/components/ImageInput.vue';
 import { useLibraryStore } from '@/stores/library';
 import { useDateStore } from '@/stores/date';
-import { MISTAKE_REASONS, useMistakesStore, type MistakeInput } from '@/stores/mistakes';
+import { MISTAKE_IMAGE_LIMIT, MISTAKE_REASONS, useMistakesStore, type MistakeInput } from '@/stores/mistakes';
 import type { Mistake } from '@/db';
 
 /**
@@ -27,6 +28,8 @@ const form = reactive({
   note: '',
   difficulty: 3,
   mastered: false,
+  questionImages: [] as string[],
+  correctionImages: [] as string[],
 });
 
 const selectedDate = computed(() => dateStore.selectedDate);
@@ -54,6 +57,8 @@ function openCreate(): void {
   form.note = '';
   form.difficulty = 3;
   form.mastered = false;
+  form.questionImages = [];
+  form.correctionImages = [];
   formOpen.value = true;
 }
 
@@ -68,6 +73,8 @@ function openEdit(item: Mistake): void {
   form.note = emptyToText(item.note);
   form.difficulty = item.difficulty;
   form.mastered = item.mastered;
+  form.questionImages = [...item.question_images];
+  form.correctionImages = [...item.correction_images];
   formOpen.value = true;
 }
 
@@ -95,6 +102,8 @@ function payload(): MistakeInput {
     note: form.note,
     difficulty: form.difficulty,
     mastered: form.mastered,
+    questionImages: form.questionImages,
+    correctionImages: form.correctionImages,
   };
 }
 
@@ -225,6 +234,24 @@ function subjectLabel(item: Mistake): string {
         <ul v-if="item.reasons.length > 0" class="mistake-reasons" data-test="mistake-reasons">
           <li v-for="reason in item.reasons" :key="reason" class="chip">{{ reason }}</li>
         </ul>
+        <div v-if="item.question_images.length > 0 || item.correction_images.length > 0" class="mistake-photos">
+          <figure
+            v-for="(src, index) in item.question_images"
+            :key="'q-' + index"
+            class="mistake-photo"
+            data-test="mistake-photo-question"
+          >
+            <img :src="src" :alt="'题目照片 ' + (index + 1)" />
+          </figure>
+          <figure
+            v-for="(src, index) in item.correction_images"
+            :key="'c-' + index"
+            class="mistake-photo"
+            data-test="mistake-photo-correction"
+          >
+            <img :src="src" :alt="'订正照片 ' + (index + 1)" />
+          </figure>
+        </div>
         <p v-if="item.note" class="mistake-note" data-test="mistake-note">备注：{{ item.note }}</p>
       </li>
     </ul>
@@ -268,6 +295,14 @@ function subjectLabel(item: Mistake): string {
             data-test="mistake-form-correction"
           />
         </label>
+
+        <ImageInput
+          :model-value="form.questionImages"
+          test-key="question"
+          label="题目照片"
+          :max="MISTAKE_IMAGE_LIMIT"
+          @update:model-value="form.questionImages = $event"
+        />
 
         <div class="field">
           <span>错在哪</span>
@@ -323,6 +358,14 @@ function subjectLabel(item: Mistake): string {
           <span>备注</span>
           <input v-model="form.note" placeholder="下次注意什么（可留空）" data-test="mistake-form-note" />
         </label>
+
+        <ImageInput
+          :model-value="form.correctionImages"
+          test-key="correction"
+          label="订正照片"
+          :max="MISTAKE_IMAGE_LIMIT"
+          @update:model-value="form.correctionImages = $event"
+        />
 
         <label class="checkbox-field">
           <input v-model="form.mastered" type="checkbox" data-test="mistake-form-mastered" />
@@ -423,6 +466,24 @@ function subjectLabel(item: Mistake): string {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+.mistake-photos {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mistake-photo {
+  margin: 0;
+  width: 72px;
+  height: 72px;
+  border: var(--line-w) solid var(--border-ink);
+  background: var(--panel);
+}
+.mistake-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .mistake-note {
   margin: 0;

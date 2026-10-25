@@ -32,7 +32,14 @@ export interface MistakeInput {
   note: string;
   difficulty: number;
   mastered: boolean;
+  /** 题目照片（base64 dataURL，单组上限 4 张）。 */
+  questionImages?: string[];
+  /** 订正照片（base64 dataURL，单组上限 4 张）。 */
+  correctionImages?: string[];
 }
+
+/** 单组图片上限（Q6：题目 4 张 + 订正 4 张）。 */
+export const MISTAKE_IMAGE_LIMIT = 4;
 
 function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
@@ -121,9 +128,9 @@ export const useMistakesStore = defineStore('mistakes', {
           date: input.date,
           subject_name: emptyToNull(input.subjectName ?? ''),
           question_text: emptyToNull(questionText),
-          question_images: [],
+          question_images: [...(input.questionImages ?? [])].slice(0, MISTAKE_IMAGE_LIMIT),
           correction_text: emptyToNull(correctionText),
-          correction_images: [],
+          correction_images: [...(input.correctionImages ?? [])].slice(0, MISTAKE_IMAGE_LIMIT),
           // 注意：调用方传进来的可能是 Vue 响应式数组（Proxy），IndexedDB 结构化克隆会报
           // DataCloneError，这里一律展开成普通数组再落库。
           reasons: [...input.reasons],
@@ -144,6 +151,8 @@ export const useMistakesStore = defineStore('mistakes', {
           subject_name: emptyToNull(input.subjectName ?? ''),
           question_text: emptyToNull(input.questionText),
           correction_text: emptyToNull(input.correctionText),
+          question_images: [...(input.questionImages ?? [])].slice(0, MISTAKE_IMAGE_LIMIT),
+          correction_images: [...(input.correctionImages ?? [])].slice(0, MISTAKE_IMAGE_LIMIT),
           reasons: [...input.reasons],
           note: emptyToNull(input.note),
           difficulty: clampDifficulty(input.difficulty),

@@ -285,3 +285,17 @@
 - 复盘页：底部新增 `review-trend` 卡片，窗口固定最近 14 天（含逻辑今天），数据直读 `reviews.mood / energy` —— src/views/review-view.spec.ts（3 条）
 
 口径（Q7）：放复盘页底部、和录入同屏；不新增路由、不动表结构、`DB_VERSION` 未升；颜色全部走 CSS 变量，无图表库。
+
+## 错题照片（AC-78）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-78 | AC-78 错题照片录入与压缩 | e2e/mistakes.spec.ts |
+
+补充（组件 / store / 导出）：
+- 新组件 `src/components/ImageInput.vue`：`<input type="file" accept="image/*" multiple>` + 缩略图网格 + ✕ 删除，压缩一律走既有 `compressImageToDataUrl`（1400px / 0.72 / JPEG）；单组上限 4 张（满了 input `disabled`）、超选给中文提示、读不出图给错误文案 —— src/components/image-input.spec.ts（6 条）
+- store：`MistakeInput.questionImages / correctionImages`，落库前 `[...].slice(0, MISTAKE_IMAGE_LIMIT)`；编辑可删图 —— src/stores/mistakes.spec.ts（4 条）
+- 视图：题目/订正各挂一个 `ImageInput`（`test-key="question" / "correction"`），卡片出缩略图 —— src/views/mistakes-view.spec.ts（2 条）
+- 导出：`exportText` 里只写「题目 n 张 / 订正 n 张」，**不写 base64**；备份导出 → 导入后图片字节一致（Q6：图片进备份）
+
+顺带修：`.modal` 之前没有限高，长表单（带两个图片录入）会把「保存」顶到屏幕外，现在 `max-height: calc(100vh - 32px)` + `.modal-body` 自己滚动。

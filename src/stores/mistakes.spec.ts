@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import { getRecord, listAliveByDate, resetDbForTests, type Mistake } from '@/db';
+import {
+  exportBackup,
+  getRecord,
+  importBackupFromJson,
+  listAliveByDate,
+  resetDbForTests,
+  type Mistake,
+} from '@/db';
+import { exportText } from '@/db/exportText';
 import { useToastStore } from './toast';
-import { MISTAKE_REASONS, clampDifficulty, useMistakesStore, type MistakeInput } from './mistakes';
+import { MISTAKE_IMAGE_LIMIT, MISTAKE_REASONS, clampDifficulty, useMistakesStore, type MistakeInput } from './mistakes';
 
 const BASE = new Date('2026-06-01T10:00:00').getTime();
 const TODAY = '2026-06-01';
@@ -156,5 +164,72 @@ describe('错题本 store（M9）', () => {
 
   it('预设错误原因就是 4 个（Q5 拍板）', () => {
     expect([...MISTAKE_REASONS]).toEqual(['概念不清', '计算失误', '审题错误', '时间不够']);
+  });
+});
+
+describe('错题照片（P2）', () => {
+  const IMG_A = 'data:image/jpeg;base64,AAAA';
+  const IMG_B = 'data:image/jpeg;base64,BBBB';
+
+  it('题目/订正照片落库；单组超过 4 张只留前 4 张', async () => {
+    const store = useMistakesStore();
+    await store.load(TODAY);
+    const created = await store.create(input({
+      questionImages: [IMG_A, IMG_B, IMG_A, IMG_B, IMG_A, IMG_B],
+      correctionImages: [IMG_B],
+    }));
+
+    const row = (await getRecord('mistakes', created!.id)) as Mistake;
+    expect(row.question_images).toHaveLength(MISTAKE_IMAGE_LIMIT);
+    expect(row.question_images[0]).toBe(IMG_A);
+    expect(row.correction_images).toEqual([IMG_B]);
+  });
+
+  it('编辑时删图：数组少一张并落库', async () => {
+    const store = useMistakesStore();
+    await store.load(TODAY);
+    const created = await store.create(input({ questionImages: [IMG_A, IMG_B] }));
+
+    await store.save(created!.id, input({ questionImages: [IMG_B] }));
+    const row = (await getRecord('mistakes', created!.id)) as Mistake;
+    expect(row.question_images).toEqual([IMG_B]);
+  });
+
+  it('文本导出只写图片张数，不把 base64 塞进 Markdown', async () => {
+    const store = useMistakesStore();
+    await store.load(TODAY);
+    await store.create(input({ questionImages: [IMG_A, IMG_B], correctionImages: [IMG_A] }));
+
+    const text = exportText({
+      start: TODAY,
+      end: TODAY,
+      plans: [],
+      study_records: [],
+      books: [],
+      excerpts: [],
+      meals: [],
+      water: [],
+      workout_records: [],
+      play_records: [],
+      reviews: [],
+      mistakes: store.items,
+    });
+    expect(text).toContain('题目 2 张');
+    expect(text).toContain('订正 1 张');
+    expect(text).not.toContain('data:image');
+  });
+
+  it('备份导出 → 导入：图片字节原样带回（Q6：图片进备份）', async () => {
+    const store = useMistakesStore();
+    await store.load(TODAY);
+    await store.create(input({ questionImages: [IMG_A], correctionImages: [IMG_B] }));
+
+    const backup = await exportBackup();
+    await importBackupFromJson(JSON.stringify(backup));
+
+    const rows = await listAliveByDate('mistakes', TODAY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.question_images).toEqual([IMG_A]);
+    expect(rows[0]?.correction_images).toEqual([IMG_B]);
   });
 });

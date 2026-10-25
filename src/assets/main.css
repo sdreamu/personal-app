@@ -494,10 +494,14 @@ input, select { font: inherit; color: inherit; }
   box-shadow: var(--shadow);
   width: min(520px, calc(100vw - 40px));
   padding: 16px 18px;
+  /* 长表单（比如带两张图录入的错题弹窗）不能顶出屏幕：整体限高，正文区自己滚 */
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
 }
 .modal header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .modal header h3 { margin: 0; font-size: 16px; }
-.modal-body { margin-bottom: 14px; }
+.modal-body { margin-bottom: 14px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .modal footer { display: flex; justify-content: flex-end; gap: 10px; }
 
 /* ---------- 空状态 ---------- */

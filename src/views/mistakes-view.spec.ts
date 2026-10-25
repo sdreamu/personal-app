@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils';
+import { defineComponent, h } from 'vue';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import { listAliveByDate, resetDbForTests, type Mistake } from '@/db';
+import { createRecord, listAliveByDate, resetDbForTests, type Mistake } from '@/db';
 import { useDateStore } from '@/stores/date';
 import { useToastStore } from '@/stores/toast';
+import { useMistakesStore } from '@/stores/mistakes';
 import MistakesView from './MistakesView.vue';
 
 const BASE = new Date('2026-06-01T10:00:00').getTime();
@@ -14,8 +16,34 @@ const WAIT_OPTS = { timeout: 5000 } as const;
 let pinia: Pinia;
 let wrapper: VueWrapper;
 
+/** jsdom 没有 canvas，压缩跑不起来：真压缩在 image-input.spec 与 e2e 里验，这里替换成"点一下就加一张假图"。 */
+const FakeImageInput = defineComponent({
+  props: {
+    modelValue: { type: Array, default: () => [] },
+    testKey: { type: String, default: 'default' },
+    label: { type: String, default: '图片' },
+    max: { type: Number, default: 4 },
+  },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'fake-image-add',
+          'data-test': 'fake-image-add-' + String(props.testKey),
+          onClick: () => emit('update:modelValue', [...(props.modelValue as string[]), 'data:image/jpeg;base64,FAKE']),
+        },
+        String(props.label),
+      );
+  },
+});
+
 async function mountPage(): Promise<VueWrapper> {
-  const w = mount(MistakesView, { global: { plugins: [pinia], stubs: { Teleport: true } } });
+  const w = mount(MistakesView, {
+    global: { plugins: [pinia], stubs: { Teleport: true, ImageInput: FakeImageInput } },
+  });
   await vi.waitFor(() => {
     if (w.findAll('[data-test="mistake-card"]').length === 0 && !w.find('[data-test="mistakes-empty"]').exists()) {
       throw new Error('错题本尚未加载完成');
@@ -211,5 +239,73 @@ describe('错题本页 #/mistakes（M9）', () => {
 
     expect(wrapper.find('[data-test="mistake-form"]').exists()).toBe(false);
     expect(await listAliveByDate('mistakes', TODAY)).toHaveLength(0);
+  });
+});
+
+describe('错题照片录入（P2 · AC-78）', () => {
+  it('题目/订正各加一张图后保存：落库带 dataURL，卡片出缩略图', async () => {
+    wrapper = await mountPage();
+    await wrapper.find('[data-test="add-mistake-btn"]').trigger('click');
+    await flushPromises();
+    await wrapper.find('[data-test="mistake-form-question"]').setValue('带照片的一题');
+    await wrapper.find('[data-test="fake-image-add-question"]').trigger('click');
+    await wrapper.find('[data-test="fake-image-add-correction"]').trigger('click');
+    await wrapper.find('[data-test="mistake-form-save"]').trigger('click');
+
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('mistakes', TODAY);
+      if (rows[0]?.question_images.length !== 1) throw new Error('题目图片未落库');
+      if (rows[0]?.correction_images.length !== 1) throw new Error('订正图片未落库');
+    }, WAIT_OPTS);
+    expect((await listAliveByDate('mistakes', TODAY))[0]?.question_images[0]).toBe('data:image/jpeg;base64,FAKE');
+
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="mistake-photo-question"]').length !== 1) throw new Error('题目缩略图未出现');
+      if (wrapper.findAll('[data-test="mistake-photo-correction"]').length !== 1) throw new Error('订正缩略图未出现');
+    }, WAIT_OPTS);
+  });
+
+  it('编辑时删掉图：数组少一张并落库，卡片缩略图跟着消失', async () => {
+    await createRecord('mistakes', {
+      date: TODAY,
+      subject_name: '数学',
+      question_text: '两道照片',
+      question_images: ['data:image/jpeg;base64,ONE', 'data:image/jpeg;base64,TWO'],
+      correction_text: null,
+      correction_images: [],
+      reasons: [],
+      note: null,
+      difficulty: 3,
+      mastered: false,
+    });
+    wrapper = await mountPage();
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="mistake-photo-question"]').length !== 2) throw new Error('缩略图未出现');
+    }, WAIT_OPTS);
+
+    await wrapper.find('[data-test="mistake-edit"]').trigger('click');
+    await flushPromises();
+    // 弹窗里给的是真 ImageInput（被替换成假组件），所以这里直接改表单：用假组件"再加一张"不会误删
+    // 真实的删图交互在 image-input.spec 覆盖；这里验证「保存后卡片与库里都只剩 1 张」
+    const store = useMistakesStore();
+    const id = store.items[0]!.id;
+    await store.save(id, {
+      date: TODAY,
+      subjectName: '数学',
+      questionText: '两道照片',
+      correctionText: '',
+      reasons: [],
+      note: '',
+      difficulty: 3,
+      mastered: false,
+      questionImages: ['data:image/jpeg;base64,TWO'],
+      correctionImages: [],
+    });
+
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="mistake-photo-question"]').length !== 1) throw new Error('缩略图未更新');
+    }, WAIT_OPTS);
+    const rows = await listAliveByDate('mistakes', TODAY);
+    expect(rows[0]?.question_images).toEqual(['data:image/jpeg;base64,TWO']);
   });
 });
