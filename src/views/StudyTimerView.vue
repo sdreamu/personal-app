@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { listAlive, type Book, type Subject } from '@/db';
 import { useTimerStore } from '@/stores/timer';
 import { useToastStore } from '@/stores/toast';
@@ -11,6 +11,7 @@ import { formatDuration } from '@/utils/date';
  * 状态机在全局 timer store（含娱乐计时），页面只负责选择、展示与控制。
  */
 const route = useRoute();
+const router = useRouter();
 const timerStore = useTimerStore();
 const toast = useToastStore();
 
@@ -22,6 +23,11 @@ const mode = ref<'stopwatch' | 'countdown'>('stopwatch');
 const countdownMinutes = ref(25);
 const starting = ref(false);
 const loadingTargets = ref(true);
+
+/** 空状态的主按钮：去对应页面添加学习对象（书 → 书架，科目 → 科目页）。 */
+function goAddTarget(): void {
+  void router.push(targetType.value === 'book' ? '/study/books' : '/study/subjects');
+}
 
 const readingBooks = computed(() => books.value.filter((b) => b.status === 'reading'));
 const activeSubjects = computed(() => subjects.value.filter((s) => !s.archived));
@@ -254,7 +260,12 @@ onBeforeUnmount(() => {
       </div>
       <div v-if="loadingTargets" class="empty-hint" data-test="targets-loading">正在加载对象列表…</div>
       <div v-else-if="options.length === 0" class="empty-hint" data-test="target-empty">
-        暂无{{ targetType === 'book' ? '在读的书籍' : '未归档的科目' }}，请先到对应页面添加。
+        <p class="empty-text">
+          暂无{{ targetType === 'book' ? '在读的书籍' : '未归档的科目' }}，先去添加一个再回来计时。
+        </p>
+        <button class="primary-btn" data-test="empty-add-target" @click="goAddTarget">
+          去添加{{ targetType === 'book' ? '书籍' : '科目' }}
+        </button>
       </div>
       <div v-else class="target-list" data-test="target-list">
         <label
@@ -461,8 +472,11 @@ onBeforeUnmount(() => {
   font-family: var(--font-mono);
 }
 .empty-hint {
-  color: var(--muted);
   margin-top: 10px;
+}
+.empty-hint .empty-text {
+  margin: 0 0 10px;
+  color: var(--muted);
   font-size: 13px;
 }
 </style>

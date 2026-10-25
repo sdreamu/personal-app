@@ -15,6 +15,8 @@ function makeRouter(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/study/timer', component: Stub },
+      { path: '/study/books', component: Stub },
+      { path: '/study/subjects', component: Stub },
       { path: '/:pathMatch(.*)*', redirect: '/study/timer' },
     ],
   });
@@ -185,5 +187,26 @@ describe('计时器页 #/study/timer', () => {
     expect(wrapper.find('[data-test="pause-btn"]').exists()).toBe(false);
     expect(wrapper.find('[data-test="end-btn"]').exists()).toBe(false);
     expect(wrapper.find('[data-test="timer-target"]').text()).toContain('游戏');
+  });
+  it('空状态有主按钮：默认（书籍）跳到书架', async () => {
+    const wrapper = await mountPage();
+    expect(wrapper.find('[data-test="target-empty"]').exists()).toBe(true);
+    const button = wrapper.find('[data-test="empty-add-target"]');
+    expect(button.exists()).toBe(true);
+    expect(button.text()).toContain('去添加书籍');
+    await button.trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/study/books');
+  });
+
+  it('空状态主按钮跟随对象类型：切到科目就跳科目页', async () => {
+    const wrapper = await mountPage();
+    await wrapper.find('[data-test="type-subject"]').trigger('click');
+    await flushPromises();
+    const button = wrapper.find('[data-test="empty-add-target"]');
+    expect(button.text()).toContain('去添加科目');
+    await button.trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/study/subjects');
   });
 });

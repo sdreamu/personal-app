@@ -20,6 +20,7 @@
 | AC-13 | AC-13 前一天补记喝水 | e2e/global.spec.ts |
 | AC-14 | AC-14 删除后5秒内撤销恢复 | e2e/global.spec.ts |
 | AC-15 | AC-15 全页面空状态引导 | e2e/global.spec.ts |
+| AC-15 | 计时器空状态主按钮 `empty-add-target`（补齐 PRD §10 AC-15 缺口） | e2e/global.spec.ts |
 | AC-16 | AC-16 快捷键 N Esc Space | e2e/global.spec.ts |
 | AC-17 | AC-17 首页+1杯与饮食页同步 | e2e/home.spec.ts |
 | AC-18 | AC-18 计划完成数同步首页 | e2e/home.spec.ts |
