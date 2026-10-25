@@ -510,13 +510,13 @@ describe('书架排序的键盘 / 触屏替代与 sort_index 兜底（P6-2 / P6-
 
     expect(await library.moveBy(b!.id, -1)).toBe(true);
     await library.loadBooks();
-    let order = (await listAlive<Book>('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    let order = (await listAlive('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
     expect(order.map((row) => row.title)).toEqual(['乙', '甲', '丙']);
     expect(order.map((row) => row.sort_index)).toEqual([10, 20, 30]);
 
     expect(await library.moveBy(b!.id, 1)).toBe(true);
     await library.loadBooks();
-    order = (await listAlive<Book>('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    order = (await listAlive('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
     expect(order.map((row) => row.title)).toEqual(['甲', '乙', '丙']);
     expect([a!.id, b!.id, c!.id]).toHaveLength(3);
   });
@@ -524,11 +524,11 @@ describe('书架排序的键盘 / 触屏替代与 sort_index 兜底（P6-2 / P6-
   it('moveBy：列首上移 / 列尾下移返回 false，顺序不动', async () => {
     const [a, , c] = await seedColumn(['甲', '乙', '丙']);
     await library.loadBooks();
-    const before = (await listAlive<Book>('books')).map((row) => row.sort_index);
+    const before = (await listAlive('books')).map((row) => row.sort_index);
 
     expect(await library.moveBy(a!.id, -1)).toBe(false);
     expect(await library.moveBy(c!.id, 1)).toBe(false);
-    const after = (await listAlive<Book>('books')).map((row) => row.sort_index);
+    const after = (await listAlive('books')).map((row) => row.sort_index);
     expect(after).toEqual(before);
   });
 
@@ -566,7 +566,7 @@ describe('书架排序的键盘 / 触屏替代与 sort_index 兜底（P6-2 / P6-
     expect(rows.find((row) => row.id === second.id)?.sort_index).toBe(20);
 
     // 落库也补上了：再读一遍仍是数字
-    const stored = await listAlive<Book>('books');
+    const stored = await listAlive('books');
     for (const row of stored) expect(typeof row.sort_index).toBe('number');
   });
 
@@ -596,7 +596,7 @@ describe('书架排序的键盘 / 触屏替代与 sort_index 兜底（P6-2 / P6-
     await updateRecord('books', second.id, { created_at: BASE + 1000 });
     await library.loadBooks();
     expect(await library.moveBy(second.id, -1)).toBe(true);
-    const order = (await listAlive<Book>('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    const order = (await listAlive('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
     expect(order.map((row) => row.title)).toEqual(['老书二', '老书一']);
   });
 });

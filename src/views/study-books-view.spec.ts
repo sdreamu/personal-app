@@ -343,7 +343,7 @@ describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
     await waitFor(() => titlesInColumn(wrapper)[0] === '乙书', '上移后顺序未更新');
     expect(titlesInColumn(wrapper)).toEqual(['乙书', '甲书', '丙书']);
 
-    const rows = (await listAlive<Book>('books')).sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0));
+    const rows = (await listAlive('books')).sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0));
     expect(rows.map((row) => row.title)).toEqual(['乙书', '甲书', '丙书']);
     expect(rows.map((row) => row.sort_index)).toEqual([10, 20, 30]);
   });
@@ -380,7 +380,7 @@ describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
       '在读列顺序未更新',
     );
     // 「想读」列那本没被带着走
-    const rows = await listAlive<Book>('books');
+    const rows = await listAlive('books');
     const wantRows = rows.filter((row) => row.status === 'want');
     expect(wantRows.map((row) => row.title)).toEqual(['想读书']);
     expect(wantRows[0]?.sort_index).toBe(10);
