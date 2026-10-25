@@ -107,8 +107,8 @@ beforeEach(() => {
   useDateStore().$patch({ selectedDate: '2026-10-25' });
 });
 
-async function mountWeek() {
-  const wrapper = mount(ScheduleWeek, { global: { plugins: [pinia] } });
+async function mountWeek(props: { windowStart?: string | null } = {}) {
+  const wrapper = mount(ScheduleWeek, { props, global: { plugins: [pinia] } });
   await vi.dynamicImportSettled();
   await wrapper.vm.$nextTick();
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -155,5 +155,40 @@ describe('日程页一周概览', () => {
     const wrapper = await mountWeek();
     await wrapper.find('[data-test="week-day-2026-10-28"]').trigger('click');
     expect(useDateStore().selectedDate).toBe('2026-10-28');
+  });
+});
+
+describe('N2 7 天窗口可调（AC-75）', () => {
+  it('windowStart 指定起点：7 列从那天开始，range 标签跟着变', async () => {
+    const wrapper = await mountWeek({ windowStart: '2026-11-02' });
+    const days = wrapper.findAll('[data-test^="week-day-"]');
+    expect(days).toHaveLength(7);
+    expect(days[0]?.attributes('data-test')).toBe('week-day-2026-11-02');
+    expect(days[6]?.attributes('data-test')).toBe('week-day-2026-11-08');
+    expect(wrapper.find('[data-test="week-range"]').text()).toBe('11.02 – 11.08');
+    // 今天（10-25）不在窗口里，就没有 today 样式
+    expect(wrapper.findAll('.day.today')).toHaveLength(0);
+  });
+
+  it('点「上一周 / 回到今天 / 下一周」分别 emit nav', async () => {
+    const wrapper = await mountWeek();
+    await wrapper.find('[data-test="week-prev"]').trigger('click');
+    await wrapper.find('[data-test="week-today"]').trigger('click');
+    await wrapper.find('[data-test="week-next"]').trigger('click');
+    expect(wrapper.emitted('nav')).toEqual([['prev'], ['today'], ['next']]);
+  });
+
+  it('点某一天：切 dateStore 并 emit pick 让父组件下钻', async () => {
+    const wrapper = await mountWeek();
+    await wrapper.find('[data-test="week-day-2026-10-28"]').trigger('click');
+    expect(useDateStore().selectedDate).toBe('2026-10-28');
+    expect(wrapper.emitted('pick')?.[0]).toEqual(['2026-10-28']);
+  });
+
+  it('非法 windowStart 退回默认窗口（昨天 → 后五天）', async () => {
+    const wrapper = await mountWeek({ windowStart: '不是日期' });
+    const days = wrapper.findAll('[data-test^="week-day-"]');
+    expect(days[0]?.attributes('data-test')).toBe('week-day-2026-10-24');
+    expect(days[6]?.attributes('data-test')).toBe('week-day-2026-10-30');
   });
 });

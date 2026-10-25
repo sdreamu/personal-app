@@ -1015,3 +1015,5 @@ test:e2e   playwright test
 | 1 | **N3** 健身：项目库可编写 + 今日训练置顶 + 一键整组完成（Q2/Q3/Q8 按建议：默认 3 组、撞名合并、周计划默认折叠） | `workoutStore.createLibraryExercise / deleteLibraryExercise / renameLibraryExercise / completeExercise`；`libraryItems` getter；`ExerciseLibrary` 加输入框 + ✕ 删除（软删除 + 5 秒撤销）；`WorkoutDay` 加「一键完成全部组」+ 组表头（完成/重量(kg)/次数）+ 备注提示行；`LifeWorkoutView` 顺序改为 今日训练 → 每周计划（可折叠，`localStorage` 无关、默认收起）→ 历史，卡标题带日期与状态；`addExercise` 改为先落当天记录再维护项目库（P6-1） | AC-73 |
 
 | 1 | **N4** 交互与沉浸感（核心 3 条 + 减少动效） | `main.css`：主按钮/卡片 `:active` 2px 位移 + 阴影消失（`transition 90ms`）、`done-flash` 180ms 一次性完成高亮、`.page-fade-*` 140ms 淡入 + 4px、`@media (prefers-reduced-motion: reduce)` 全量归零；`App.vue`：`<RouterView>` 包 `<Transition name="page-fade">`（key=route.path）；新增 `useDoneFlash()` composable，接在计划页待办勾选、首页「接下来」的完成、健身组勾选上；计时胶囊 pulse 改 300ms×2 有限闪烁 | AC-74 |
+
+| 1 | **N2** 日程页三档视图 + 跨周窗口 | `PlanView.vue`：`7 天概览 / 单日时间轴 / 列表` 三档切换（`.on` 选中态），列表按时间排序（时间 / 标题 / 分类 / 状态 / 勾选 / 删除），视图选择存 `localStorage.evan-plan-view`；`ScheduleWeek.vue`：新增 `windowStart` prop + `← 上一周 / 回到今天 / 下一周 →`（`emit('nav')`）+ 窗口区间标签 `week-range`，窗口起点存 `localStorage.evan-plan-week-start`，「回到今天」清掉；点某天 `emit('pick')` → 自动下钻单日时间轴 | AC-75 |

@@ -247,3 +247,15 @@
 
 覆盖完整性：AC-74 有 3 条 e2e（按下 / 完成 / 减少动态效果）+ 10 条单测与组件断言，无 skip / only。
 既有断言未改动：计时胶囊「待结算」的 `pulse` 从 1.2s 无限循环改成 300ms×2 次有限闪烁（硬约束要求），其它动效断言与 AC-11~AC-25、AC-43~AC-45 全绿。
+
+## 日程页三档视图（AC-75）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-75 | AC-75 日程页三档视图与 7 天窗口记忆 | e2e/plan.spec.ts |
+
+补充（组件层）：
+- **ScheduleWeek**：新增 `windowStart` prop（非法值退回默认窗口「昨天 → 后五天」）、`week-range` 窗口标签、`week-prev / week-today / week-next` 三个按钮 `emit('nav', step)`、点某天同时 `emit('pick', date)` —— src/components/schedule-week.spec.ts（4 条）
+- **PlanView**：`plan-view-seg` 三档切换（`plan-view-week / plan-view-day / plan-view-list`，选中态 `.on`）；`day-view` 整页 `PlanTimeline`；`list-view` 按时间排序的行（时间 / 标题 / 分类 / 状态 / 勾选 / 删除）；视图与窗口起点分别记在 `localStorage: evan-plan-view`、`evan-plan-week-start`（「回到今天」清掉后者）；点概览某天下钻到单日视图 —— src/views/plan-view.spec.ts（6 条）
+
+行为口径：某天没有任何计划时仍显示全局空状态引导（`plan-empty`），此时三档视图主体不渲染；既有 AC-21~AC-25 全部保持绿。

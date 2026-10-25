@@ -13,6 +13,7 @@ import { usePlanStore, type PlanFormPayload } from '@/stores/plan';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimerStore } from '@/stores/timer';
 import { useToastStore } from '@/stores/toast';
+import { addDays, logicalToday, offsetToTime } from '@/utils/date';
 
 /**
  * 计划页 #/plan（PRD §5.1）：
@@ -30,6 +31,80 @@ const timerStore = useTimerStore();
 const toast = useToastStore();
 /** N4 完成反馈：勾选「变成完成」时该行闪一下（取消勾选不播）。 */
 const doneFlash = useDoneFlash();
+
+/* ---------- N2 视图切换与 7 天窗口记忆 ---------- */
+type PlanViewMode = 'week' | 'day' | 'list';
+const PLAN_VIEW_KEY = 'evan-plan-view';
+const PLAN_WINDOW_KEY = 'evan-plan-week-start';
+
+function readViewMode(): PlanViewMode {
+  try {
+    const raw = window.localStorage.getItem(PLAN_VIEW_KEY);
+    return raw === 'day' || raw === 'list' ? raw : 'week';
+  } catch {
+    return 'week';
+  }
+}
+
+function readWeekStart(): string | null {
+  try {
+    const raw = window.localStorage.getItem(PLAN_WINDOW_KEY);
+    return raw !== null && raw !== '' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 三档视图：7 天概览 / 单日时间轴 / 列表；选择记在 localStorage，刷新后还在。 */
+const viewMode = ref<PlanViewMode>(readViewMode());
+/** 7 天窗口起点；null = 默认「昨天 → 后五天」。 */
+const weekStart = ref<string | null>(readWeekStart());
+
+watch(viewMode, (mode) => {
+  try {
+    window.localStorage.setItem(PLAN_VIEW_KEY, mode);
+  } catch {
+    /* 隐私模式下写不进去也不影响使用 */
+  }
+});
+
+watch(weekStart, (start) => {
+  try {
+    if (start === null) window.localStorage.removeItem(PLAN_WINDOW_KEY);
+    else window.localStorage.setItem(PLAN_WINDOW_KEY, start);
+  } catch {
+    /* 同上 */
+  }
+});
+
+function setView(mode: PlanViewMode): void {
+  viewMode.value = mode;
+}
+
+/** 7 天窗口翻页：上一周 / 回到今天（默认窗口）/ 下一周。 */
+function handleWeekNav(step: 'prev' | 'today' | 'next'): void {
+  if (step === 'today') {
+    weekStart.value = null;
+    return;
+  }
+  const base = weekStart.value ?? addDays(logicalToday(settings.dayStartMin), -1);
+  weekStart.value = addDays(base, step === 'prev' ? -7 : 7);
+}
+
+/** 点某一天：下钻到「单日时间轴」（日期已由 ScheduleWeek 切好）。 */
+function handleDayPick(): void {
+  viewMode.value = 'day';
+}
+
+/** 列表视图：按时间排序，无时间的排最后。 */
+const listPlans = computed(() => [...planStore.timedPlans, ...planStore.todoPlans]);
+
+function listTime(plan: Plan): string {
+  if (plan.start_min === null) return '无时间';
+  const start = offsetToTime(plan.start_min, dayStartMin.value);
+  if (plan.end_min === null) return start;
+  return start + '–' + offsetToTime(plan.end_min, dayStartMin.value);
+}
 
 const formOpen = ref(false);
 const editingPlan = ref<Plan | null>(null);
@@ -187,10 +262,41 @@ function onKeydown(event: KeyboardEvent): void {
 
 <template>
   <section class="page plan-page" data-test="plan-view">
-    <ScheduleWeek />
+    <div v-if="viewMode === 'week'" data-test="week-view">
+      <ScheduleWeek :window-start="weekStart" @nav="handleWeekNav" @pick="handleDayPick" />
+    </div>
     <div class="settings-card plan-header" data-test="plan-header">
       <div class="header-row">
         <h1 class="page-title">日程</h1>
+        <div class="segmented plan-view-seg" data-test="plan-view-seg">
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: viewMode === 'week' }"
+            data-test="plan-view-week"
+            @click="setView('week')"
+          >
+            7 天概览
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: viewMode === 'day' }"
+            data-test="plan-view-day"
+            @click="setView('day')"
+          >
+            单日时间轴
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: viewMode === 'list' }"
+            data-test="plan-view-list"
+            @click="setView('list')"
+          >
+            列表
+          </button>
+        </div>
         <button class="primary-btn" data-test="add-plan-btn" @click="openCreate">+ 新增计划</button>
         <span class="hint">快捷键 N 新建</span>
       </div>
@@ -248,6 +354,63 @@ function onKeydown(event: KeyboardEvent): void {
       data-test="plan-empty"
       @action="openCreate"
     />
+
+    <div v-else-if="viewMode === 'day'" class="plan-day" data-test="day-view">
+      <div class="settings-card">
+        <h2 class="col-title">单日时间轴</h2>
+        <PlanTimeline
+          :plans="planStore.timedPlans"
+          :day-start-min="dayStartMin"
+          data-test="timeline-day"
+          @start="startPlan"
+        />
+        <p v-if="planStore.timedPlans.length === 0" class="hint" data-test="day-view-empty">
+          这一天还没有排上时间块的计划，切到「列表」可以批量勾选无时间待办。
+        </p>
+      </div>
+    </div>
+
+    <div v-else-if="viewMode === 'list'" class="plan-list-wrap" data-test="list-view">
+      <div class="settings-card">
+        <h2 class="col-title">列表</h2>
+        <ul class="plan-list" data-test="plan-list">
+          <li
+            v-for="plan in listPlans"
+            :key="plan.id"
+            class="plan-list-row"
+            :class="{ done: plan.done, 'done-flash': doneFlash.isFlashing(plan.id) }"
+            data-test="plan-list-row"
+          >
+            <span class="plan-list-time num" data-test="plan-list-time">{{ listTime(plan) }}</span>
+            <span class="plan-list-title" data-test="plan-list-title">{{ plan.title }}</span>
+            <span class="badge" data-test="plan-list-category">{{ plan.category_name }}</span>
+            <span class="badge" data-test="plan-list-status">
+              {{ plan.done ? '已完成' : '未完成' }}
+            </span>
+            <span class="plan-list-ops">
+              <label class="todo-check">
+                <input
+                  type="checkbox"
+                  :checked="plan.done"
+                  data-test="plan-list-check"
+                  @change="toggleTodo(plan)"
+                />
+              </label>
+              <button
+                class="danger-btn"
+                data-test="plan-list-delete"
+                @click="runOneClick(() => planStore.softDeletePlan(plan))"
+              >
+                删除
+              </button>
+            </span>
+          </li>
+        </ul>
+        <p v-if="listPlans.length === 0" class="hint" data-test="list-view-empty">
+          这一天还没有计划。
+        </p>
+      </div>
+    </div>
 
     <div v-else class="plan-body">
       <div class="timeline-col">
@@ -407,6 +570,47 @@ function onKeydown(event: KeyboardEvent): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.plan-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+.plan-list-row.done .plan-list-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.plan-list-time {
+  width: 92px;
+  flex: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+.plan-list-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.plan-list-ops {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan-list-ops .danger-btn {
+  padding: 3px 10px;
+  font-size: 12px;
 }
 .todo-item {
   display: flex;

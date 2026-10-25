@@ -442,3 +442,123 @@ describe('N4 完成反馈（AC-74）', () => {
     expect(wrapper.findAll('[data-test="todo-item"].done-flash')).toHaveLength(0);
   });
 });
+
+describe('N2 日程页三档视图 + 窗口记忆（AC-75）', () => {
+  it('默认 7 天概览视图；三档按钮都在，概览里能看到一周列', async () => {
+    await createRecord('plans', planData(TODAY, '待办 A'));
+    wrapper = await mountPage();
+
+    expect(wrapper.find('[data-test="plan-view-seg"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="plan-view-week"]').classes()).toContain('on');
+    expect(wrapper.find('[data-test="week-view"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="schedule-week"]').exists()).toBe(true);
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test^="week-day-"]').length !== 7) throw new Error('一周列未渲染');
+    }, { timeout: 3000, interval: 20 });
+  });
+
+  it('切到「单日时间轴」：整页时间轴 + 记住选择（localStorage）', async () => {
+    await createRecord('plans', planData(TODAY, '有时间块', { start_min: 300, end_min: 330 }));
+    wrapper = await mountPage();
+
+    await wrapper.find('[data-test="plan-view-day"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-test="plan-view-day"]').classes()).toContain('on');
+    expect(wrapper.find('[data-test="day-view"]').exists(), wrapper.html().slice(0, 1200)).toBe(true);
+    expect(wrapper.find('[data-test="timeline-day"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="week-view"]').exists()).toBe(false);
+    expect(window.localStorage.getItem('evan-plan-view')).toBe('day');
+  });
+
+  it('切到「列表」：按时间排序、带状态与勾选/删除', async () => {
+    await createRecord('plans', planData(TODAY, '无时间待办'));
+    await createRecord('plans', planData(TODAY, '上午块', { start_min: 300, end_min: 330 }));
+    await createRecord('plans', planData(TODAY, '下午块', { start_min: 540, end_min: 600, done: true, done_at: BASE }));
+    wrapper = await mountPage();
+
+    await wrapper.find('[data-test="plan-view-list"]').trigger('click');
+    await flushPromises();
+    const rows = wrapper.findAll('[data-test="plan-list-row"]');
+    expect(rows).toHaveLength(3);
+    const titles = wrapper.findAll('[data-test="plan-list-title"]').map((node) => node.text());
+    expect(titles).toEqual(['上午块', '下午块', '无时间待办']);
+    expect(wrapper.findAll('[data-test="plan-list-time"]')[2]?.text()).toBe('无时间');
+    expect(wrapper.findAll('[data-test="plan-list-status"]').map((n) => n.text())).toEqual([
+      '未完成',
+      '已完成',
+      '未完成',
+    ]);
+
+    // 列表里逐条勾选
+    await rows[0]!.find('[data-test="plan-list-check"]').trigger('change');
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="plan-list-status"]')[0]?.text() !== '已完成') {
+        throw new Error('列表勾选未生效');
+      }
+    }, { timeout: 3000, interval: 20 });
+
+    // 列表里删除
+    await rows[2]!.find('[data-test="plan-list-delete"]').trigger('click');
+    await vi.waitFor(() => {
+      if (wrapper.findAll('[data-test="plan-list-row"]').length !== 2) throw new Error('删除未生效');
+    }, { timeout: 3000, interval: 20 });
+  });
+
+  it('记住上次选的视图：localStorage 里是 list 就直接进列表', async () => {
+    window.localStorage.setItem('evan-plan-view', 'list');
+    await createRecord('plans', planData(TODAY, '待办 A'));
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="list-view"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="plan-view-list"]').classes()).toContain('on');
+  });
+
+  it('7 天窗口：上一周 / 下一周各平移 7 天并记忆，回到今天清掉记忆', async () => {
+    wrapper = await mountPage();
+    await vi.waitFor(() => {
+      if (!wrapper.find('[data-test="week-prev"]').exists()) throw new Error('窗口按钮未出现');
+    }, { timeout: 3000, interval: 20 });
+    // 默认窗口：昨天（05-31）→ 后五天（06-06）
+    expect(wrapper.find('[data-test="week-range"]').text()).toBe('05.31 – 06.06');
+
+    await wrapper.find('[data-test="week-prev"]').trigger('click');
+    await vi.waitFor(() => {
+      if (wrapper.find('[data-test="week-range"]').text() !== '05.24 – 05.30') {
+        throw new Error('上一周未生效：' + wrapper.find('[data-test="week-range"]').text());
+      }
+    }, { timeout: 3000, interval: 20 });
+    expect(window.localStorage.getItem('evan-plan-week-start')).toBe('2026-05-24');
+
+    await wrapper.find('[data-test="week-next"]').trigger('click');
+    await wrapper.find('[data-test="week-next"]').trigger('click');
+    await vi.waitFor(() => {
+      if (wrapper.find('[data-test="week-range"]').text() !== '06.07 – 06.13') {
+        throw new Error('下一周未生效：' + wrapper.find('[data-test="week-range"]').text());
+      }
+    }, { timeout: 3000, interval: 20 });
+
+    await wrapper.find('[data-test="week-today"]').trigger('click');
+    await vi.waitFor(() => {
+      if (wrapper.find('[data-test="week-range"]').text() !== '05.31 – 06.06') {
+        throw new Error('回到今天未生效');
+      }
+    }, { timeout: 3000, interval: 20 });
+    expect(window.localStorage.getItem('evan-plan-week-start')).toBeNull();
+  });
+
+  it('点概览里的某一天：自动下钻到「单日时间轴」并定位那天', async () => {
+    await createRecord('plans', planData('2026-06-03', '那天的计划'));
+    wrapper = await mountPage();
+    await vi.waitFor(() => {
+      if (!wrapper.find('[data-test="week-day-2026-06-03"]').exists()) throw new Error('一周列未渲染');
+    }, { timeout: 3000, interval: 20 });
+
+    await wrapper.find('[data-test="week-day-2026-06-03"]').trigger('click');
+    await flushPromises();
+    expect(useDateStore().selectedDate).toBe('2026-06-03');
+    // 切日期会触发一次异步加载，等单日时间轴渲染出来（只放宽等待，不改断言）
+    await vi.waitFor(() => {
+      if (!wrapper.find('[data-test="day-view"]').exists()) throw new Error('没有下钻到单日时间轴');
+    }, { timeout: 3000, interval: 20 });
+    expect(wrapper.find('[data-test="plan-view-day"]').classes()).toContain('on');
+  });
+});

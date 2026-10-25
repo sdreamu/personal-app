@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { listAliveByDate, type Plan, type StudyRecord } from '@/db';
 import { useDateStore } from '@/stores/date';
 import { useSettingsStore } from '@/stores/settings';
-import { addDays, formatDuration, logicalToday, MINUTES_PER_DAY, weekdayCN } from '@/utils/date';
+import { addDays, formatDuration, logicalToday, MINUTES_PER_DAY, parseDateKey, weekdayCN } from '@/utils/date';
 
 /**
  * 日程页顶部的一周概览（v5）：默认窗口「昨天 → 后五天」共 7 天。
@@ -30,6 +30,15 @@ interface WeekColumn {
   lanes: Record<'study' | 'life' | 'other', LaneBar[]>;
 }
 
+const props = withDefaults(defineProps<{ windowStart?: string | null }>(), { windowStart: null });
+
+const emit = defineEmits<{
+  /** 点了某一天（dateStore 已经切过去，父组件据此下钻到单日视图）。 */
+  (e: 'pick', date: string): void;
+  /** 窗口翻页：上一周 / 回到今天 / 下一周。 */
+  (e: 'nav', step: 'prev' | 'today' | 'next'): void;
+}>();
+
 const dateStore = useDateStore();
 const settings = useSettingsStore();
 const columns = ref<WeekColumn[]>([]);
@@ -54,8 +63,13 @@ async function load(): Promise<void> {
   const nowOffset = ((new Date().getHours() * 60 + new Date().getMinutes() - settings.dayStartMin) % MINUTES_PER_DAY + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   const result: WeekColumn[] = [];
 
-  for (let index = -1; index <= 5; index += 1) {
-    const date = addDays(today, index);
+  // 默认窗口：昨天 → 后五天（N2 之后可由父组件通过 windowStart 平移整周）
+  const startDate =
+    props.windowStart !== null && props.windowStart !== undefined && parseDateKey(props.windowStart) !== null
+      ? props.windowStart
+      : addDays(today, -1);
+  for (let index = 0; index < 7; index += 1) {
+    const date = addDays(startDate, index);
     let plans: Plan[] = [];
     let records: StudyRecord[] = [];
     try {
@@ -78,7 +92,7 @@ async function load(): Promise<void> {
         left: `${percent(plan.start_min)}%`,
         width: `${Math.max(2, percent(plan.end_min - plan.start_min))}%`,
         done: plan.done,
-        miss: !plan.done && index <= 0 && plan.end_min <= nowOffset,
+        miss: !plan.done && date <= today && plan.end_min <= nowOffset,
         title: plan.title,
       });
     }
@@ -104,19 +118,39 @@ async function load(): Promise<void> {
 
 function pick(date: string): void {
   dateStore.setSelected(date);
+  emit('pick', date);
 }
+
+const rangeLabel = computed(() => {
+  const first = columns.value[0]?.dayLabel ?? '';
+  const last = columns.value[columns.value.length - 1]?.dayLabel ?? '';
+  return first === '' ? '' : first + ' – ' + last;
+});
 
 onMounted(() => {
   void load();
 });
 
 watch(() => settings.dayStartMin, () => void load());
+watch(() => props.windowStart, () => void load());
 </script>
 
 <template>
   <section class="week" data-test="schedule-week">
     <div class="week-head">
       <h2 class="week-title">这七天</h2>
+      <span class="week-range num" data-test="week-range">{{ rangeLabel }}</span>
+      <span class="week-nav">
+        <button type="button" class="ghost-btn" data-test="week-prev" @click="emit('nav', 'prev')">
+          ← 上一周
+        </button>
+        <button type="button" class="ghost-btn" data-test="week-today" @click="emit('nav', 'today')">
+          回到今天
+        </button>
+        <button type="button" class="ghost-btn" data-test="week-next" @click="emit('nav', 'next')">
+          下一周 →
+        </button>
+      </span>
       <ul class="legend" aria-hidden="true">
         <li><span class="dot lane-study" />学习</li>
         <li><span class="dot lane-life" />生活</li>
@@ -167,6 +201,19 @@ watch(() => settings.dayStartMin, () => void load());
   background: var(--panel);
   border: var(--line-w) solid var(--border-ink);
   box-shadow: 5px 5px 0 var(--slab);
+}
+.week-range {
+  color: var(--muted);
+  font-size: 13px;
+}
+.week-nav {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.week-nav .ghost-btn {
+  padding: 3px 10px;
+  font-size: 12px;
 }
 .week-head {
   display: flex;

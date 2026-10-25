@@ -98,3 +98,52 @@ test('AC-25 关联书籍计时并询问完成计划块', async ({ page }) => {
   await gotoHash(page, 'plan');
   await expect(page.locator('[data-test="timeline-block"].done')).toContainText('AC25读书块');
 });
+
+/** AC-75：日程页三档视图（7 天概览 / 单日时间轴 / 列表）可切、7 天窗口可调，且选择与窗口都记得住。 */
+test('AC-75 日程页三档视图与 7 天窗口记忆', async ({ page }) => {
+  await addPlan(page, { title: 'AC75待办' });
+
+  // 默认：7 天概览 + 一周列
+  await expect(page.locator('[data-test="plan-view-week"]')).toHaveClass(/on/);
+  await expect(page.locator('[data-test="schedule-week"]')).toBeVisible();
+  await expect(page.locator('[data-test^="week-day-"]')).toHaveCount(7);
+  const defaultRange = await page.locator('[data-test="week-range"]').textContent();
+  expect(defaultRange).toMatch(/\d{2}\.\d{2} – \d{2}\.\d{2}/);
+
+  // 上一周 → 窗口前移，刷新后仍然记住
+  await page.click('[data-test="week-prev"]');
+  await expect(page.locator('[data-test="week-range"]')).not.toHaveText(defaultRange ?? '');
+  const shiftedRange = await page.locator('[data-test="week-range"]').textContent();
+  await page.reload();
+  await expect(page.locator('[data-test="week-range"]')).toHaveText(shiftedRange ?? '');
+
+  // 回到今天 → 回到默认窗口，记忆被清掉（刷新后还是默认）
+  await page.click('[data-test="week-today"]');
+  await expect(page.locator('[data-test="week-range"]')).toHaveText(defaultRange ?? '');
+
+  // 列表视图：行在，刷新后仍然是列表视图（记住上次选择）
+  await page.click('[data-test="plan-view-list"]');
+  await expect(page.locator('[data-test="list-view"]')).toBeVisible();
+  await expect(page.locator('[data-test="plan-list-row"]')).toHaveCount(1);
+  await expect(page.locator('[data-test="plan-list-title"]').first()).toHaveText('AC75待办');
+  await page.reload();
+  await expect(page.locator('[data-test="list-view"]')).toBeVisible();
+  await expect(page.locator('[data-test="plan-view-list"]')).toHaveClass(/on/);
+
+  // 列表里勾选
+  await page.locator('[data-test="plan-list-check"]').first().check();
+  await expect(page.locator('[data-test="plan-list-status"]').first()).toHaveText('已完成');
+
+  // 单日时间轴视图
+  await page.click('[data-test="plan-view-day"]');
+  await expect(page.locator('[data-test="day-view"]')).toBeVisible();
+  await expect(page.locator('[data-test="plan-view-day"]')).toHaveClass(/on/);
+
+  // 点概览里的某一天（今天那列，有数据）→ 自动下钻到单日时间轴
+  await page.click('[data-test="plan-view-week"]');
+  await expect(page.locator('[data-test^="week-day-"]')).toHaveCount(7);
+  await expect(page.locator('[data-test^="week-day-"].today')).toHaveCount(1);
+  await page.locator('[data-test^="week-day-"].today').click();
+  await expect(page.locator('[data-test="day-view"]')).toBeVisible();
+  await expect(page.locator('[data-test="plan-view-day"]')).toHaveClass(/on/);
+});
