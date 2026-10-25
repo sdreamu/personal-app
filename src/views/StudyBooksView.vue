@@ -119,6 +119,11 @@ function dropInto(targetStatus: BookStatus, targetBookId: string | null): void {
   dragId.value = null;
   void library.moveBook(id, targetStatus, index);
 }
+
+/** 键盘 / 触屏排序（P6-3）：拖动的替代路径，走同一个 reorder。 */
+function moveBook(book: Book, delta: number): void {
+  void library.moveBy(book.id, delta);
+}
 </script>
 
 <template>
@@ -143,6 +148,9 @@ function dropInto(targetStatus: BookStatus, targetBookId: string | null): void {
             v-for="book in col.books"
             :key="book.id"
             :book="book"
+            :can-move-up="col.books[0]?.id !== book.id"
+            :can-move-down="col.books[col.books.length - 1]?.id !== book.id"
+            @move="moveBook(book, $event)"
             @open="openDetail(book)"
             @edit="openEdit(book)"
             @delete="library.deleteBook(book.id)"

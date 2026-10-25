@@ -16,7 +16,7 @@ import {
   type Subject,
 } from '@/db';
 import { addDays, DAY_MS, logicalToday, parseDateKey, weekStart } from '@/utils/date';
-import { assignSortIndexes, nextSortIndex, orderedIdsAfterMove, sortColumn } from '@/utils/dragSort';
+import { assignSortIndexes, movedIndex, nextSortIndex, orderedIdsAfterMove, sortColumn } from '@/utils/dragSort';
 import { useDateStore } from './date';
 import { useSaveStatusStore } from './saveStatus';
 import { useSettingsStore } from './settings';
@@ -202,11 +202,49 @@ export const useLibraryStore = defineStore('library', {
 
     // ---------- 书 ----------
     async loadBooks(): Promise<Book[]> {
-      const rows = await listAlive('books');
+      const rows = await this.normalizeSortIndexes(await listAlive('books'));
       rows.sort((a, b) => b.created_at - a.created_at);
       this.books = rows;
       this.booksLoaded = true;
       return rows;
+    },
+    /**
+     * 读取端兜底（P6-2）：老数据 / 手改过的备份里 `sort_index` 可能缺失或不是数字，
+     * 只靠 import 时的 normalizeRow 不够（备份之外还有迁移、手改 DB 等路径）。
+     * 这里按「列内当前顺序」整个列重排成 10、20、30…，只在真的有问题时才写库。
+     */
+    async normalizeSortIndexes(rows: readonly Book[]): Promise<Book[]> {
+      const broken = rows.filter((row) => typeof row.sort_index !== 'number' || !Number.isFinite(row.sort_index));
+      if (broken.length === 0) return [...rows];
+
+      const indexes: Record<string, number> = {};
+      for (const status of ['want', 'reading', 'done'] as const) {
+        const column = sortColumn(rows.filter((row) => row.status === status));
+        Object.assign(indexes, assignSortIndexes(column.map((row) => row.id)));
+      }
+
+      const db = await getDb();
+      const stamp = nowMs();
+      await db.transaction('rw', db.books, async () => {
+        for (const [id, index] of Object.entries(indexes)) {
+          await db.books.update(id, { sort_index: index, updated_at: stamp });
+        }
+      });
+      return rows.map((row) => ({ ...row, sort_index: indexes[row.id] ?? row.sort_index }));
+    },
+    /**
+     * 键盘 / 触屏上移下移（P6-3）：和拖动同一条写回路径（reorder），
+     * 保证「拖动」与「按钮」最终落到同一套 sort_index。
+     */
+    async moveBy(bookId: string, delta: number): Promise<boolean> {
+      const book = await getRecord('books', bookId);
+      if (!book || !isAlive(book)) return false;
+      const column = sortColumn((await listAlive('books')).filter((row) => row.status === book.status));
+      const currentIndex = column.findIndex((row) => row.id === bookId);
+      const target = movedIndex(currentIndex, delta, column.length);
+      if (target === null) return false;
+      await this.reorder(bookId, target);
+      return true;
     },
     async createBook(input: BookInput): Promise<Book | null> {
       const fields = validateBook(input.title, input.totalPages);

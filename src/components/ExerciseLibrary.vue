@@ -136,7 +136,7 @@ function submitAdd(): void {
   line-height: 1;
 }
 .library-remove:hover {
-  color: var(--danger, #b5342c);
-  border-color: var(--danger, #b5342c);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 </style>

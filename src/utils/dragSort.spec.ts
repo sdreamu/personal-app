@@ -3,6 +3,7 @@ import {
   assignSortIndexes,
   clampIndex,
   compareBySortIndex,
+  movedIndex,
   nextSortIndex,
   orderedIdsAfterMove,
   sortColumn,
@@ -94,5 +95,27 @@ describe('dragSort.assignSortIndexes / nextSortIndex', () => {
     expect(nextSortIndex([10, 30, 20])).toBe(40);
     expect(nextSortIndex([undefined, 20])).toBe(30);
     expect(nextSortIndex([], 5)).toBe(5);
+  });
+});
+
+describe('movedIndex（键盘 / 触屏上移下移，P6-3）', () => {
+  it('常规：列中间上移一得 i-1、下移一得 i+1', () => {
+    expect(movedIndex(1, -1, 3)).toBe(0);
+    expect(movedIndex(1, 1, 3)).toBe(2);
+    expect(movedIndex(0, 1, 3)).toBe(1);
+    expect(movedIndex(2, -1, 3)).toBe(1);
+  });
+
+  it('边界：列首上移、列尾下移都返回 null（不动也不越界）', () => {
+    expect(movedIndex(0, -1, 3)).toBeNull();
+    expect(movedIndex(2, 1, 3)).toBeNull();
+    expect(movedIndex(0, -1, 1)).toBeNull();
+  });
+
+  it('非法输入：下标越界 / 非整数 / 单列都返回 null', () => {
+    expect(movedIndex(-1, 1, 3)).toBeNull();
+    expect(movedIndex(3, -1, 3)).toBeNull();
+    expect(movedIndex(0.5, 1, 3)).toBeNull();
+    expect(movedIndex(0, 1, 0)).toBeNull();
   });
 });

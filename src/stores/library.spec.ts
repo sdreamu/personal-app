@@ -482,3 +482,121 @@ describe('读书/科目业务 store（library）', () => {
     expect(column.map((row) => row.title)).toEqual(['C', 'B', 'A']);
   });
 });
+
+describe('书架排序的键盘 / 触屏替代与 sort_index 兜底（P6-2 / P6-3）', () => {
+  async function seedColumn(titles: string[]): Promise<Book[]> {
+    const books: Book[] = [];
+    for (const [index, title] of titles.entries()) {
+      books.push(
+        await createRecord('books', {
+          title,
+          author: null,
+          total_pages: 300,
+          current_page: 0,
+          status: 'want',
+          color: '#888888',
+          start_date: null,
+          finish_date: null,
+          sort_index: (index + 1) * 10,
+        }),
+      );
+    }
+    return books;
+  }
+
+  it('moveBy：列中间上移一位 / 下移一位，写回 10、20、30 的新顺序', async () => {
+    const [a, b, c] = await seedColumn(['甲', '乙', '丙']);
+    await library.loadBooks();
+
+    expect(await library.moveBy(b!.id, -1)).toBe(true);
+    await library.loadBooks();
+    let order = (await listAlive<Book>('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    expect(order.map((row) => row.title)).toEqual(['乙', '甲', '丙']);
+    expect(order.map((row) => row.sort_index)).toEqual([10, 20, 30]);
+
+    expect(await library.moveBy(b!.id, 1)).toBe(true);
+    await library.loadBooks();
+    order = (await listAlive<Book>('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    expect(order.map((row) => row.title)).toEqual(['甲', '乙', '丙']);
+    expect([a!.id, b!.id, c!.id]).toHaveLength(3);
+  });
+
+  it('moveBy：列首上移 / 列尾下移返回 false，顺序不动', async () => {
+    const [a, , c] = await seedColumn(['甲', '乙', '丙']);
+    await library.loadBooks();
+    const before = (await listAlive<Book>('books')).map((row) => row.sort_index);
+
+    expect(await library.moveBy(a!.id, -1)).toBe(false);
+    expect(await library.moveBy(c!.id, 1)).toBe(false);
+    const after = (await listAlive<Book>('books')).map((row) => row.sort_index);
+    expect(after).toEqual(before);
+  });
+
+  it('loadBooks 兜底：sort_index 缺失/非数字的老数据按列内顺序回填 10、20、30', async () => {
+    // 直接写两条没有 sort_index 的记录（模拟手改过的备份 / 老数据）
+    const first = await createRecord('books', {
+      title: '老书一',
+      author: null,
+      total_pages: 100,
+      current_page: 0,
+      status: 'want',
+      color: '#888888',
+      start_date: null,
+      finish_date: null,
+    });
+    const second = await createRecord('books', {
+      title: '老书二',
+      author: null,
+      total_pages: 100,
+      current_page: 0,
+      status: 'want',
+      color: '#888888',
+      start_date: null,
+      finish_date: null,
+    });
+    // 一条干脆没有 sort_index，另一条被写成了字符串（手改 JSON 的典型事故）
+    await updateRecord('books', first.id, { created_at: BASE });
+    await updateRecord('books', second.id, {
+      created_at: BASE + 1000,
+      sort_index: 'oops' as unknown as number,
+    });
+
+    const rows = await library.loadBooks();
+    expect(rows.find((row) => row.id === first.id)?.sort_index).toBe(10);
+    expect(rows.find((row) => row.id === second.id)?.sort_index).toBe(20);
+
+    // 落库也补上了：再读一遍仍是数字
+    const stored = await listAlive<Book>('books');
+    for (const row of stored) expect(typeof row.sort_index).toBe('number');
+  });
+
+  it('兜底之后 moveBy 仍然可用（不再靠 ?? Infinity 兜底排序）', async () => {
+    const first = await createRecord('books', {
+      title: '老书一',
+      author: null,
+      total_pages: 100,
+      current_page: 0,
+      status: 'want',
+      color: '#888888',
+      start_date: null,
+      finish_date: null,
+    });
+    const second = await createRecord('books', {
+      title: '老书二',
+      author: null,
+      total_pages: 100,
+      current_page: 0,
+      status: 'want',
+      color: '#888888',
+      start_date: null,
+      finish_date: null,
+    });
+    // created_at 决定兜底时的先后：老书一更早 → 10，老书二 → 20
+    await updateRecord('books', first.id, { created_at: BASE });
+    await updateRecord('books', second.id, { created_at: BASE + 1000 });
+    await library.loadBooks();
+    expect(await library.moveBy(second.id, -1)).toBe(true);
+    const order = (await listAlive<Book>('books')).sort((x, y) => (x.sort_index ?? 0) - (y.sort_index ?? 0));
+    expect(order.map((row) => row.title)).toEqual(['老书二', '老书一']);
+  });
+});

@@ -71,3 +71,15 @@ export function nextSortIndex(values: readonly (number | undefined)[], step = 10
   }, 0);
   return max + step;
 }
+
+/**
+ * 键盘 / 触屏「上移 / 下移」的目标下标：delta=-1 上移、+1 下移。
+ * 返回 null 表示已经在列首 / 列尾，不需要动。返回值与 reorder 的 toIndex 同义
+ * （= 该列移除这本书之后的下标）。
+ */
+export function movedIndex(currentIndex: number, delta: number, length: number): number | null {
+  if (!Number.isInteger(currentIndex) || currentIndex < 0 || currentIndex >= length) return null;
+  const target = currentIndex + Math.trunc(delta);
+  if (target < 0 || target >= length) return null;
+  return target;
+}

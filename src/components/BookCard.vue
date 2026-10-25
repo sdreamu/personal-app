@@ -3,13 +3,17 @@ import { computed } from 'vue';
 import type { Book } from '@/db';
 import type { BookStatus } from '@/stores/library';
 
-const props = defineProps<{ book: Book }>();
+const props = withDefaults(
+  defineProps<{ book: Book; canMoveUp?: boolean; canMoveDown?: boolean }>(),
+  { canMoveUp: true, canMoveDown: true },
+);
 const emit = defineEmits<{
   (e: 'open'): void;
   (e: 'edit'): void;
   (e: 'delete'): void;
   (e: 'status-change', status: BookStatus): void;
   (e: 'page-change', page: number): void;
+  (e: 'move', delta: number): void;
   (e: 'drag-start'): void;
   (e: 'drag-end'): void;
 }>();
@@ -92,6 +96,28 @@ const percent = computed(() => {
         >
           <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
+        <button
+          type="button"
+          class="ghost-btn"
+          data-test="book-move-up"
+          :disabled="!props.canMoveUp"
+          :aria-label="`把《${book.title}》上移一位`"
+          title="上移一位"
+          @click="emit('move', -1)"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          class="ghost-btn"
+          data-test="book-move-down"
+          :disabled="!props.canMoveDown"
+          :aria-label="`把《${book.title}》下移一位`"
+          title="下移一位"
+          @click="emit('move', 1)"
+        >
+          ↓
+        </button>
         <button class="ghost-btn" data-test="book-edit" @click="emit('edit')">编辑</button>
         <button class="danger-btn" data-test="book-delete" @click="emit('delete')">删除</button>
       </div>

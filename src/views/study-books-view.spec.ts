@@ -315,3 +315,65 @@ describe('书架页弹窗关闭：✕ / 遮罩（AC-73）', () => {
     expect((await getRecord('books', book.id))?.title).toBe('SICP');
   });
 });
+
+describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
+  function titlesInColumn(wrapper: VueWrapper): string[] {
+    return wrapper.findAll('[data-test="book-card"]').map((card) => card.find('[data-test="book-title"]').text());
+  }
+
+  it('卡片上有 ↑ / ↓ 按钮：点 ↑ 把第二本换到第一位，落库 sort_index 重排', async () => {
+    await makeBook('want', '甲书');
+    await makeBook('want', '乙书');
+    await makeBook('want', '丙书');
+    const wrapper = await mountBooks();
+    await waitFor(() => titlesInColumn(wrapper).length === 3, '三张卡片未渲染');
+    expect(titlesInColumn(wrapper)).toEqual(['甲书', '乙书', '丙书']);
+
+    const second = cardWith(wrapper, '乙书');
+    await second.find('[data-test="book-move-up"]').trigger('click');
+    await waitFor(() => titlesInColumn(wrapper)[0] === '乙书', '上移后顺序未更新');
+    expect(titlesInColumn(wrapper)).toEqual(['乙书', '甲书', '丙书']);
+
+    const rows = (await listAlive<Book>('books')).sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0));
+    expect(rows.map((row) => row.title)).toEqual(['乙书', '甲书', '丙书']);
+    expect(rows.map((row) => row.sort_index)).toEqual([10, 20, 30]);
+  });
+
+  it('列首没有 ↑、列尾没有 ↓（按钮 disabled），点不动也没副作用', async () => {
+    await makeBook('want', '甲书');
+    await makeBook('want', '乙书');
+    const wrapper = await mountBooks();
+    await waitFor(() => titlesInColumn(wrapper).length === 2, '卡片未渲染');
+
+    const first = cardWith(wrapper, '甲书');
+    const last = cardWith(wrapper, '乙书');
+    expect((first.find('[data-test="book-move-up"]').element as HTMLButtonElement).disabled).toBe(true);
+    expect((last.find('[data-test="book-move-down"]').element as HTMLButtonElement).disabled).toBe(true);
+    expect((first.find('[data-test="book-move-down"]').element as HTMLButtonElement).disabled).toBe(false);
+
+    // 键盘也能到：按钮是可聚焦的 button 且带 aria-label
+    const up = first.find('[data-test="book-move-up"]');
+    expect(up.attributes('aria-label')).toContain('上移一位');
+    expect(up.attributes('title')).toBeTruthy();
+  });
+
+  it('只能在本栏内移动（不同状态列互不影响）', async () => {
+    await makeBook('want', '想读书');
+    await makeBook('reading', '在读一');
+    await makeBook('reading', '在读二');
+    const wrapper = await mountBooks();
+    await waitFor(() => titlesInColumn(wrapper).length === 3, '卡片未渲染');
+
+    await cardWith(wrapper, '在读二').find('[data-test="book-move-up"]').trigger('click');
+    // 列的顺序是 想读 → 在读 → 读完，所以只看整体列表的 2、3 位
+    await waitFor(
+      () => titlesInColumn(wrapper).slice(1).join(',') === '在读二,在读一',
+      '在读列顺序未更新',
+    );
+    // 「想读」列那本没被带着走
+    const rows = await listAlive<Book>('books');
+    const wantRows = rows.filter((row) => row.status === 'want');
+    expect(wantRows.map((row) => row.title)).toEqual(['想读书']);
+    expect(wantRows[0]?.sort_index).toBe(10);
+  });
+});
