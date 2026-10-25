@@ -27,7 +27,14 @@ let pinia: Pinia;
 let router: Router;
 let library: ReturnType<typeof useLibraryStore>;
 
-function makeBook(status: 'want' | 'reading' | 'done', title: string, currentPage = 0, totalPages = 300): Promise<Book> {
+function makeBook(
+  status: 'want' | 'reading' | 'done',
+  title: string,
+  currentPage = 0,
+  totalPages = 300,
+  /** 排序键：给了才写（不给就交给 loadBooks 的兜底按 created_at/id 排） */
+  sortIndex?: number,
+): Promise<Book> {
   return createRecord('books', {
     title,
     author: null,
@@ -37,6 +44,7 @@ function makeBook(status: 'want' | 'reading' | 'done', title: string, currentPag
     color: '#4a6cf7',
     start_date: null,
     finish_date: null,
+    ...(sortIndex === undefined ? {} : { sort_index: sortIndex }),
   });
 }
 
@@ -52,7 +60,8 @@ async function waitFor(check: () => boolean, label: string): Promise<void> {
     () => {
       if (!check()) throw new Error(label);
     },
-    { timeout: 3000, interval: 20 },
+    // 全量并行时 fake-indexeddb + 挂载会慢，等到 8s（和全局 testTimeout 对齐），不放宽任何断言
+    { timeout: 8000, interval: 20 },
   );
 }
 
@@ -322,9 +331,9 @@ describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
   }
 
   it('卡片上有 ↑ / ↓ 按钮：点 ↑ 把第二本换到第一位，落库 sort_index 重排', async () => {
-    await makeBook('want', '甲书');
-    await makeBook('want', '乙书');
-    await makeBook('want', '丙书');
+    await makeBook('want', '甲书', 0, 300, 10);
+    await makeBook('want', '乙书', 0, 300, 20);
+    await makeBook('want', '丙书', 0, 300, 30);
     const wrapper = await mountBooks();
     await waitFor(() => titlesInColumn(wrapper).length === 3, '三张卡片未渲染');
     expect(titlesInColumn(wrapper)).toEqual(['甲书', '乙书', '丙书']);
@@ -340,8 +349,8 @@ describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
   });
 
   it('列首没有 ↑、列尾没有 ↓（按钮 disabled），点不动也没副作用', async () => {
-    await makeBook('want', '甲书');
-    await makeBook('want', '乙书');
+    await makeBook('want', '甲书', 0, 300, 10);
+    await makeBook('want', '乙书', 0, 300, 20);
     const wrapper = await mountBooks();
     await waitFor(() => titlesInColumn(wrapper).length === 2, '卡片未渲染');
 
@@ -358,9 +367,9 @@ describe('书架排序的键盘 / 触屏替代（P6-3）', () => {
   });
 
   it('只能在本栏内移动（不同状态列互不影响）', async () => {
-    await makeBook('want', '想读书');
-    await makeBook('reading', '在读一');
-    await makeBook('reading', '在读二');
+    await makeBook('want', '想读书', 0, 300, 10);
+    await makeBook('reading', '在读一', 0, 300, 10);
+    await makeBook('reading', '在读二', 0, 300, 20);
     const wrapper = await mountBooks();
     await waitFor(() => titlesInColumn(wrapper).length === 3, '卡片未渲染');
 

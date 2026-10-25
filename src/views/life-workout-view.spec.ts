@@ -111,6 +111,12 @@ describe('健身页 #/life/workout', () => {
     }, WAIT_OPTS);
     expect(day.text()).toContain('胸');
     expect(day.text()).toContain('卧推');
+    // 组行是模板动作落库后再渲染的，等它补齐（2 个动作 × 3 组）再断言
+    await vi.waitFor(() => {
+      if (wrapper.find('[data-test="day-editor"]').findAll('[data-test="set-row"]').length !== 6) {
+        throw new Error('组行还没渲染齐');
+      }
+    }, WAIT_OPTS);
     expect(wrapper.find('[data-test="day-editor"]').findAll('[data-test="set-row"]')).toHaveLength(6);
   });
 

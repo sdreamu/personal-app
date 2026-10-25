@@ -34,9 +34,11 @@ export default defineConfig(({ mode }) => {
       include: ['src/**/*.spec.ts'],
       // 这些用例走真实 IndexedDB(fake-indexeddb) + 组件挂载，全量并行跑时单测耗时波动很大。
       // 默认 5s 会在机器负载高时误伤（表现为 "Test timed out in 5000ms"，断言本身没失败）。
-      // 放宽到 15s：不放宽任何断言，只是不让环境抖动被当成功能回归。
-      testTimeout: 15000,
-      hookTimeout: 15000,
+      // P6-4 基线（2026-06 全量 642 条）：整轮 41s，单条最慢 4.1s（router.spec 连挂 12 个页面），
+      // 其次 0.7s；8s = 最慢那条的 2 倍余量，够用又能在真的卡死时早点报错。
+      // 超时只是环境兜底，任何断言都不放宽；真超时先查根因，别调大这个数。
+      testTimeout: 8000,
+      hookTimeout: 8000,
     },
   };
 });
