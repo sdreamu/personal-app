@@ -27,6 +27,24 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       port: resolveDevPort(env.DEV_PORT),
       strictPort: true,
+      // 首屏慢的真正原因：冷启动时 Vite 要"现发现现打包"依赖 + 现转译整棵模块图，
+      // 第一个请求会一直挂着（实测冷启动 / 请求 19s，浏览器就是白屏）。
+      // warmup 在服务端起来时就把这些文件转译好，浏览器第一个请求直接命中缓存。
+      warmup: {
+        clientFiles: [
+          './src/main.ts',
+          './src/App.vue',
+          './src/router/index.ts',
+          './src/views/*.vue',
+          './src/components/*.vue',
+          './src/stores/*.ts',
+          './src/db/*.ts',
+        ],
+      },
+    },
+    // 依赖预打包一次性做完，避免运行时"发现新依赖 → 重新优化 → 整页刷新"的连环等待
+    optimizeDeps: {
+      include: ['vue', 'vue-router', 'pinia', 'dexie'],
     },
     test: {
       environment: 'jsdom',
