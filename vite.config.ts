@@ -31,14 +31,15 @@ export default defineConfig(({ mode }) => {
       // 第一个请求会一直挂着（实测冷启动 / 请求 19s，浏览器就是白屏）。
       // warmup 在服务端起来时就把这些文件转译好，浏览器第一个请求直接命中缓存。
       warmup: {
+        // 只预热"首屏真正要加载的东西"：入口 + 路由表 + 所有页面组件。
+        // 别写 './src/stores/*.ts' './src/db/*.ts' —— 这两个 glob 会把同目录的 *.spec.ts
+        // 也一起转译（vitest/fake-indexeddb 那一整套），预热反而把服务器压住几十秒。
         clientFiles: [
           './src/main.ts',
           './src/App.vue',
           './src/router/index.ts',
           './src/views/*.vue',
           './src/components/*.vue',
-          './src/stores/*.ts',
-          './src/db/*.ts',
         ],
       },
     },
