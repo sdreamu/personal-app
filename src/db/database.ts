@@ -7,6 +7,7 @@ import {
   DB_VERSION,
   BUILTIN_MEAL_TYPES,
   BUILTIN_PLAN_CATEGORIES,
+  BUILTIN_WORKOUT_TYPES,
   DEFAULT_SETTINGS_VALUES,
   GC_TABLES,
   TABLE_NAMES,
@@ -193,7 +194,10 @@ function deleteDatabase(name: string): Promise<void> {
 
 /** 首次运行种子：默认 settings + 内置分类/餐次（幂等，缺哪补哪）。 */
 export async function seedFirstRun(db: EvanDB): Promise<void> {
-  await db.transaction('rw', [db.settings, db.plan_categories, db.meal_types], async () => {
+  await db.transaction(
+    'rw',
+    [db.settings, db.plan_categories, db.meal_types, db.workout_types],
+    async () => {
     if ((await db.settings.get('app')) === undefined) {
       const now = nowMs();
       await db.settings.add({
@@ -219,6 +223,20 @@ export async function seedFirstRun(db: EvanDB): Promise<void> {
         });
       }
     }
+    // 训练类型只有 name（没有 builtin_key 区分配置与用户自建），所以"缺哪补哪"无法逐条判断：
+    // 整张表一条有效记录都没有时才补内置三项，避免把用户自己删掉的类型又塞回去。
+    if ((await db.workout_types.filter((row) => row.deleted_at === null).count()) === 0) {
+      const now = nowMs();
+      for (const name of BUILTIN_WORKOUT_TYPES) {
+        await db.workout_types.add({
+          id: uuid(),
+          created_at: now,
+          updated_at: now,
+          deleted_at: null,
+          name,
+        });
+      }
+    }
     for (const builtin of BUILTIN_MEAL_TYPES) {
       const rows = await db.meal_types.where('builtin_key').equals(builtin.builtin_key).toArray();
       if (!rows.some((r) => r.deleted_at === null)) {
@@ -233,7 +251,8 @@ export async function seedFirstRun(db: EvanDB): Promise<void> {
         });
       }
     }
-  });
+    },
+  );
 }
 
 /** 物理删除 deleted_at 早于 1 小时前的软删除记录；返回删除条数。 */

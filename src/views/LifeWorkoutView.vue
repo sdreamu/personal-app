@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { errorMessage, type WorkoutRecord } from '@/db';
+import ExerciseLibrary from '@/components/ExerciseLibrary.vue';
 import WorkoutDay from '@/components/WorkoutDay.vue';
 import WorkoutHistory from '@/components/WorkoutHistory.vue';
 import WorkoutWeekPlanEditor from '@/components/WorkoutWeekPlanEditor.vue';
@@ -69,6 +70,20 @@ async function handleTemplateSave(weekday: number, patch: WorkoutTemplatePatch):
     if (!store.dayPersisted && weekday === weekdayOf(selectedDate.value)) {
       await store.loadDay(selectedDate.value);
     }
+  } catch {
+    // 已由 store 提示
+  }
+}
+
+/**
+ * AC-84：周计划里直接新建训练类型 —— 先建类型，再把它选到这一行。
+ * 旧版只能从「训练类型」里选，而这张表以前从不种子化，于是下拉里只剩「休息」，
+ * 用户怎么点都排不出训练日（"每日计划加不进去"）。
+ */
+async function handleCreateType(weekday: number, name: string): Promise<void> {
+  try {
+    const type = await store.createWorkoutType(name);
+    await handleTemplateSave(weekday, { type_name: type.name });
   } catch {
     // 已由 store 提示
   }
@@ -176,7 +191,6 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
       <WorkoutDay
         :record="store.day"
         :suggestions="suggestions"
-        :library="libraryItems"
         @start-temporary="handleStartTemporary"
         @toggle-set="handleToggleSet"
         @update-set="handleUpdateSet"
@@ -186,9 +200,17 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
         @set-note="handleSetNote"
         @set-duration="handleSetDuration"
         @complete-exercise="handleCompleteExercise"
-        @library-add="handleLibraryAdd"
-        @library-remove="handleLibraryRemove"
         @finish="handleFinish"
+      />
+    </div>
+
+    <!-- AC-83：项目库是跨天的资产，独立成卡；点动作名 = 加进当天训练 -->
+    <div class="settings-card" data-test="library-card">
+      <ExerciseLibrary
+        :items="libraryItems"
+        @select="handleAddExercise"
+        @add="handleLibraryAdd"
+        @remove="handleLibraryRemove"
       />
     </div>
 
@@ -209,6 +231,7 @@ function handleHistorySetDuration(record: WorkoutRecord, minutes: number | null)
           :templates="store.week"
           :workout-types="store.workoutTypes"
           @save="handleTemplateSave"
+          @create-type="handleCreateType"
         />
       </div>
     </div>

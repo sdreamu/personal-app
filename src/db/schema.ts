@@ -338,6 +338,13 @@ export const BUILTIN_PLAN_CATEGORIES: ReadonlyArray<{ name: string; builtin_key:
   { name: '其他', builtin_key: 'other' },
 ];
 
+/**
+ * 内置训练类型（AC-84）：健身页的周计划只能从「训练类型」里选，而这张表以前从来不种子化，
+ * 于是新装/清空过的库打开健身页时，类型下拉只有「休息」一项 —— 周计划永远排不出训练日，
+ * 表现为"每日计划加不进去"。现在随库种入这三个最通用的类型，用户可自行增删。
+ */
+export const BUILTIN_WORKOUT_TYPES: readonly string[] = ['力量', '有氧', '拉伸'];
+
 export const BUILTIN_MEAL_TYPES: ReadonlyArray<{ name: string; builtin_key: MealBuiltinKey }> = [
   { name: '早', builtin_key: 'breakfast' },
   { name: '午', builtin_key: 'lunch' },

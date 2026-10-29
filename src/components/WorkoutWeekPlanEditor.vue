@@ -10,6 +10,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'save', weekday: number, patch: WorkoutTemplatePatch): void;
+  /** AC-84：直接新建一个训练类型，成功后由父组件把它选到这一行。 */
+  (e: 'create-type', weekday: number, name: string): void;
 }>();
 
 const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const;
@@ -29,6 +31,9 @@ const rows = computed<WeekRow[]>(() =>
 );
 
 const addInputs = reactive<Record<number, string>>({});
+/** 「＋ 新类型」展开状态与输入值（按 weekday 存，互不影响）。 */
+const creatingType = reactive<Record<number, boolean>>({});
+const newTypeNames = reactive<Record<number, string>>({});
 const renamingIndex = reactive<Record<number, number | null>>({});
 const renamingName = reactive<Record<number, string>>({});
 
@@ -51,6 +56,19 @@ function exerciseNames(row: WeekRow): string[] {
 
 function onTypeChange(row: WeekRow, event: Event): void {
   emit('save', row.weekday, { type_name: (event.target as HTMLSelectElement).value });
+}
+
+function startCreateType(row: WeekRow): void {
+  creatingType[row.weekday] = true;
+  newTypeNames[row.weekday] = '';
+}
+
+function commitCreateType(row: WeekRow): void {
+  const name = (newTypeNames[row.weekday] ?? '').trim();
+  creatingType[row.weekday] = false;
+  newTypeNames[row.weekday] = '';
+  if (name === '') return;
+  emit('create-type', row.weekday, name);
 }
 
 function addExercises(row: WeekRow): void {
@@ -103,6 +121,26 @@ function commitRename(row: WeekRow, index: number): void {
           {{ typeName }}
         </option>
       </select>
+      <template v-if="creatingType[row.weekday]">
+        <input
+          v-model="newTypeNames[row.weekday]"
+          class="chip-input new-type-input"
+          data-test="new-type-input"
+          placeholder="新类型名（例如：腿）"
+          @keyup.enter="commitCreateType(row)"
+          @blur="commitCreateType(row)"
+        />
+      </template>
+      <button
+        v-else
+        type="button"
+        class="ghost-btn new-type-btn"
+        data-test="new-type-btn"
+        :title="'给' + row.label + '新建一个训练类型'"
+        @click="startCreateType(row)"
+      >
+        ＋ 类型
+      </button>
 
       <div
         v-if="currentType(row) !== REST_TYPE_NAME"
@@ -156,6 +194,14 @@ function commitRename(row: WeekRow, index: number): void {
 </template>
 
 <style scoped>
+.new-type-btn {
+  padding: 3px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.new-type-input {
+  width: 128px;
+}
 .week-plan {
   display: flex;
   flex-direction: column;

@@ -512,3 +512,100 @@ describe('N4 训练组完成反馈（AC-74）', () => {
     expect(card().findAll('[data-test="set-row"].set-row-done')).toHaveLength(1);
   });
 });
+
+
+describe('项目库外置（AC-83）', () => {
+  it('项目库是独立卡片：不在「今日训练」卡片里，页面顺序 今日训练 → 项目库 → 每周计划', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+
+    const html = wrapper.html();
+    expect(html.indexOf('data-test="library-card"')).toBeGreaterThan(-1);
+    // 不在当天训练的卡片内部
+    expect(wrapper.find('[data-test="day-card"] [data-test="exercise-library"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="library-card"] [data-test="exercise-library"]').exists()).toBe(true);
+
+    const dayIndex = html.indexOf('data-test="day-card"');
+    const libraryIndex = html.indexOf('data-test="library-card"');
+    const weekIndex = html.indexOf('data-test="week-plan-card"');
+    expect(libraryIndex).toBeGreaterThan(dayIndex);
+    expect(weekIndex).toBeGreaterThan(libraryIndex);
+  });
+
+  it('休息日没有当天记录，项目库照样能看能点（点一下会建当天记录并加入）', async () => {
+    await createRecord('exercises', { name: '深蹲' });
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="rest-day"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="library-card"]').exists()).toBe(true);
+
+    await vi.waitFor(() => {
+      if (!wrapper.findAll('[data-test="library-item"]').some((i) => i.text() === '深蹲')) {
+        throw new Error('项目库未就绪');
+      }
+    }, WAIT_OPTS);
+
+    await wrapper
+      .findAll('[data-test="library-item"]')
+      .find((i) => i.text() === '深蹲')!
+      .trigger('click');
+    await vi.waitFor(async () => {
+      const rows = await listAliveByDate('workout_records', TODAY);
+      if (!rows[0]?.exercises.some((e) => e.name === '深蹲')) throw new Error('休息日点击未建记录');
+    }, WAIT_OPTS);
+  });
+
+  it('历史训练记录里不重复出现项目库', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    await createRecord('workout_records', makeRecord(YESTERDAY));
+    wrapper = await mountPage();
+    expect(wrapper.findAll('[data-test="exercise-library"]')).toHaveLength(1);
+  });
+});
+
+
+describe('每日计划能加能写（AC-84）', () => {
+  it('周计划下拉自带内置类型（力量/有氧/拉伸），不再是只有「休息」', async () => {
+    wrapper = await mountPage();
+    const options = wrapper
+      .findAll('[data-test="type-select"]')[0]!
+      .findAll('option')
+      .map((o) => o.text());
+    expect(options).toContain('休息');
+    expect(options).toContain('力量');
+    expect(options).toContain('有氧');
+    expect(options).toContain('拉伸');
+  });
+
+  it('「＋ 类型」新建一个类型：落 workout_types 并直接选到这一行', async () => {
+    wrapper = await mountPage();
+    await wrapper.find('[data-test="week-plan-toggle"]').trigger('click');
+
+    const mondayRow = wrapper.findAll('[data-test="week-row"]')[0]!;
+    await mondayRow.find('[data-test="new-type-btn"]').trigger('click');
+    await mondayRow.find('[data-test="new-type-input"]').setValue('腿');
+    await mondayRow.find('[data-test="new-type-input"]').trigger('keyup.enter');
+
+    await vi.waitFor(async () => {
+      const types = await listAlive('workout_types');
+      if (!types.some((t) => t.name === '腿')) throw new Error('类型未落库');
+    }, WAIT_OPTS);
+    await vi.waitFor(() => {
+      const select = wrapper.findAll('[data-test="type-select"]')[0]!;
+      if ((select.element as HTMLSelectElement).value !== '腿') throw new Error('新类型未选中');
+    }, WAIT_OPTS);
+    // 周计划真的写进去了
+    await vi.waitFor(() => {
+      if (useWorkoutStore().week.find((t) => t.weekday === 1)?.type_name !== '腿') {
+        throw new Error('周计划未保存新类型');
+      }
+    }, WAIT_OPTS);
+  });
+
+  it('周计划里给周一排的动作，周一当天能看到（每日计划真的下来了）', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推', '飞鸟']);
+    wrapper = await mountPage();
+    const names = wrapper.findAll('[data-test="exercise-name"]').map((n) => n.text());
+    expect(names).toContain('卧推');
+    expect(names).toContain('飞鸟');
+  });
+});

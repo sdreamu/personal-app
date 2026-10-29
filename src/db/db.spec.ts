@@ -320,7 +320,11 @@ describe('种子与内置保护', () => {
     const workout = await addCategory('workout_types', '胸');
     await renameCategory('workout_types', workout.id, '胸+三头');
     await removeCategory('workout_types', workout.id);
-    expect(await listCategories('workout_types')).toHaveLength(0);
+    // AC-84 之后 workout_types 随库种入内置三项（力量/有氧/拉伸），所以这里断言"删掉的那个没了"，
+    // 而不是"整张表为空"。
+    const remaining = (await listCategories('workout_types')).map((c) => c.name);
+    expect(remaining).not.toContain('胸+三头');
+    expect(remaining.slice().sort()).toEqual(['力量', '拉伸', '有氧'].sort());
   });
 });
 

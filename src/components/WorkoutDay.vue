@@ -2,17 +2,14 @@
 import { ref } from 'vue';
 import { useDoneFlash } from '@/composables/useDoneFlash';
 import type { WorkoutDayView } from '@/stores/workout';
-import ExerciseLibrary from './ExerciseLibrary.vue';
 
 const props = withDefaults(
   defineProps<{
     record: WorkoutDayView | null;
     suggestions?: string[];
     mode?: 'day' | 'history';
-    /** 项目库条目（{ id, name }，最近使用优先，已排序）；为空则只显示新增输入框与空状态提示。 */
-    library?: { id: string; name: string }[];
   }>(),
-  { suggestions: () => [], mode: 'day', library: () => [] },
+  { suggestions: () => [], mode: 'day' },
 );
 
 const emit = defineEmits<{
@@ -32,10 +29,6 @@ const emit = defineEmits<{
   (e: 'finish'): void;
   /** 一键把某个动作的所有组标记为完成。 */
   (e: 'complete-exercise', exerciseIndex: number): void;
-  /** 项目库新增动作。 */
-  (e: 'library-add', name: string): void;
-  /** 项目库删除动作（按 id 软删除，父组件负责撤销提示）。 */
-  (e: 'library-remove', id: string): void;
 }>();
 
 const suggestionListId = 'workout-suggestions-' + Math.random().toString(36).slice(2, 10);
@@ -302,14 +295,6 @@ function onDurationChange(event: Event): void {
       </datalist>
       <button class="ghost-btn" data-test="add-exercise" @click="submitAdd">添加</button>
     </div>
-
-    <ExerciseLibrary
-      v-if="mode === 'day'"
-      :items="props.library"
-      @select="(name: string) => emit('add-exercise', name)"
-      @add="(name: string) => emit('library-add', name)"
-      @remove="(id: string) => emit('library-remove', id)"
-    />
   </div>
 
   <div v-else class="rest-day" data-test="rest-day">

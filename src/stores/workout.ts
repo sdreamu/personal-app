@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import {
+  addCategory,
   createRecord,
   errorMessage,
   getRecord,
@@ -444,6 +445,19 @@ export const useWorkoutStore = defineStore('workout', {
       }
     },
 
+    /** 新建训练类型（AC-84）：周计划里可以直接加一个新类型，不必先跑去设置页。幂等。 */
+    async createWorkoutType(name: string): Promise<WorkoutType> {
+      const trimmed = name.trim();
+      if (trimmed === '') throw new Error('训练类型名称不能为空');
+      const existing = this.workoutTypes.find((type) => type.name === trimmed);
+      if (existing) return existing;
+      const created = await this.runWithSaveStatus(
+        () => addCategory('workout_types', trimmed) as Promise<WorkoutType>,
+      );
+      await this.refreshWeek();
+      return created;
+    },
+
     /** 休息日“开始临时训练”：无记录则新建空记录（type_name=临时训练）。 */
     async startTemporaryWorkout(date: string): Promise<WorkoutRecord> {
       if (!parseDateKey(date)) throw new Error('非法日期：' + date);
@@ -511,8 +525,11 @@ export const useWorkoutStore = defineStore('workout', {
       }
       const rows = await listAliveByDate('workout_records', date);
       const record = rows[0] ?? null;
-      if (!record) throw new Error('该日期还没有训练记录');
-      return record;
+      if (record) return record;
+      // AC-84：以前这里直接抛「该日期还没有训练记录」，休息日（或任何还没有记录的日子）
+      // 从项目库点一个动作就只弹红字、什么也没写进去 —— 用户看到的就是"加不进去"。
+      // 现在改为先建当天记录（rest 日就是一条空的临时训练）再返回，写入照常继续。
+      return this.ensureDay(date);
     },
 
     async persistExercises(record: WorkoutRecord, exercises: ExerciseEntry[]): Promise<void> {

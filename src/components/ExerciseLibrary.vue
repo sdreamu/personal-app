@@ -2,8 +2,10 @@
 import { computed, ref } from 'vue';
 
 /**
- * 训练项目库区块（M5 / N3）：用户自己的动作清单，可自己写、可删（5 秒撤销）。
+ * 训练项目库区块（M5 / N3 / AC-83）：用户自己的动作清单，可自己写、可删（5 秒撤销）。
  * 点条目 = 把该动作加入当天训练；排序由父组件（store getter）算好传进来。
+ * AC-83：这块从「当天训练」卡片里搬出来，成为独立卡片 —— 项目库是跨天的资产，
+ * 不该跟着每一天的记录一起滚，也不该在历史记录里重复出现。
  */
 const props = withDefaults(defineProps<{ items?: { id: string; name: string }[] }>(), {
   items: () => [],
@@ -28,7 +30,12 @@ function submitAdd(): void {
 
 <template>
   <section class="exercise-library" data-test="exercise-library">
-    <h3 class="library-title">项目库</h3>
+    <h3 class="library-title">
+      项目库
+      <span v-if="items.length > 0" class="library-count num" data-test="library-count">
+        {{ items.length }}
+      </span>
+    </h3>
     <div class="library-add">
       <input
         v-model="newName"
@@ -44,7 +51,10 @@ function submitAdd(): void {
     <p v-if="items.length === 0" class="hint" data-test="library-empty">
       这里是你自己的动作清单，先写下来，练的时候点一下
     </p>
-    <ul v-else class="library-list" data-test="library-list">
+    <p v-if="items.length > 0" class="hint" data-test="library-hint">
+      点一下动作名，就加进当天训练
+    </p>
+    <ul v-if="items.length > 0" class="library-list" data-test="library-list">
       <li v-for="item in items" :key="item.id" class="library-row">
         <button
           type="button"
@@ -74,14 +84,22 @@ function submitAdd(): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-top: 1px dashed var(--border);
-  padding-top: 12px;
 }
 .library-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
-  font-size: 14px;
-  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+.library-count {
+  font-size: 12px;
   font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 6px;
 }
 .library-add {
   display: flex;

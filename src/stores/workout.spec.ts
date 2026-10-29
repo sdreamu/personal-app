@@ -410,7 +410,8 @@ describe('快照与历史列表', () => {
 
     await removeCategory('workout_types', type.id);
     await store.load(TODAY);
-    expect(store.workoutTypes).toHaveLength(0);
+    // AC-84：内置「力量/有氧/拉伸」随库种子化，删掉自定义的「胸」之后只剩这三个
+    expect(store.workoutTypes.map((t) => t.name).sort()).toEqual(['力量', '有氧', '拉伸'].sort());
     expect(store.day?.type_name).toBe('胸');
     expect((await listAliveByDate('workout_records', TODAY))[0]?.type_name).toBe('胸');
   });
@@ -670,5 +671,64 @@ describe('N3 一键整组完成与置顶（AC-73）', () => {
     await store.completeExercise(TODAY, 0);
     const after = (await listAliveByDate('workout_records', TODAY))[0]?.updated_at;
     expect(after).toBe(before);
+  });
+});
+
+
+describe('AC-84 每日计划能加能写', () => {
+  it('还没有当天记录时（休息日）添加动作：自动建记录并写入，不再抛「该日期还没有训练记录」', async () => {
+    await store.load(TODAY);
+    expect(store.day).toBeNull(); // 这天是休息日
+
+    await store.addExercise(TODAY, '深蹲');
+
+    const rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.type_name).toBe(TEMP_WORKOUT_TYPE_NAME);
+    expect(rows[0]?.exercises.map((e) => e.name)).toEqual(['深蹲']);
+    // 页面状态同步切到"已落库的训练日"
+    expect(store.dayPersisted).toBe(true);
+    expect(store.day?.exercises.map((e) => e.name)).toEqual(['深蹲']);
+    // 项目库照样收录
+    expect((await listAlive('exercises')).map((r) => r.name)).toContain('深蹲');
+  });
+
+  it('没有任何当天记录时，改备注/勾组同样会自动建记录（写入链路一致）', async () => {
+    await store.load(TODAY);
+    await store.addExercise(TODAY, '深蹲');
+    const id = (await listAliveByDate('workout_records', TODAY))[0]!.id;
+    await softDelete('workout_records', id);
+    await store.load(TODAY);
+
+    await store.addExercise(TODAY, '硬拉');
+    const rows = await listAliveByDate('workout_records', TODAY);
+    expect(rows.filter((r) => r.exercises.some((e) => e.name === '硬拉'))).toHaveLength(1);
+  });
+
+  it('内置训练类型随库种子化：力量 / 有氧 / 拉伸', async () => {
+    await store.load(TODAY);
+    expect(store.workoutTypes.map((t) => t.name).sort()).toEqual(['力量', '有氧', '拉伸'].sort());
+  });
+
+  it('createWorkoutType：新建后立即能用、同名幂等、空名报错', async () => {
+    await store.load(TODAY);
+    const created = await store.createWorkoutType('腿');
+    expect(created.name).toBe('腿');
+    expect(store.workoutTypes.map((t) => t.name)).toContain('腿');
+
+    const again = await store.createWorkoutType('腿');
+    expect(again.id).toBe(created.id);
+    expect((await listAlive('workout_types')).filter((t) => t.name === '腿')).toHaveLength(1);
+
+    await expect(store.createWorkoutType('   ')).rejects.toThrow('训练类型名称不能为空');
+  });
+
+  it('新建类型后可以直接排进周计划：当天模板带出动作', async () => {
+    await store.load(TODAY);
+    await store.createWorkoutType('腿');
+    await store.saveTemplate(1, { type_name: '腿', exercise_names: ['深蹲', '腿举'] });
+    await store.load(TODAY);
+    expect(store.week.find((t) => t.weekday === 1)?.type_name).toBe('腿');
+    expect(store.day?.exercises.map((e) => e.name)).toEqual(['深蹲', '腿举']);
   });
 });
