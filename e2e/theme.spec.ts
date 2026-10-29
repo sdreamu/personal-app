@@ -72,3 +72,32 @@ test('AC-68 theme-color 与 UI_GUIDE 主色一致', async ({ page }) => {
   await gotoHash(page, 'settings');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#12352A');
 });
+
+
+/**
+ * AC-82 顶栏一键切白天/夜间：不进口设置页也能切，刷新后保持，写进的是 settings.theme。
+ */
+test('AC-82 顶栏主题按钮：点一下夜/白天互相切换、刷新保持、设置表同步', async ({ page }) => {
+  await gotoHash(page, 'home');
+  const toggle = page.locator('[data-test="theme-toggle"]');
+  await expect(toggle).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(toggle).toHaveAttribute('aria-label', '切换到夜间模式');
+
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(toggle).toHaveAttribute('aria-label', '切换到白天模式');
+  await expect.poll(async () => readThemeSetting(page)).toBe('dark');
+
+  // 刷新保持（读的是库里存的值，不是内存）
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('[data-test="theme-toggle"]')).toHaveAttribute('aria-pressed', 'true');
+
+  // 再点回白天
+  await page.click('[data-test="theme-toggle"]');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect.poll(async () => readThemeSetting(page)).toBe('light');
+});
