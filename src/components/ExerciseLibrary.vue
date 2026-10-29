@@ -105,6 +105,7 @@ function submitAdd(): void {
   display: flex;
   gap: 8px;
   align-items: center;
+  max-width: 420px;
 }
 .library-add .text-input {
   flex: 1;

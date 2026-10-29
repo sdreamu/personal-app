@@ -609,3 +609,46 @@ describe('每日计划能加能写（AC-84）', () => {
     expect(names).toContain('飞鸟');
   });
 });
+
+
+describe('健身页排版重排（AC-85）', () => {
+  it('组表格：表头是「组 / 重量(kg) / 次数」三列标签，与数据行同栅格', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+    const head = wrapper.find('[data-test="set-head"]');
+    expect(head.exists()).toBe(true);
+    const labels = head
+      .findAll('span')
+      .map((s) => s.text())
+      .filter((t) => t !== '');
+    expect(labels).toEqual(['组', '重量(kg)', '次数']);
+    // 数据行：勾选 / 第 N 组 / 重量 / 次数 四格对齐（未完成时没有对勾格）
+    const row = wrapper.find('[data-test="set-row"]');
+    const cells = row.element.children;
+    expect(cells).toHaveLength(4);
+    expect(row.find('[data-test="set-index"]').text()).toBe('第 1 组');
+    expect(row.find('[data-test="set-weight"]').exists()).toBe(true);
+    expect(row.find('[data-test="set-reps"]').exists()).toBe(true);
+  });
+
+  it('今日训练卡头部：状态只在卡片标题出现一次，右侧是用时 + 完成训练', async () => {
+    await seedTypeTemplate(1, '胸', ['卧推']);
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="day-editor"]').exists()).toBe(true);
+
+    // 重复的状态徽章已经删掉，状态只在标题那一处
+    expect(wrapper.find('[data-test="in-progress-badge"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="day-status"]').text()).toContain('进行中');
+    const duration = wrapper.find('.duration-field');
+    expect(duration.text()).toContain('用时');
+    expect(duration.text()).toContain('分钟');
+    expect(wrapper.find('[data-test="finish-workout"]').exists()).toBe(true);
+  });
+
+  it('休息日给出「或者直接在下面的项目库里点一个动作」的下一步', async () => {
+    wrapper = await mountPage();
+    expect(wrapper.find('[data-test="rest-day"]').text()).toContain(
+      '或者直接在下面的项目库里点一个动作',
+    );
+  });
+});

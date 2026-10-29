@@ -111,36 +111,37 @@ function commitRename(row: WeekRow, index: number): void {
   <div class="week-plan" data-test="week-plan">
     <div v-for="row in rows" :key="row.weekday" class="week-row" data-test="week-row" :data-weekday="row.weekday">
       <span class="weekday-label" data-test="weekday-label">{{ row.label }}</span>
-      <select
-        class="type-select"
-        :value="currentType(row)"
-        data-test="type-select"
-        @change="onTypeChange(row, $event)"
-      >
-        <option v-for="typeName in typeOptions(row)" :key="typeName" :value="typeName">
-          {{ typeName }}
-        </option>
-      </select>
-      <template v-if="creatingType[row.weekday]">
+      <div class="type-cell">
+        <select
+          class="type-select"
+          :value="currentType(row)"
+          data-test="type-select"
+          @change="onTypeChange(row, $event)"
+        >
+          <option v-for="typeName in typeOptions(row)" :key="typeName" :value="typeName">
+            {{ typeName }}
+          </option>
+        </select>
         <input
+          v-if="creatingType[row.weekday]"
           v-model="newTypeNames[row.weekday]"
           class="chip-input new-type-input"
           data-test="new-type-input"
-          placeholder="新类型名（例如：腿）"
+          placeholder="新类型名（如：腿）"
           @keyup.enter="commitCreateType(row)"
           @blur="commitCreateType(row)"
         />
-      </template>
-      <button
-        v-else
-        type="button"
-        class="ghost-btn new-type-btn"
-        data-test="new-type-btn"
-        :title="'给' + row.label + '新建一个训练类型'"
-        @click="startCreateType(row)"
-      >
-        ＋ 类型
-      </button>
+        <button
+          v-else
+          type="button"
+          class="ghost-btn new-type-btn"
+          data-test="new-type-btn"
+          :title="'给' + row.label + '新建一个训练类型'"
+          @click="startCreateType(row)"
+        >
+          ＋ 类型
+        </button>
+      </div>
 
       <div
         v-if="currentType(row) !== REST_TYPE_NAME"
@@ -194,48 +195,54 @@ function commitRename(row: WeekRow, index: number): void {
 </template>
 
 <style scoped>
+/* 周计划：周几 / 类型 / 动作 三列栅格，行高统一；窄屏收成两行 */
+.week-plan {
+  display: flex;
+  flex-direction: column;
+}
+.week-row {
+  display: grid;
+  grid-template-columns: 44px auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.week-row:last-child {
+  border-bottom: none;
+}
+.weekday-label {
+  font-weight: 600;
+  padding-top: 6px;
+}
+.type-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.type-select {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  font-size: 14px;
+}
 .new-type-btn {
   padding: 3px 8px;
   font-size: 12px;
   white-space: nowrap;
 }
 .new-type-input {
-  width: 128px;
-}
-.week-plan {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.week-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-  padding: 8px 0;
-}
-.week-row:last-child {
-  border-bottom: none;
-}
-.weekday-label {
-  width: 44px;
-  font-weight: 600;
-  flex: none;
-}
-.type-select {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: var(--radius);
-  padding: 6px 8px;
+  width: 116px;
+  font-size: 13px;
 }
 .exercise-editor {
-  flex: 1;
-  min-width: 240px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  padding-top: 2px;
 }
 .exercise-chip {
   display: inline-flex;
@@ -246,6 +253,10 @@ function commitRename(row: WeekRow, index: number): void {
   border-radius: var(--radius);
   padding: 2px 10px;
   font-size: 13px;
+  line-height: 1.6;
+}
+.chip-name {
+  white-space: nowrap;
 }
 .chip-btn {
   border: none;
@@ -253,28 +264,47 @@ function commitRename(row: WeekRow, index: number): void {
   color: inherit;
   padding: 0 2px;
   cursor: pointer;
+  font-size: 12px;
 }
 .chip-btn:hover {
   opacity: 0.7;
 }
 .chip-input {
-  width: 96px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 2px 6px;
+  width: 96px;
 }
 .add-row {
   display: flex;
   gap: 6px;
   width: 100%;
+  max-width: 420px;
+  margin-top: 2px;
 }
 .add-row .text-input {
   flex: 1;
-  padding: 6px 10px;
+  min-width: 0;
+  padding: 5px 10px;
   font-size: 13px;
 }
 .add-row .ghost-btn {
-  padding: 5px 12px;
+  padding: 4px 12px;
   font-size: 13px;
+}
+.rest-hint {
+  padding-top: 8px;
+}
+@media (max-width: 768px) {
+  .week-row {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .weekday-label {
+    padding-top: 8px;
+  }
+  .exercise-editor,
+  .rest-hint {
+    grid-column: 1 / -1;
+  }
 }
 </style>
