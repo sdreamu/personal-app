@@ -8,6 +8,7 @@ import { useTimerStore } from '@/stores/timer';
 import { formatDateCNWeekday, isoWeekNumber, weekdayCN } from '@/utils/date';
 import DateJumpPopover from './DateJumpPopover.vue';
 import SaveStatus from './SaveStatus.vue';
+import ThemeToggle from './ThemeToggle.vue';
 import TimerCapsule from './TimerCapsule.vue';
 
 const dateStore = useDateStore();
@@ -118,6 +119,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
       </button>
     </div>
     <div class="spacer"></div>
+    <ThemeToggle />
     <TimerCapsule />
     <span class="topbar-meta num" data-test="topbar-meta">
       {{ weekLabel }}<span class="topbar-meta-sep"> · </span>{{ weekdayLabel }}
