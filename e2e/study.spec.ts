@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { APP_NAME } from '../src/config/app';
 import { clearApp, gotoHash, seedBook, seedSubject, startStudyTimer, startPlayTimer, settleStudy, addDays, logicalToday } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -167,7 +168,8 @@ test('AC-39 倒计时1分钟到点提示与再来一轮', async ({ page }) => {
   await expect(page.locator('[data-test="countdown-finished-text"]')).toBeVisible();
   await expect(page.locator('[data-test="countdown-next-round"]')).toBeVisible();
   await expect(page.locator('[data-test="countdown-end"]')).toBeVisible();
-  expect(['⏰ 时间到！', 'Evan的专属APP']).toContain(await page.title());
+  // 到点后标签页标题在「⏰ 时间到！」与应用名之间闪烁（应用名唯一来源 src/config/app.ts）
+  expect(['⏰ 时间到！', APP_NAME]).toContain(await page.title());
 
   await page.click('[data-test="countdown-next-round"]');
   await expect(page.locator('[data-test="settlement-overlay"]')).toHaveCount(0);

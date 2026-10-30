@@ -1,9 +1,9 @@
 import Dexie from 'dexie';
 import { afterEach, describe, expect, it } from 'vitest';
-import { EvanDB, SCHEMA_V1_STORES, SCHEMA_V2_STORES, SCHEMA_V3_STORES } from './database';
+import { AppDB, SCHEMA_V1_STORES, SCHEMA_V2_STORES, SCHEMA_V3_STORES } from './database';
 import { DB_NAME, DB_VERSION, TABLE_NAMES } from './schema';
 
-let opened: EvanDB | null = null;
+let opened: AppDB | null = null;
 
 afterEach(async () => {
   opened?.close();
@@ -111,7 +111,7 @@ describe('Dexie 结构版本 v1 → v2', () => {
 
   it('旧库升级：已有数据一条不少（含软删除记录），新表建好且为空，新字段补 null', async () => {
     await createLegacyV1();
-    opened = new EvanDB();
+    opened = new AppDB();
     await opened.open();
 
     expect(opened.verno).toBe(DB_VERSION);
@@ -151,7 +151,7 @@ describe('Dexie 结构版本 v1 → v2', () => {
 
   it('v1 旧库升级后带出 v2 新增表与字段（exercises / reviews 新字段）', async () => {
     await createLegacyV1();
-    opened = new EvanDB();
+    opened = new AppDB();
     await opened.open();
     await opened.exercises.add({
       id: 'ex-1',

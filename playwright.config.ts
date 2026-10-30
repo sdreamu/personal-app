@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Evan的专属APP 端到端验收（AC-01~AC-53，逐条映射）。
+ * 端到端验收（AC-01~AC-53，逐条映射）。
  * 浏览器：优先系统已安装的 Chrome（channel:'chrome'），未下载 chromium/webkit/firefox。
  * 串行执行（fullyParallel:false, workers:1）保证 IndexedDB 隔离与计时状态互不干扰。
  * 运行时：用当前执行 Playwright 的 Node 直接启动 vite，不依赖 PATH 或 pnpm。

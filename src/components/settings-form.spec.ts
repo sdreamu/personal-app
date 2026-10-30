@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import { createRecord, getSettings, resetDbForTests, updateSettings } from '@/db';
+import { createRecord, getDb, getSettings, resetDbForTests, updateSettings } from '@/db';
 import { addDays, logicalToday } from '@/utils/date';
 import { useSettingsStore } from '@/stores/settings';
 import SettingsView from '@/views/SettingsView.vue';
+import HomeHero from '@/components/HomeHero.vue';
 import { triggerDownload } from '@/utils/download';
 
 // 文本导出会真的触发文件下载（jsdom 没有 URL.createObjectURL），这里只拦下载动作，
@@ -20,7 +21,10 @@ let pinia: Pinia;
 
 const FIXED_LAST_BACKUP = 1_700_000_000_000;
 
-async function waitFor(condition: () => boolean | Promise<boolean>, timeoutMs = 3000): Promise<void> {
+// 轮询等待的兜底时长：全量并行跑（70+ 文件同时挂 jsdom + fake-indexeddb）时，本文件的
+// 即时保存要等 Dexie 真实写入落地，3s 在机器负载高时会误伤（表现为 waitFor 超时，断言本身没失败）。
+// 这里只放宽等待时间，任何断言都没有放宽。
+async function waitFor(condition: () => boolean | Promise<boolean>, timeoutMs = 10000): Promise<void> {
   const start = Date.now();
   while (!(await condition())) {
     if (Date.now() - start > timeoutMs) throw new Error('waitFor 超时');
@@ -216,6 +220,67 @@ describe('设置页 · 文本导出', () => {
     expect(filename).toBe('evan-text-' + compact(start) + '-' + compact(today) + '.md');
     expect(content as string).toContain('# 个人数据导出（' + start + ' ~ ' + today + '）');
     expect(content as string).toContain('_区间内没有记录。_');
+    wrapper.unmount();
+  });
+
+  /**
+   * 昵称闭环（AC：设置填「小王」→ 首页问候「你好，小王」；清空 → 「你好」；刷新（重新 load）后保持）。
+   * 设置页与首页主视觉挂在同一个 pinia 上，走真实 settings 表读写。
+   */
+  /**
+   * 这条要连做三轮"填 → 落库 → 首页改名 → 重载"，全量并行跑时单条容易顶到全局 8s，
+   * 所以显式给 20s：只放宽等待时间，断言一个字都没放宽。
+   */
+  it('昵称即时保存：填「小王」首页问候变「你好，小王」，清空回到「你好」，重载后保持', async () => {
+    const wrapper = mount(SettingsView, { global: { plugins: [pinia] } });
+    await flushPromises();
+    const hero = mount(HomeHero, { global: { plugins: [pinia] } });
+    const greetingText = (): string => hero.find('[data-test="hero-greeting"]').text();
+    expect(greetingText()).toBe('你好');
+
+    const input = wrapper.find('input[data-test="nickname-input"]');
+    await input.setValue('小王');
+    await input.trigger('change'); // 输入即保存：change 立即落库（输入过程中的 300ms 防抖走同一条 commitNickname）
+    await waitFor(() => useSettingsStore().data?.nickname === '小王');
+    expect((await getSettings()).nickname).toBe('小王'); // 真的写进了 settings 表
+    await flushPromises();
+    expect(greetingText()).toBe('你好，小王');
+
+    // 清空 = 不显示名字
+    await input.setValue('');
+    await input.trigger('change');
+    await waitFor(() => useSettingsStore().data?.nickname === '');
+    expect((await getSettings()).nickname).toBe('');
+    await flushPromises();
+    expect(greetingText()).toBe('你好');
+
+    // 刷新页面等价于重新 load 一次设置：填完不动，只重载，问候语仍然是「你好，小王」
+    await input.setValue('小王');
+    await input.trigger('change');
+    await waitFor(() => useSettingsStore().data?.nickname === '小王');
+    await useSettingsStore().load();
+    await flushPromises();
+    expect((await getSettings()).nickname).toBe('小王');
+    expect(greetingText()).toBe('你好，小王');
+
+    hero.unmount();
+    wrapper.unmount();
+  }, 20_000);
+
+  it('老库没有 nickname 键：设置页与首页都能正常工作（不写 undefined）', async () => {
+    // 直接删掉字段，模拟升级前写入的 settings 行
+    const conn = await getDb();
+    await conn.settings.update('app', { nickname: undefined });
+    await useSettingsStore().load();
+
+    const wrapper = mount(SettingsView, { global: { plugins: [pinia] } });
+    await flushPromises();
+    expect((wrapper.find('input[data-test="nickname-input"]').element as HTMLInputElement).value).toBe('');
+
+    const hero = mount(HomeHero, { global: { plugins: [pinia] } });
+    expect(hero.find('[data-test="hero-greeting"]').text()).toBe('你好');
+
+    hero.unmount();
     wrapper.unmount();
   });
 });

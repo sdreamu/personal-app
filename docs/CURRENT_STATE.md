@@ -1,4 +1,4 @@
-# 现状盘点（阶段 A3）—— Evan的专属APP
+# 现状盘点（阶段 A3）—— 个人生活助手
 
 > 本文档为**只读盘点**结果：未改动任何现有业务文件，仅新增本文件。
 > 盘点时间：2026-10-24 06:30（本地时区）　git HEAD：`31dceee`（分支 main；工作区有未提交改动，见 §17.5）
@@ -51,7 +51,7 @@
 | vitest | ^3.1.1 | 3.2.7 |
 | vue-tsc | ^2.2.0 | 2.2.12 |
 
-运行环境：Node v24.21.0（系统 PATH 中没有 node，实际使用 `C:\Users\admin\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe`，pnpm 走 `...\pnpm\bin\pnpm.mjs`）。
+运行环境：Node v24.21.0（系统 PATH 里没有 node 时，按各人本机环境自行指定 node / pnpm 的可执行文件路径；本文档不记录具体安装路径）。
 
 ### 1.3 scripts（package.json）
 
@@ -139,7 +139,7 @@ test:e2e   playwright test
 
 | # | 表名 | 索引声明 | 字段（不含通用字段） |
 |---|---|---|---|
-| 1 | `settings` | `key` | `key:"app"`、`daily_study_min`、`daily_water_ml`、`cup_ml`、`daily_play_min`、`day_start`（"HH:mm"）、`theme`("light"/"dark"/"system"，第二轮 UI 第 2 步扩成三选一；读取端 `normalizeTheme` 把未知值兜底 `light`)、`last_backup_at`(ms\|null) |
+| 1 | `settings` | `key` | `key:"app"`、`daily_study_min`、`daily_water_ml`、`cup_ml`、`daily_play_min`、`day_start`（"HH:mm"）、`theme`("light"/"dark"/"system"，第二轮 UI 第 2 步扩成三选一；读取端 `normalizeTheme` 把未知值兜底 `light`)、`last_backup_at`(ms\|null)、`nickname?`(string | 缺省 → 首页问候语只显示「你好」；新增可选字段不升 DB_VERSION) |
 | 2 | `plan_categories` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("study"/"life"/"other"\|null) |
 | 3 | `meal_types` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("breakfast"/"lunch"/"dinner"/"snack"\|null) |
 | 4 | `workout_types` | `id, deleted_at` | `name`（AC-84 起随库种入内置「力量 / 有氧 / 拉伸」：整表无有效记录时才补，用户删过就不再塞回） |
@@ -189,7 +189,7 @@ test:e2e   playwright test
 - `seedFirstRun(db)`
 - `gcOnDb(db, nowMsValue)`
 - `clearAll()`
-- 另导出 `class EvanDB`、常量 `GC_GRACE_MS`、`SCHEMA_V1_STORES`、`SCHEMA_V2_STORES`。
+- 另导出 `class AppDB`、常量 `GC_GRACE_MS`、`SCHEMA_V1_STORES`、`SCHEMA_V2_STORES`。
 
 **`src/db/crud.ts`**
 - `createRecord(tableName, data)`
@@ -518,6 +518,7 @@ test:e2e   playwright test
 | 复盘文字栏（record_worthy / day_summary / good / improve / mit） | **有** | `reviewStore.debouncedSaveText(date, patch)`：`clearTimeout` 重置 → 合并 `pendingTextPatch` → `setTimeout(flush, REVIEW_TEXT_DEBOUNCE_MS=300)`（`src/stores/review.ts`）。"一句话总结"另有 `maxlength=100` 与右下角字数计数 |
 | 复盘评分/心情/精力 | 无（点击即写） | `ReviewView.vue` 的 `onRatingChange/onMoodChange/onEnergyChange` → `reviewStore.upsertReview()` |
 | 设置页每日目标 | **有**（300ms） | `SettingsView.vue`：`watch(goals)` → `window.setTimeout(commitGoals, 300)`；输入框另绑 `@change="commitGoals"` 立即提交 |
+| 设置页昵称 | **有**（300ms） | `SettingsView.vue`：`watch(nickname)` → `window.setTimeout(commitNickname, 300)`；输入框另绑 `@change="commitNickname"` 立即提交；写 `settings.nickname`（空串 = 首页只显示「你好」） |
 | 设置页一天起点 | 无 | `watch([dayStartHour, dayStartMinute])` → `settings.update({ day_start })` |
 | 设置页主题 | 无 | `setTheme()` → `settings.update({ theme })` |
 | 健身（周计划、组数、重量、次数、增删动作、用时） | 无（每次操作立即写） | `workoutStore.saveTemplate()` / `persistExercises()` / `setDuration()` / `finishWorkout()` |
@@ -568,7 +569,7 @@ test:e2e   playwright test
 **已实现（学习计时）。**
 - 入口：`src/views/StudyTimerView.vue` 的"模式"分段按钮（`mode-stopwatch` / `mode-countdown`），倒计时分钟输入（默认 25，范围 1~1440），`startTimer({ mode: "countdown", countdownSec: 分钟*60 })`。
 - 状态：`active_timer.mode`、`active_timer.countdown_sec`；getter `remainingMs` / `remainingSec`（向上取整）/ `isCountdownFinished`。
-- 到点：`detectBoundaryNeeds()` 置 `countdownFinishedPrompt = true` 并 `startTitleFlash()`（600ms 在 `⏰ 时间到！` 与 `Evan的专属APP` 间切换 `document.title`）；弹窗"再来一轮"→ `settleAndStartNextRound()`（自动结算本轮 + 同参数立刻开下一轮），"结束"→ `endTimer()`。
+- 到点：`detectBoundaryNeeds()` 置 `countdownFinishedPrompt = true` 并 `startTitleFlash()`（600ms 在 `⏰ 时间到！` 与应用名 `APP_NAME`（`src/config/app.ts`）间切换 `document.title`）；弹窗"再来一轮"→ `settleAndStartNextRound()`（自动结算本轮 + 同参数立刻开下一轮），"结束"→ `endTimer()`。
 - **娱乐计时也已支持倒计时（M3）**：`playStore.startEntertainment(name, { mode: 'countdown', countdownMinutes })` 透传 `mode` / `countdownSec`；到点复用同一套 `detectBoundaryNeeds()` 提示（不区分类型）。
 - 娱乐倒计时结算封顶（用户拍板）：`settleEntertainment()` 用 `capEntertainmentMinutes()` 把分钟数封顶在设定时长（`ceil(countdown_sec/60)`，最少 1 分钟），即 30 分钟倒计时挂到 45 分钟才结束仍记 30 分钟；正计时与 `settleStudy()` 不看这个封顶。
 

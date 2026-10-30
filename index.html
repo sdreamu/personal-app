@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#12352A" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Evan的专属APP</title>
+    <!-- 静态 HTML 里拿不到 src/config/app.ts 的 APP_NAME，标题与下方启动占位都与之保持一致 -->
+    <title>个人生活助手</title>
   </head>
   <body>
     <!-- 挂载前的占位：启动要读数据库，别让用户对着白屏等。Vue 挂载时会整块替换掉 -->
     <div id="app">
       <div class="boot-splash">
-        <span class="boot-splash-mark">EVAN</span>
+        <span class="boot-splash-mark">个人生活助手</span>
         <span class="boot-splash-text">正在启动…</span>
       </div>
     </div>

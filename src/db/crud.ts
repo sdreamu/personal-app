@@ -2,13 +2,13 @@
  * 通用 CRUD、软删除/撤销、GC、有效记录（alive）查询。
  */
 import type { Table, UpdateSpec } from 'dexie';
-import { getDb, gcOnDb, type EvanDB } from './database';
+import { getDb, gcOnDb, type AppDB } from './database';
 import type { BaseFields, DateTableName, TableName, TableRecordMap } from './schema';
 import { nowMs, uuid } from './util';
 
 export type NewRecord<K extends TableName> = Omit<TableRecordMap[K], keyof BaseFields>;
 
-function tableOf<K extends TableName>(db: EvanDB, tableName: K): Table<TableRecordMap[K], string> {
+function tableOf<K extends TableName>(db: AppDB, tableName: K): Table<TableRecordMap[K], string> {
   return db[tableName] as unknown as Table<TableRecordMap[K], string>;
 }
 

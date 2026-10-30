@@ -236,8 +236,9 @@
 ### 6.1 工具链（Windows，PATH 里没有 node）
 
 ```bash
-NODE="C:/Users/admin/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/node/bin/node.exe"
-PNPM="C:/Users/admin/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm/bin/pnpm.mjs"
+# 本机没装到 PATH 时，用自己环境里 node / pnpm 的实际路径替换（这里不写死任何本机路径）
+NODE="node"
+PNPM="pnpm"
 
 "$NODE" "$PNPM" run typecheck     # 0 错误
 "$NODE" "$PNPM" run test          # 全绿（当前 490 用例）

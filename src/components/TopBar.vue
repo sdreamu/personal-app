@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { APP_NAME } from '@/config/app';
 import { showsDateSwitch } from '@/config/nav';
 import { useDateStore } from '@/stores/date';
 import { useModalStore } from '@/stores/modal';
@@ -99,7 +100,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 
 <template>
   <div class="topbar">
-    <div class="brand">Evan的专属APP</div>
+    <div class="brand">{{ APP_NAME }}</div>
     <div v-if="showDateControls" class="date-switch" data-test="date-switch">
       <button class="icon-btn" data-test="prev-day" title="前一天（←）" @click="dateStore.prevDay()">◀</button>
       <button

@@ -11,8 +11,8 @@
 - 假设（未反对即生效）：不引第三方 UI 组件库、图标字体本地打包（禁外链）；默认浅色模式；系统字体栈；App 运行期零外部网络请求。
 
 ## 工具链
-- Node：C:\Users\admin\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe （v24.21.0，系统 PATH 无 node）
-- pnpm：用 node 执行 C:\Users\admin\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pnpm\bin\pnpm.mjs
+- Node：Node.js LTS（开发时用 v24.x；项目不锁定次要版本，只要满足 package.json 的 engines 与 Vite 6 要求）
+- pnpm：通过 `corepack enable` 或官方安装脚本获取，命令即 `pnpm`
 - npm 源：https://registry.npmjs.org（已验证可达）
 
 ## 数据库契约（Dexie，库名 evan_personal_app_db，schema_version **2**，共 **18 张表**）

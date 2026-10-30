@@ -118,7 +118,7 @@ export async function upgradeToV3(tx: Transaction): Promise<void> {
   }
 }
 
-export class EvanDB extends Dexie {
+export class AppDB extends Dexie {
   settings!: Table<SettingsRecord, string>;
   plan_categories!: Table<PlanCategory, string>;
   meal_types!: Table<MealType, string>;
@@ -147,20 +147,20 @@ export class EvanDB extends Dexie {
   }
 }
 
-let dbPromise: Promise<EvanDB> | null = null;
+let dbPromise: Promise<AppDB> | null = null;
 
-export function getDb(): Promise<EvanDB> {
+export function getDb(): Promise<AppDB> {
   dbPromise ??= openAndPrepare();
   return dbPromise;
 }
 
 /** 打开数据库：首次运行种子 → 启动 GC → 申请持久存储。 */
-export async function initAppDb(): Promise<EvanDB> {
+export async function initAppDb(): Promise<AppDB> {
   return getDb();
 }
 
-async function openAndPrepare(): Promise<EvanDB> {
-  const db = new EvanDB();
+async function openAndPrepare(): Promise<AppDB> {
+  const db = new AppDB();
   await db.open();
   await seedFirstRun(db);
   await gcOnDb(db, nowMs());
@@ -169,7 +169,7 @@ async function openAndPrepare(): Promise<EvanDB> {
 }
 
 /** 仅测试用：关闭并删除数据库后重新打开（浏览器代码不应调用）。 */
-export async function resetDbForTests(): Promise<EvanDB> {
+export async function resetDbForTests(): Promise<AppDB> {
   if (dbPromise) {
     const old = await dbPromise;
     old.close();
@@ -193,7 +193,7 @@ function deleteDatabase(name: string): Promise<void> {
 }
 
 /** 首次运行种子：默认 settings + 内置分类/餐次（幂等，缺哪补哪）。 */
-export async function seedFirstRun(db: EvanDB): Promise<void> {
+export async function seedFirstRun(db: AppDB): Promise<void> {
   await db.transaction(
     'rw',
     [db.settings, db.plan_categories, db.meal_types, db.workout_types],
@@ -256,7 +256,7 @@ export async function seedFirstRun(db: EvanDB): Promise<void> {
 }
 
 /** 物理删除 deleted_at 早于 1 小时前的软删除记录；返回删除条数。 */
-export async function gcOnDb(db: EvanDB, nowMsValue: number = nowMs()): Promise<number> {
+export async function gcOnDb(db: AppDB, nowMsValue: number = nowMs()): Promise<number> {
   const threshold = nowMsValue - GC_GRACE_MS;
   let total = 0;
   for (const name of GC_TABLES) {
@@ -274,7 +274,7 @@ function requestPersistentStorage(): void {
   }
 }
 
-async function wipeAllTables(db: EvanDB): Promise<void> {
+async function wipeAllTables(db: AppDB): Promise<void> {
   const tables = TABLE_NAMES.map((name) => db[name] as unknown as Table<BaseFields, string>);
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((t) => t.clear()));

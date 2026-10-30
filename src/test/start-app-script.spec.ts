@@ -5,9 +5,10 @@ import { DEBUG_DEV_PORT, RELEASE_DEV_PORT, resolveDevPort } from '@/config/devPo
 
 /**
  * 守护启动配置的部署前提，这些坑不会在应用逻辑测试里暴露：
- * - .bat 若用 LF 行尾，cmd.exe 会把 `set "DSH_NODE=...` 解析成 `H_NODE=...`，
+ * - .bat 若用 LF 行尾，cmd.exe 会把 `set "X=...` 解析成 `H_NODE=...` 之类的残句，
  *   导致启动脚本直接走到“找不到运行时”分支。
- * - 运行时路径一旦写死成 DSH 内部目录，DSH 升级/重装后启动即失效。
+ * - 运行时路径一旦写死成某台机器上的绝对目录，换机器/重装后启动即失效，
+ *   公开仓库里还会泄露本机用户名。
  */
 const root = resolve(process.cwd());
 
@@ -22,11 +23,17 @@ describe('启动配置', () => {
     expect(/[^\r]\n/.test(bat)).toBe(false);
   });
 
-  it('start-app.bat 保留 DSH 内置运行时的回退路径', () => {
+  it('start-app.bat 只依赖 PATH 上的 node/pnpm，缺了就给人话提示，且不写死本机路径', () => {
     const bat = read('start-app.bat');
-    expect(bat).toContain('dsh-runtimes');
-    expect(bat).toContain('DSH_NODE');
-    expect(bat).toContain('DSH_PNPM');
+    // 有运行时探测 + 分支 + 可执行的补救提示（原意图：换个环境也不能静默失败）
+    expect(bat).toContain('where node');
+    expect(bat).toContain('where pnpm');
+    expect(bat).toContain(':noruntime');
+    expect(bat).toContain('nodejs.org');
+    // 不许出现盘符绝对路径或某台机器上的运行时目录（公开仓库不能带本机信息）
+    expect(bat).not.toMatch(/[A-Za-z]:\\\\/);
+    expect(bat).not.toContain('dsh-runtimes');
+    expect(bat).not.toContain('C:\\Users');
   });
 
   it('playwright.config.ts 不得写死 DSH 运行时路径', () => {

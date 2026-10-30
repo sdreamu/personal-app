@@ -5,3 +5,10 @@ tools/
 downloads/
 test-results/
 *.tmp-*
+.dsh/
+.tmp-*
+*.log
+.env
+.env.*
+# 这个文件只有开发端口号（DEV_PORT=5180），不带任何密钥，随仓库走
+!.env.dev5180

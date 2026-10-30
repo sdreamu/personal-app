@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router';
+import { APP_NAME } from '@/config/app';
 
 /**
  * 11 条路由，与 PRD §2.2 地址一致（hash 模式，刷新停留在当前页）。
@@ -43,5 +44,5 @@ export const router = createRouter({
 });
 
 router.afterEach(() => {
-  document.title = 'Evan的专属APP';
+  document.title = APP_NAME;
 });

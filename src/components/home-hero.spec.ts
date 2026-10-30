@@ -8,7 +8,7 @@ import HomeHero from './HomeHero.vue';
 // 本地时区 2026-02-14 09:05:03 —— 2026年2月14日为周六。
 const NOW = new Date(2026, 1, 14, 9, 5, 3);
 
-function settingsRecord(): SettingsRecord {
+function settingsRecord(overrides: Partial<SettingsRecord> = {}): SettingsRecord {
   return {
     key: 'app',
     id: 'settings-1',
@@ -22,6 +22,8 @@ function settingsRecord(): SettingsRecord {
     day_start: '04:00',
     theme: 'light',
     last_backup_at: null,
+    nickname: '小王',
+    ...overrides,
   };
 }
 
@@ -47,10 +49,29 @@ afterEach(() => {
 describe('首页主视觉', () => {
   it('渲染问候语、中文日期（含星期）与 HH:mm 时间', () => {
     const wrapper = mountHero();
-    expect(wrapper.find('[data-test="hero-greeting"]').text()).toBe('你好，Evan');
+    expect(wrapper.find('[data-test="hero-greeting"]').text()).toBe('你好，小王');
     expect(wrapper.find('[data-test="hero-date"]').text()).toBe('2026年2月14日');
     expect(wrapper.text()).toContain('周六');
     expect(wrapper.find('[data-test="hero-time"]').text()).toBe('09:05');
+    wrapper.unmount();
+  });
+
+  it('昵称为空时问候语只显示「你好」', () => {
+    useSettingsStore().$patch({ loaded: true, data: settingsRecord({ nickname: '' }) });
+    const wrapper = mountHero();
+    expect(wrapper.find('[data-test="hero-greeting"]').text()).toBe('你好');
+    wrapper.unmount();
+  });
+
+  it('老数据没有 nickname 字段：不报错，问候语退回「你好」', () => {
+    const legacy = settingsRecord();
+    delete legacy.nickname;
+    // 直接赋值而不是 $patch：$patch 会与旧 state 深合并，把上一个用例的 nickname 带回来
+    const store = useSettingsStore();
+    store.loaded = true;
+    store.data = legacy;
+    const wrapper = mountHero();
+    expect(wrapper.find('[data-test="hero-greeting"]').text()).toBe('你好');
     wrapper.unmount();
   });
 

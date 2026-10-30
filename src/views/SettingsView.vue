@@ -36,6 +36,8 @@ const toast = useToastStore();
 const goals = reactive({ study: 120, water: 2000, cup: 250, play: 60 });
 const dayStartHour = ref(4);
 const dayStartMinute = ref(0);
+// 昵称要早于 hydrateFromSettings 的 immediate 调用声明（否则拿到 TDZ）
+const nickname = ref('');
 let hydrating = false;
 let goalsDebounce: number | undefined;
 
@@ -55,6 +57,8 @@ function hydrateFromSettings(): void {
   const parts = data.day_start.split(':');
   dayStartHour.value = Number(parts[0]);
   dayStartMinute.value = Number(parts[1]);
+  // 老数据的 settings 行没有 nickname 这个键，兜底成空串（= 没设昵称）。
+  nickname.value = data.nickname ?? '';
   hydrating = false;
 }
 watch(() => settings.data, hydrateFromSettings, { immediate: true });
@@ -74,6 +78,24 @@ watch(goals, () => {
   if (hydrating) return;
   window.clearTimeout(goalsDebounce);
   goalsDebounce = window.setTimeout(commitGoals, 300);
+});
+
+/* ---------- 昵称（输入即保存；留空 = 首页只显示「你好」） ---------- */
+let nicknameDebounce: number | undefined;
+
+function commitNickname(): void {
+  if (hydrating) return;
+  const next = nickname.value.trim();
+  // 值与库里一致就不写；settings.data 还没到（极少见）时也照写，写库本身会保证行存在，
+  // 写成功后 store 拿到新行，界面跟着变。
+  if (next === (settings.data?.nickname ?? '')) return;
+  void settings.update({ nickname: next }).catch(() => undefined);
+}
+
+watch(nickname, () => {
+  if (hydrating) return;
+  window.clearTimeout(nicknameDebounce);
+  nicknameDebounce = window.setTimeout(commitNickname, 300);
 });
 
 /* ---------- 一天起点（整点/半点；修改仅对新记录生效） ---------- */
@@ -251,6 +273,24 @@ async function confirmClear(): Promise<void> {
           <input v-model.number="goals.play" type="number" min="1" data-test="goal-play" @change="commitGoals" />
         </label>
       </div>
+    </div>
+
+    <div class="settings-card">
+      <h2>个人信息</h2>
+      <div class="settings-grid">
+        <label class="field">
+          <span>昵称</span>
+          <input
+            v-model="nickname"
+            type="text"
+            maxlength="20"
+            placeholder="留空则不显示名字"
+            data-test="nickname-input"
+            @change="commitNickname"
+          />
+        </label>
+      </div>
+      <p class="hint">首页问候语用这个昵称：填「小王」显示「你好，小王」；留空只显示「你好」。</p>
     </div>
 
     <div class="settings-card">

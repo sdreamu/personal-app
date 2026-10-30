@@ -45,6 +45,12 @@ export interface SettingsRecord extends BaseFields {
   day_start: string;
   theme: ThemeMode;
   last_backup_at: number | null;
+  /**
+   * 首页问候语用的昵称（v4 新增，可选）：'' / 缺省 = 没设昵称，问候语只显示「你好」。
+   * 只是新增可选字段，不升 DB_VERSION / SCHEMA_VERSION —— 老库里的 settings 行没有这个键，
+   * 读取端用 `settings.nickname` 直接取值时靠可选类型 + 运行时兜底（见 config/app.ts 的 greeting）。
+   */
+  nickname?: string;
 }
 
 /** 2. 计划分类：内置 学习/生活/其他 不可删除改名。 */
@@ -335,6 +341,7 @@ export const DEFAULT_SETTINGS_VALUES = {
   day_start: DEFAULT_DAY_START,
   theme: 'light' as const,
   last_backup_at: null,
+  nickname: '',
 };
 
 export const BUILTIN_PLAN_CATEGORIES: ReadonlyArray<{ name: string; builtin_key: PlanBuiltinKey }> = [

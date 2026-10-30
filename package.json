@@ -2,6 +2,13 @@
   "name": "evan-personal-app",
   "private": true,
   "version": "0.1.0",
+  "description": "个人生活助手：本地优先的日程 / 学习 / 读书 / 健身 / 饮食 / 娱乐计时 / 复盘一体化应用（Vue 3 + TS + Dexie，数据只存在本机浏览器）",
+  "license": "MIT",
+  "author": "Evan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Evan-AI1014/personal-app.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

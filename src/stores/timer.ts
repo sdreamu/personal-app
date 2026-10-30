@@ -12,6 +12,7 @@ import {
   type PlayRecord,
   type StudyRecord,
 } from '@/db';
+import { APP_NAME } from '@/config/app';
 import { logicalDateOf } from '@/utils/date';
 import { useSaveStatusStore } from './saveStatus';
 import { useSettingsStore } from './settings';
@@ -21,7 +22,7 @@ export const DEFAULT_COUNTDOWN_SEC = 1500;
 export const OVERRUN_RECOVERY_THRESHOLD_MS = 12 * 60 * 60 * 1000;
 export const MIN_SETTLE_SESSION_MS = 60 * 1000;
 export const MIN_SETTLE_MINUTES = 1;
-export const APP_TITLE = 'Evan的专属APP';
+export const APP_TITLE = APP_NAME;
 export const COUNTDOWN_FINISH_TITLE = '⏰ 时间到！';
 
 export interface NewTimerInput {
@@ -503,7 +504,7 @@ export const useTimerStore = defineStore('timer', {
       this.pendingPlanQuestion = null;
     },
 
-    /** 标题闪烁：⏰ 时间到！ ↔ Evan的专属APP（网页打开时有效）。 */
+    /** 标题闪烁：⏰ 时间到！ ↔ 应用名（网页打开时有效）。 */
     startTitleFlash() {
       this.stopTitleFlash();
       let on = false;
