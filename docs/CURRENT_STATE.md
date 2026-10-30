@@ -77,6 +77,11 @@ test:e2e   playwright test
 
 ## 2. 运行方式（启动 / 构建 / 端口）
 
+> **冷启动预热（2026-10-29）**：`vite.config.ts` 加了 `server.warmup.clientFiles`（`main.ts`/`App.vue`/router/views/components）与
+> `optimizeDeps.include`（vue / vue-router / pinia / dexie）。之前冷启动首页要 19~29s、白屏很久；预热后 ready 约 3.8s、首次 `/` 约 2.8s、之后 0.4~0.7s。
+> **注意**：`warmup` 的 glob 里**不能**写 `src/stores/*.ts` / `src/db/*.ts`——那些目录里有 `*.spec.ts`，会被一起转译把 dev server 拖到 36~52s。
+> 另外 `index.html` 里有一块纯内联的 `.boot-splash`（EVAN + 「正在启动…」），Vue 挂载后自动被替换，避免启动期纯白屏。
+
 | 事项 | 现状 | 位置 |
 |---|---|---|
 | 开发启动 | `pnpm run dev`（即 `vite`） | `package.json` |
@@ -137,14 +142,14 @@ test:e2e   playwright test
 | 1 | `settings` | `key` | `key:"app"`、`daily_study_min`、`daily_water_ml`、`cup_ml`、`daily_play_min`、`day_start`（"HH:mm"）、`theme`("light"/"dark"/"system"，第二轮 UI 第 2 步扩成三选一；读取端 `normalizeTheme` 把未知值兜底 `light`)、`last_backup_at`(ms\|null) |
 | 2 | `plan_categories` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("study"/"life"/"other"\|null) |
 | 3 | `meal_types` | `id, builtin_key, deleted_at` | `name`、`builtin_key`("breakfast"/"lunch"/"dinner"/"snack"\|null) |
-| 4 | `workout_types` | `id, deleted_at` | `name` |
+| 4 | `workout_types` | `id, deleted_at` | `name`（AC-84 起随库种入内置「力量 / 有氧 / 拉伸」：整表无有效记录时才补，用户删过就不再塞回） |
 | 5 | `plans` | `id, date, category_key, target_id, deleted_at` | `title`、`date`("YYYY-MM-DD")、`start_min`(number\|null，0~1440 偏移)、`end_min`(number\|null)、`category_key`、`category_name`(快照)、`target_type`("book"/"subject"\|null)、`target_id`、`target_title`(快照)、`done`、`done_at`、`rollover_from_date`、`is_rolled_over` |
 | 6 | `books` | `id, status, deleted_at` | `title`、`author`、`total_pages`、`current_page`、`status`("want"/"reading"/"done")、`color`、`start_date`、`finish_date`、`sort_index`(v3，同 status 内升序显示，不建索引) |
 | 7 | `excerpts` | `id, book_id, deleted_at` | `book_id`、`page`、`content`、`thought` |
 | 8 | `subjects` | `id, archived, deleted_at` | `name`、`weekly_goal_min`、`deadline`("YYYY-MM-DD"\|null)、`archived` |
 | 9 | `study_records` | `id, date, target_id, deleted_at` | `target_type`("book"/"subject")、`target_id`、`target_title`(快照)、`start_at`、`end_at`、`duration_sec`、`note`、`start_page`、`end_page`、`pages_read`、`source`("timer"/"manual"/"page_update")、`date`(逻辑日期) |
 | 10 | `active_timer` | `key` | `key:"global"`、`type`("book"/"subject"/"entertainment")、`target_id`、`target_title`、`plan_id`、`mode`("stopwatch"/"countdown")、`countdown_sec`、`started_at`、`paused_total_ms`、`paused`、`pause_started_at`、`ended_at`(非空=待结算) |
-| 11 | `meals` | `id, date, meal_key, deleted_at` | `date`、`meal_key`、`meal_name`(快照)、`text`、`feeling`("full"/"not_full"/"overeat"\|null) |
+| 11 | `meals` | `id, date, meal_key, deleted_at` | `date`、`meal_key`、`meal_name`(快照)、`text`、`feeling`("full"/"not_full"/"overeat"\|null)、`photos?`(base64 dataURL 数组，AC-86，单条上限 3 张；可选字段 → 老数据无此键，读作"没有照片"，不升 DB 版本) |
 | 12 | `water` | `id, date, deleted_at` | `date`、`ml`(可正可负)、`at`(ms) |
 | 13 | `workout_templates` | `id, weekday, deleted_at` | `weekday`(1=周一~7=周日)、`type_name`(快照)、`exercise_names`(string[]) |
 | 14 | `workout_records` | `id, date, deleted_at` | `date`、`type_name`(快照)、`exercises`: `[{ name, sets: [{ weight_kg, reps, done }], note? }]`、`duration_min`(number\|null)、`done` |
@@ -672,7 +677,8 @@ test:e2e   playwright test
 
 ### 11.1 周计划模板
 - 表：`workout_templates`；字段 `weekday`(1=周一~7=周日)、`type_name`（类型名快照）、`exercise_names`（string[]）。一个星期几最多一条（按 weekday 查找更新）。
-- 编辑器：`src/components/WorkoutWeekPlanEditor.vue`：7 行（周一~周日），每行 `<select>`（选项 = 内置"休息" + `workout_types` 里的类型，若历史类型已被删则临时插回当前值）+ 动作 chip 列表（改名/删除）+ 逗号分隔批量添加。
+- 编辑器：`src/components/WorkoutWeekPlanEditor.vue`：7 行（周一~周日）栅格排布（周几 44px / 类型 / 动作），每行 `<select>`（选项 = 内置"休息" + `workout_types` 里的类型，若历史类型已被删则临时插回当前值）+ 动作 chip 列表（改名/删除）+ 逗号分隔批量添加。
+- **AC-84 起**：每行还有一个「＋ 类型」——现场新建一个训练类型并直接选到这一行（`store.createWorkoutType` 幂等）；`workout_types` 现在随库种入内置「力量/有氧/拉伸」，所以新库打开就能排训练日，不再出现"下拉里只有休息、怎么点都排不进去"。store 层 `saveTemplate` 仍要求类型已存在（未知类型报错），新建类型由视图先 `createWorkoutType` 再保存，契约不变。
 - 保存方式：**即时自动保存** —— 每次下拉变更/增删改动作都 `emit("save", weekday, patch)` → `LifeWorkoutView.handleTemplateSave()` → `workoutStore.saveTemplate(weekday, patch)`：
   - 校验 weekday 1~7、类型必须存在于 `workout_types`；
   - `type_name === "休息"` 时清空 `exercise_names`；动作去重 `dedupeNames()`；
@@ -685,6 +691,7 @@ test:e2e   playwright test
 - 载入：`workoutStore.load(date)` → `loadWeek()` + `loadDay()`；`loadDay()` 若当天已有记录直接用；否则 `buildDraftForDate(date, week, history)`：按 `weekdayOf(date)` 找模板 → 休息日返回 `null`（页面显示"今天休息"+"开始临时训练"）；非休息日生成**内存草稿**（不落库）。
 - 默认组：`defaultSetsForExercise(name, history)` → `latestCompletedSets()` 找"最近一次已完成记录"里同名动作的 `weight_kg/reps`，`done` 重置为 false；没历史用 `emptySets(3)` 三组空值。
 - 首次落库：第一次勾选/改值/加动作时 `getEditableRecord()` → `ensureDay()` → 草稿 `createRecord("workout_records", {...})`（或直接新建 `type_name="临时训练"` 的空记录）。
+  - **AC-84 修正**：`getEditableRecord()` 以前在"这一天还没有记录"时直接抛「该日期还没有训练记录」，休息日从项目库点一个动作只会弹红字、什么也没写进去。现在改为先 `ensureDay()` 建当天记录再继续写，所有写入口（加动作/改备注/勾组/改重量次数）行为一致。
 - 保存方式：**即时自动保存**，每次交互一条 `updateRecord("workout_records", id, { exercises })`（`persistExercises()`，整组数组覆盖写）；用时手改 `setDuration()`；完成 `finishWorkout()` 写 `done: true` + `duration_min`（未手填则 `computeDefaultDuration(firstCheckAtMs, now)`：首组勾选到完成的分钟差，<1 分钟或没勾过则为 30）。
 - **M5 动作备注**：每条动作可有一条 `note`（`string | null`）。写入走 `setExerciseNote(date, exerciseIndex, note)` → `persistExercises()`（trim 后空存 `null`，即时落库）；`cloneExercises()` 会保留 `note`，所以勾选/改重量/次数后备注不会丢。备注**不影响**组数、勾选与默认用时（仍按首勾到完成的差值计算）。
 - **M5 项目库自动维护**：`addExercise`、`renameExercise`、`saveTemplate` 都会把动作名 `upsertLibraryExercise()` 进 `exercises`（同名去重、软删除行视为不存在即新建一条有效行）；重复添加同名动作是幂等 no-op，不产生重复行。
@@ -703,7 +710,7 @@ test:e2e   playwright test
 | 数据 | **未改表结构、未改 `DB_VERSION`（仍为 3）/ `SCHEMA_VERSION`（仍为 3）**，只使用已存在的 `exercises` 表与训练记录里早已存在的 `note` 字段 |
 | Store | `workout.ts` 新增纯函数 `lastUsedAtByName()` / `recentOrder()`；新增 state `exerciseLibrary`、getter `libraryNames`、action `refreshLibrary()` / `upsertLibraryExercise()` / `setExerciseNote()`；`refreshWeek()` 一并载入 `exercises`；`cloneExercises()` 改为保留 `note` |
 | 项目库自动维护 | `addExercise` / `renameExercise` / `saveTemplate` 触发 `upsertLibraryExercise()`：同名（trim 后）已有有效行不新增，**软删除行视为不存在即新建一条有效行**（不复活旧行）；重复添加同名动作不产生重复行、不删除用户已有行 |
-| 快速选择 | 新增 `src/components/ExerciseLibrary.vue`（项目库区块，挂在 `WorkoutDay.vue` 当天编辑区下方）；按钮排序=最近使用优先（历史推导 `updated_at`）→ 无历史靠后 → 名字升序；点一下即 `addExercise`（幂等）；空时显示空状态 |
+| 快速选择 | 新增 `src/components/ExerciseLibrary.vue`（项目库区块）。**AC-83 起**它不再挂在 `WorkoutDay.vue` 当天编辑区里，而是 `LifeWorkoutView` 里的独立卡片（今日训练 → 项目库 → 每周计划 → 历史），因为项目库是跨天的资产，不该跟着每天记录滚、也不该在历史记录里重复；按钮排序=最近使用优先（历史推导 `updated_at`）→ 无历史靠后 → 名字升序；点一下即 `addExercise`（幂等）；空时显示空状态 |
 | 动作备注 | `WorkoutDay.vue` 每条动作支持一条备注（`note`）：点「备注」编辑、blur/回车即时保存、清空存 `null`；展示在动作名下方，为空不占位；写入走 `persistExercises` 同一条落库路径 |
 | 接线 | `src/views/LifeWorkoutView.vue` 向 `WorkoutDay` 传 `:library` 并监听 `@set-note`；既有能力（自由输入、历史默认组数、勾选、改名、删除、时长、完成训练）与默认用时语义全部保留 |
 | 测试 | `src/stores/workout.spec.ts`（排序纯函数 / upsert 去重与软删除 / setExerciseNote 落库与清空 / 备注不影响默认用时 / libraryNames 顺序）、`src/components/exercise-library.spec.ts`（渲染/点选/空状态）、`src/views/life-workout-view.spec.ts`（项目库点击加入与幂等、备注编辑与刷新保留/清空）、`e2e/workout-library.spec.ts`（AC-64 / AC-65） |
@@ -1067,3 +1074,33 @@ AC-79 侧栏折叠 / AC-80 首页新面板 e2e / AC-81 技术债）。
 4. 书架卡片加了 ↑/↓ 之后，卡片正中落到「改到第 __ 页」这一行，点卡片中间不再进详情
    （AC-27/28/29/30、AC-36、AC-47、AC-53 一起挂）（AC-81）；
 5. `ExerciseLibrary` 的 hover 里残留 `var(--danger, #b5342c)` 十六进制兜底（AC-81）。
+
+### Z.2 第二批（用户 4 条新需求）执行记录（2026-10-29）
+
+> 用户原话四条：①顶部加白天/夜间切换按钮 ②健身页项目库放到外面、不要内置在每一天 ③健身界面的每日计划无法添加或写入 + 排版太奇怪要重新策划 ④饮食加拍照和上传照片。
+
+| 批次 | 事项 | 落点 | AC |
+|---|---|---|---|
+| 2 | **需求①** 顶栏白天/夜间一键切换 | 新 `src/components/ThemeToggle.vue`（内联线条 SVG 太阳/月亮、`data-test="theme-toggle"`、`aria-pressed`/`aria-label` 跟着变；只调 `settings.setTheme`，写库与落 `data-theme` 全复用 store）；`TopBar.vue` 挂在 SaveStatus 左边 | AC-82 |
+| 2 | **需求②** 项目库从「每一天」里搬出来 | `WorkoutDay.vue` 删掉 `ExerciseLibrary`、`library` prop 与 `library-add/remove` 事件；`LifeWorkoutView` 新增独立卡片 `library-card`（今日训练 → 项目库 → 每周计划 → 历史）；`ExerciseLibrary` 补标题计数 + 「点一下动作名，就加进当天训练」 | AC-83 |
+| 2 | **需求③a** 每日计划加不进去 / 写不进去（真根因两个） | ①`workout_types` 从不种子化 → 下拉只有「休息」：schema 加 `BUILTIN_WORKOUT_TYPES`（力量/有氧/拉伸），`seedFirstRun` 整表无有效记录时才补；周计划每行加「＋ 类型」现场新建并选中（`store.createWorkoutType` 幂等）②`getEditableRecord()` 无记录时抛错 → 改为先 `ensureDay()` 建记录再写 | AC-84 |
+| 2 | **需求③b** 健身页排版重排 | 今日训练卡头部收成一行（左：类型 + 已完成；右：用时 + 完成训练），删掉与 `day-status` 重复的状态徽章；组表格改五列栅格（勾选/第 N 组/重量/次数/对勾）并去掉行内重复 kg·次 单位；每周计划三列栅格（周几 44px / 类型 + ＋类型 / 动作 chips + 添加行），添加行宽 420px；动作操作按钮收成小号；窄屏（≤768px）备注/改名/删除收到动作名下面一行靠右 | AC-85 |
+| 2 | **需求④** 饮食拍照/上传 | `Meal.photos?`（可选字段，不升 DB 版本）；`MEAL_PHOTO_LIMIT = 3`；`addMealItem/updateMealItem` 接受 photos 并截断，「复制昨天这一餐」带照片；`MealSection` 每条多「＋ 照片」展开内联 `ImageInput` + 96px 缩略图 + 单张 ✕；`ImageInput` 新增 `camera` 模式（`accept=image/*` + `capture=environment` 的「拍照」入口，原生 file 输入藏到按钮下面） | AC-86 |
+
+#### Z.2.1 验收记录
+
+5 个 AC（AC-82 ~ AC-86）逐项交付，每条一个 commit：
+
+| commit | 内容 |
+|---|---|
+| `f2a1ef6` | AC-82 顶栏白天/夜间切换（组件 + 单测） |
+| `f516725` | AC-82 e2e（真实浏览器 + 刷新保持 + 设置表同步） |
+| `35f2013` | AC-83 项目库外置 + AC-84 每日计划能加能写（两个真根因） |
+| `eaae3ea` | AC-85 健身页排版重排 |
+| `9da7b1f` | AC-86 饮食拍照/上传 |
+
+全量验证：`vue-tsc --noEmit` 0 error；`vitest run` 全绿；`playwright test` 全绿（含新增 AC-82 / AC-86 两条 e2e）。
+
+过程中额外确认/修掉的两点：
+1. 上一版 `vite.config.ts` 的 `warmup.clientFiles` 误把 `src/stores/*.ts`、`src/db/*.ts` 里的 `*.spec.ts` 一起转译，dev server 被自己压住（`/` 请求 36~52s）—— 已收窄为 `main.ts`/`App.vue`/router/views/components（commit `46631fa`）；
+2. 种子化内置训练类型后，两条原有断言（`db.spec` 的「删掉自定义类型后整表为空」、`workout.spec` 的「删完 `workoutTypes` 长度为 0」）改为「删掉的那个不在、内置三项还在」，断言意图不变、不放宽。

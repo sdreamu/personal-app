@@ -325,3 +325,48 @@
 | AC-81 | P6-3 书架排序的键盘 / 触屏替代 | src/utils/dragSort.spec.ts（`movedIndex` 边界 3 条）、src/stores/library.spec.ts（`moveBy` 上移/下移/列首列尾）、src/views/study-books-view.spec.ts（点 ↑ 换位并落库、列首列尾 disabled、只在本栏内移动） |
 | AC-81 | P6-4 单测超时 | `vite.config.ts` `testTimeout: 8000`（全量 642 条连续两轮全绿） |
 | AC-81 | P6-5 备份版本策略 | 文档 §14.7（无代码改动） |
+
+## 顶栏白天/夜间切换（AC-82）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-82 | AC-82 顶栏主题按钮：点一下夜/白天互相切换、刷新保持、设置表同步 | e2e/theme.spec.ts |
+
+补充（组件层）：src/components/theme-toggle.spec.ts（3 条）——默认浅色时按钮 `aria-label=切换到夜间模式`，点一下 `settings.theme` 与 `<html data-theme>` 都变 `dark`、`aria-pressed=true`；深色下再点回 `light` 并确认写进了 `settings` 表；`theme='system'` + 系统深色时按钮显示深色语义，点一下变显式 `light`。组件只负责“切一下”，写库 / 落 `data-theme` / 系统偏好监听全部复用 `useSettingsStore`。
+
+## 项目库外置（AC-83）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-83 | 项目库外置（3 条，视图层） | src/views/life-workout-view.spec.ts |
+
+覆盖：项目库是独立卡片 `[data-test="library-card"]`，**不在** `[data-test="day-card"]` 内部；页面顺序 今日训练 → 项目库 → 每周计划；休息日没有当天记录时项目库照样能看能点，点一下会建当天记录并加入（配合 AC-84）；历史训练记录里不重复出现项目库（全页 `exercise-library` 只有 1 个）。
+
+## 每日计划能加能写（AC-84）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-84 | 每日计划能加能写（5 条） | src/stores/workout.spec.ts |
+| AC-84 | 每日计划能加能写（3 条） | src/views/life-workout-view.spec.ts |
+
+两个真根因：
+1. `workout_types` 从来不种子化 → 类型下拉只有「休息」，周计划排不出训练日。现随库种入 `BUILTIN_WORKOUT_TYPES`（力量/有氧/拉伸，整表无有效记录时才补），周计划每行加「＋ 类型」可现场新建并选中（`store.createWorkoutType` 幂等）。
+2. `getEditableRecord()` 在没有当天记录时直接抛「该日期还没有训练记录」→ 休息日从项目库点动作、任何“还没记录”的日子写入都只弹红字。现改为先 `ensureDay()` 建记录再继续写。
+
+测试覆盖：休息日添加动作自动建记录并落库且页面状态同步；没有任何记录时改/勾同样自动建记录；内置三类型随库种子化；`createWorkoutType` 幂等 + 空名校验；新建类型后能排进周计划并当天带出；周计划下拉自带内置类型；「＋ 类型」新建并选中；周计划动作当天带出。
+
+## 健身页排版重排（AC-85）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-85 | 健身页排版重排（3 条） | src/views/life-workout-view.spec.ts |
+
+覆盖：组表格表头是「组 / 重量(kg) / 次数」三列标签且与数据行同栅格（未完成时数据行 4 格）；今日训练卡头部状态只出现一次（`in-progress-badge` 已删，状态只在 `day-status`），右侧是用时 + 完成训练；休息日给出「或者直接在下面的项目库里点一个动作」。窄屏实测 390px 无横向滚动（`document.scrollWidth - clientWidth = 0`）。
+
+## 饮食拍照/上传（AC-86）
+
+| AC | 测试名 | 文件 |
+|---|---|---|
+| AC-86 | AC-86 餐食照片：拍照入口带 capture、选图后缩略图出现并在刷新后保留 | e2e/life.spec.ts |
+
+补充（组件层）：src/components/meal-section.spec.ts（4 条）——「＋ 照片」展开内联照片区且拍照输入带 `capture="environment"`；选图后 `meals.photos` 落库、缩略图出现、重挂载仍在；单张删除落库 + 单条最多 3 张；「复制昨天这一餐」把照片一起复制。真实 canvas 压缩链只有浏览器跑得通，所以完整链路在 e2e 里验。

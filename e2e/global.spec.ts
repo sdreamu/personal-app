@@ -196,7 +196,15 @@ test('AC-79 侧栏折叠与记忆', async ({ page }) => {
 
 /** AC-80（P5 补欠账）：首页「接下来」「本周学习」两块新面板 + 日程页 7 天概览三泳道。 */
 test('AC-80 首页接下来 / 本周学习 / 日程页三泳道', async ({ page }) => {
-  const today = logicalToday();
+  // 固定时钟到 07:00：这条用例断言的是「今天下一个时间块」，
+  // 用真实时间跑时，一旦本机过了 09:00，09:00 那块就变成"已过去"，第一行会换成无时间待办。
+  const fixedAt = new Date('2030-06-20T07:00:00');
+  await page.clock.install({ time: fixedAt });
+  // 装上假时钟后要重新载入，应用才会用假时间算"今天"；再跑一拍让首页拿到 now
+  await page.reload();
+  await page.clock.runFor(1500);
+  await page.waitForSelector('[data-test="home-view"]');
+  const today = logicalToday(fixedAt.getTime());
   const tomorrow = addDays(today, 1);
 
   // 今天：一个时间块（学习）+ 一个无时间待办（生活）；明天：一件早读
@@ -208,6 +216,7 @@ test('AC-80 首页接下来 / 本周学习 / 日程页三泳道', async ({ page 
 
   // ---- 首页「接下来」：三行封顶、第一行反白、第二行是无时间待办且能就地完成 ----
   await gotoDate(page, today, '/home');
+  await page.clock.runFor(1000);
   const next = page.locator('[data-test="home-next"]');
   await expect(next).toBeVisible();
   await expect(next.locator('[data-test="next-row-0"]')).toContainText('09:00');
