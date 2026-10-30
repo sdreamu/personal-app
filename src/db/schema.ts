@@ -154,6 +154,11 @@ export interface Meal extends BaseFields {
   meal_name: string;
   text: string;
   feeling: 'full' | 'not_full' | 'overeat' | null;
+  /**
+   * 餐食照片（AC-86）：压缩后的 JPEG data URL 数组，单条最多 MEAL_PHOTO_LIMIT 张。
+   * 可选字段：老数据没有这个键，读的时候按「没有照片」处理，所以不用升 DB 版本。
+   */
+  photos?: string[];
 }
 
 /** 12. 喝水记录（ml 可正可负）。 */

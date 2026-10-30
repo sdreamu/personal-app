@@ -38,6 +38,9 @@ export const FEELING_LABELS: Record<NonNullable<MealFeeling>, string> = {
 
 export const QUICK_MEAL_LIMIT = 8;
 
+/** 单条餐食最多几张照片（AC-86）：3 张够看清"吃了什么"，也不至于把备份撑大。 */
+export const MEAL_PHOTO_LIMIT = 3;
+
 const BUILTIN_MEAL_ORDER: readonly MealBuiltinKey[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 /**
@@ -159,13 +162,14 @@ export const useDietStore = defineStore('diet', {
       }
     },
 
-    /** 添加一条餐食：meal_name 快照以库内当前餐次名为准。 */
+    /** 添加一条餐食：meal_name 快照以库内当前餐次名为准；可带照片（AC-86）。 */
     async addMealItem(
       date: string,
       mealKey: string,
       mealName: string,
       text: string,
       feeling: MealFeeling = null,
+      photos: string[] = [],
     ): Promise<Meal> {
       const trimmed = text.trim();
       if (trimmed === '') throw new Error('餐食内容不能为空');
@@ -177,14 +181,18 @@ export const useDietStore = defineStore('diet', {
           meal_name: section?.name ?? mealName,
           text: trimmed,
           feeling,
+          ...(photos.length > 0 ? { photos: photos.slice(0, MEAL_PHOTO_LIMIT) } : {}),
         }),
       );
       await this.reload();
       return created;
     },
 
-    /** 编辑餐食文字与感受（可选；文字不能为空）。 */
-    async updateMealItem(id: string, patch: { text?: string; feeling?: MealFeeling }): Promise<void> {
+    /** 编辑餐食文字、感受与照片（可选；文字不能为空）。 */
+    async updateMealItem(
+      id: string,
+      patch: { text?: string; feeling?: MealFeeling; photos?: string[] },
+    ): Promise<void> {
       const changes: Partial<Meal> = {};
       if (patch.text !== undefined) {
         const trimmed = patch.text.trim();
@@ -192,6 +200,7 @@ export const useDietStore = defineStore('diet', {
         changes.text = trimmed;
       }
       if (patch.feeling !== undefined) changes.feeling = patch.feeling;
+      if (patch.photos !== undefined) changes.photos = patch.photos.slice(0, MEAL_PHOTO_LIMIT);
       if (Object.keys(changes).length === 0) return;
       await this.runWithSaveStatus(() => updateRecord('meals', id, changes));
       await this.reload();
@@ -234,6 +243,8 @@ export const useDietStore = defineStore('diet', {
             meal_name: mealName,
             text: meal.text,
             feeling: meal.feeling,
+            // 照片也一起复制（AC-86）：常吃的东西照片往往就是同一张
+            ...(meal.photos && meal.photos.length > 0 ? { photos: [...meal.photos] } : {}),
           });
         }
       });

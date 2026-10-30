@@ -15,8 +15,10 @@ const props = withDefaults(
     testKey?: string;
     label?: string;
     deps?: ImageDeps;
+    /** AC-86：手机端要能直接调相机拍一张（相机输入不带 multiple）。 */
+    camera?: boolean;
   }>(),
-  { max: 4, testKey: 'default', label: '图片' },
+  { max: 4, testKey: 'default', label: '图片', camera: false },
 );
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string[]): void }>();
@@ -73,14 +75,30 @@ function removeAt(index: number): void {
       <span class="image-count num" data-test="image-count">{{ images.length }} / {{ max }} 张</span>
     </div>
 
-    <input
-      type="file"
-      accept="image/*"
-      multiple
-      :disabled="busy || isFull"
-      :data-test="'image-file-' + testKey"
-      @change="onPick"
-    />
+    <div class="image-sources">
+      <label v-if="camera" class="image-camera">
+        <span class="image-camera-text">拍照</span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          :disabled="busy || isFull"
+          :data-test="'image-camera-' + testKey"
+          @change="onPick"
+        />
+      </label>
+      <label class="image-pick">
+        <span class="image-pick-text">{{ camera ? '从相册选' : '选择图片' }}</span>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          :disabled="busy || isFull"
+          :data-test="'image-file-' + testKey"
+          @change="onPick"
+        />
+      </label>
+    </div>
 
     <p v-if="busy" class="image-hint" :data-test="'image-busy-' + testKey">正在压缩…</p>
     <p v-if="error" class="image-error" :data-test="'image-error-' + testKey">{{ error }}</p>
@@ -118,11 +136,43 @@ function removeAt(index: number): void {
 .image-label {
   color: var(--text);
 }
-.image-input input[type='file'] {
-  font: inherit;
-  font-size: 12px;
-  color: var(--muted);
+.image-sources {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+/* 原生 file 输入盖在按钮下面（视觉上只剩"拍照 / 从相册选"，行为完全不变） */
+.image-camera,
+.image-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.image-camera input[type='file'],
+.image-pick input[type='file'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+.image-camera-text,
+.image-pick-text {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+.image-camera:hover .image-camera-text,
+.image-pick:hover .image-pick-text {
+  border-color: var(--accent);
+}
+/* 直接用的 file 输入（没有包在 label 里时）保留可见样式 */
 .image-hint {
   margin: 0;
   color: var(--muted);

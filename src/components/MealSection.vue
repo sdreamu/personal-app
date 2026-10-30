@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { Meal } from '@/db';
-import { FEELING_LABELS, QUICK_MEAL_LIMIT, useDietStore, type MealFeeling } from '@/stores/diet';
+import type { ImageDeps } from '@/utils/image';
+import {
+  FEELING_LABELS,
+  MEAL_PHOTO_LIMIT,
+  QUICK_MEAL_LIMIT,
+  useDietStore,
+  type MealFeeling,
+} from '@/stores/diet';
+import ImageInput from './ImageInput.vue';
 
 /**
  * 单个餐次分区（3a 饮食页）：
@@ -13,6 +21,8 @@ const props = defineProps<{
   mealKey: string;
   mealName: string;
   open: boolean;
+  /** 只给测试注入假压缩实现用（生产不传，走 src/utils/image.ts）。 */
+  imageDeps?: ImageDeps;
 }>();
 
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>();
@@ -22,6 +32,8 @@ const diet = useDietStore();
 const items = computed(() => diet.mealsFor(props.mealKey));
 const quickItems = computed(() => diet.topFrequentItems(props.mealKey, QUICK_MEAL_LIMIT));
 
+/** 当前正在给哪一条记录选照片（同一条展开一个 ImageInput）。 */
+const photoEditingId = ref<string | null>(null);
 const draft = ref('');
 const copying = ref(false);
 const editingId = ref<string | null>(null);
@@ -93,6 +105,25 @@ async function copyYesterday(): Promise<void> {
 
 function feelingLabel(feeling: NonNullable<MealFeeling>): string {
   return FEELING_LABELS[feeling];
+}
+
+/* ---------- 照片（AC-86：拍照 / 上传） ---------- */
+
+function startPhotos(meal: Meal): void {
+  photoEditingId.value = meal.id;
+}
+
+async function savePhotos(meal: Meal, photos: string[]): Promise<void> {
+  try {
+    await diet.updateMealItem(meal.id, { photos });
+  } catch {
+    // 已由 store 提示
+  }
+}
+
+async function removePhoto(meal: Meal, index: number): Promise<void> {
+  const next = (meal.photos ?? []).filter((_, cursor) => cursor !== index);
+  await savePhotos(meal, next);
 }
 </script>
 
@@ -166,9 +197,37 @@ function feelingLabel(feeling: NonNullable<MealFeeling>): string {
             {{ feelingLabel(meal.feeling) }}
           </span>
           <span class="meal-ops">
+            <button class="ghost-btn" data-test="meal-photo" @click="startPhotos(meal)">
+              {{ photoEditingId === meal.id ? '收起照片' : (meal.photos?.length ? '照片' : '＋ 照片') }}
+            </button>
             <button class="ghost-btn" data-test="meal-edit" @click="startEdit(meal)">编辑</button>
             <button class="danger-btn" data-test="meal-delete" @click="remove(meal)">删除</button>
           </span>
+          <ul v-if="meal.photos && meal.photos.length > 0" class="meal-photos" data-test="meal-photos">
+            <li v-for="(src, index) in meal.photos" :key="'photo-' + index" class="meal-photo-cell">
+              <img :src="src" :alt="meal.text + ' 第 ' + (index + 1) + ' 张照片'" data-test="meal-photo-thumb" />
+              <button
+                type="button"
+                class="meal-photo-remove"
+                data-test="meal-photo-remove"
+                :aria-label="'删除第 ' + (index + 1) + ' 张照片'"
+                @click="removePhoto(meal, index)"
+              >
+                ✕
+              </button>
+            </li>
+          </ul>
+          <div v-if="photoEditingId === meal.id" class="meal-photo-editor" data-test="meal-photo-editor">
+            <ImageInput
+              :model-value="meal.photos ?? []"
+              :max="MEAL_PHOTO_LIMIT"
+              :test-key="'meal-' + meal.id"
+              label="这一餐的照片"
+              camera
+              :deps="props.imageDeps"
+              @update:model-value="(value: string[]) => savePhotos(meal, value)"
+            />
+          </div>
         </template>
       </li>
       <li v-if="items.length === 0" class="hint" data-test="meal-empty">还没有记录，点“+ 添加”记一餐</li>
@@ -241,6 +300,52 @@ function feelingLabel(feeling: NonNullable<MealFeeling>): string {
 .meal-ops .danger-btn {
   padding: 3px 10px;
   font-size: 13px;
+}
+.meal-photos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.meal-photo-cell {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.meal-photo-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.meal-photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border: 1px solid var(--border-ink);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 0 4px;
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+}
+.meal-photo-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.meal-photo-editor {
+  width: 100%;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
 }
 .meal-item .text-input {
   flex: 1;

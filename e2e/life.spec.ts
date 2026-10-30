@@ -176,3 +176,42 @@ test('AC-46 娱乐超额变红仍可保存', async ({ page }) => {
   await expect(page.locator('[data-test="progress-bar"]')).toHaveClass(/over/);
   await expect(page.locator('[data-test="play-record"]')).toContainText('70 分钟');
 });
+
+
+/**
+ * AC-86 饮食拍照/上传：手机上点「拍照」调相机、选图压缩后落库，缩略图刷新后还在。
+ * 真实压缩链路（canvas）只有浏览器里跑得通，所以这条放在 e2e。
+ */
+test('AC-86 餐食照片：拍照入口带 capture、选图后缩略图出现并在刷新后保留', async ({ page }) => {
+  await addMealItem(page, 'breakfast', 'AC86鸡蛋');
+  const breakfast = page.locator('[data-testid="meal-section-breakfast"]');
+  const item = breakfast.locator('[data-test="meal-item"]', { hasText: 'AC86鸡蛋' });
+
+  await item.locator('[data-test="meal-photo"]').click();
+  const editor = item.locator('[data-test="meal-photo-editor"]');
+  await expect(editor).toBeVisible();
+
+  // 拍照入口：accept=image/* 且带 capture（手机上直接开相机）；test-key 里带记录 id，用前缀匹配
+  const cameraInput = editor.locator('[data-test^="image-camera-meal-"][capture="environment"]');
+  await expect(cameraInput).toHaveCount(1);
+  expect(await cameraInput.getAttribute('accept')).toBe('image/*');
+
+  // 用一张真实的小 PNG 走完整压缩链
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII=',
+    'base64',
+  );
+  const fileInput = editor.locator('[data-test^="image-file-meal-"]');
+  await fileInput.setInputFiles({ name: 'meal.png', mimeType: 'image/png', buffer: png });
+
+  await expect(item.locator('[data-test="meal-photo-thumb"]')).toHaveCount(1);
+  await expect(editor.locator('[data-test="image-count"]')).toHaveText('1 / 3 张');
+
+  // 刷新后照片还在（存的是压缩后的 data URL）
+  await page.reload();
+  const breakfast2 = page.locator('[data-testid="meal-section-breakfast"]');
+  const item2 = breakfast2.locator('[data-test="meal-item"]', { hasText: 'AC86鸡蛋' });
+  await expect(item2.locator('[data-test="meal-photo-thumb"]')).toHaveCount(1);
+  const src = await item2.locator('[data-test="meal-photo-thumb"]').first().getAttribute('src');
+  expect(src ?? '').toContain('data:image/');
+});
