@@ -5,14 +5,17 @@ import BottomNav from '@/components/BottomNav.vue';
 import SettlementModal from '@/components/SettlementModal.vue';
 import SideNav from '@/components/SideNav.vue';
 import TopBar from '@/components/TopBar.vue';
+import PageDateControls from '@/components/PageDateControls.vue';
 import ToastStack from '@/components/ToastStack.vue';
 import { useDateStore } from '@/stores/date';
 import { useSaveStatusStore } from '@/stores/saveStatus';
 import { formatDateCN } from '@/utils/date';
+import { useRoute } from 'vue-router';
 
 useEscToCloseModal();
 
 const dateStore = useDateStore();
+const route = useRoute();
 const saveStatus = useSaveStatusStore();
 
 async function exportNow(): Promise<void> {
@@ -37,13 +40,12 @@ async function exportNow(): Promise<void> {
     <div class="app-body">
       <SideNav />
       <main class="content">
-        <div v-if="!dateStore.isToday" class="viewing-banner" data-test="viewing-banner">
+        <PageDateControls />
+        <div v-if="!['/mistakes', '/review'].includes(route.path) && !dateStore.isToday" class="viewing-banner" data-test="viewing-banner">
           你正在查看 {{ formatDateCN(dateStore.selectedDate) }}
         </div>
         <RouterView v-slot="{ Component, route }">
-          <Transition name="page-fade" mode="out-in">
-            <component :is="Component" :key="route.path" />
-          </Transition>
+          <component :is="Component" :key="route.path" />
         </RouterView>
       </main>
     </div>

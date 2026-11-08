@@ -352,6 +352,7 @@ function formatMistake(mistake: Mistake): string[] {
   if (mistake.subject_name !== null && mistake.subject_name.trim() !== '') {
     head.push(mistake.subject_name.trim());
   }
+  if (mistake.knowledge_point) head.push(mistake.knowledge_point);
   head.push('难度 ' + mistake.difficulty);
   const question = mistake.question_text?.trim() ?? '';
   lines.push('- [' + head.join('｜') + '] ' + (question === '' ? '（无题干文字）' : question));

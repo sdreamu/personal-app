@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-material="solid">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>个人生活助手 · 首页视觉示例</title>
+  <script>
+    const params = new URLSearchParams(location.search);
+    document.documentElement.dataset.theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.material = params.get('material') === 'glass' ? 'glass' : 'solid';
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg:#f2f2f7; --surface:#fff; --subtle:#f5f5f9; --text:#1c1c1e; --secondary:#62626b;
+      --line:#e7e7ed; --accent:#0065d1; --accent-fill:#0070e0; --on-accent:#fff; --soft:#eaf3ff;
+      --track:#e9eaf0; --green:#287d50; --shadow:0 5px 20px #17264405;
+      --nav:#ffffffed; --glass-border:#ffffffd9; --wash:#e8f0fd;
+      --radius:24px; --space:20px;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;
+      font-synthesis:none; font-variant-numeric:tabular-nums;
+    }
+    :root[data-theme="dark"] {
+      color-scheme:dark;
+      --bg:#000; --surface:#1c1c1e; --subtle:#262629; --text:#f5f5f7; --secondary:#a5a5b0;
+      --line:#343438; --accent:#69afff; --accent-fill:#409cff; --on-accent:#071321; --soft:#182b44;
+      --track:#37373e; --green:#70ce9a; --shadow:none;
+      --nav:#1c1c1ef5; --glass-border:#ffffff1f; --wash:#0c1d32;
+    }
+    :root[data-material="glass"] {
+      --bg:#edf2f9; --surface:#ffffffb8; --nav:#ffffffbd; --subtle:#ffffff65;
+      --shadow:0 7px 28px #38597c08; --line:#c8d3e07d;
+    }
+    :root[data-material="glass"][data-theme="dark"] {
+      --bg:#060c16; --surface:#1d2a3bba; --nav:#172434ce; --subtle:#ffffff07;
+      --shadow:0 8px 28px #00000015; --line:#b6cae51e;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5}
+    body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none}
+    [data-material="glass"] body::before{background:radial-gradient(ellipse at 100% 15%,#83b6ec24,transparent 48%),radial-gradient(ellipse at 0 55%,#bacde324,transparent 55%)}
+    button,a{-webkit-tap-highlight-color:transparent} button{font:inherit;color:inherit;cursor:pointer}
+    button{border:0;background:none;padding:0} button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+    button:active{opacity:.65;transform:scale(.98)} button{transition:transform .15s,opacity .15s}
+    svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;flex:none}
+    .topbar{height:64px;display:flex;align-items:center;justify-content:space-between;padding:8px var(--space);gap:8px;max-width:540px;margin:auto}
+    .brand{font-size:15px;font-weight:650;letter-spacing:-.3px}.top-actions{display:flex;align-items:center;gap:8px}
+    .setting{display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:var(--secondary)}
+    .add{height:44px;padding:0 14px;border-radius:24px;background:var(--soft);color:var(--accent);font-weight:600;font-size:14px}
+    main{max-width:540px;margin:auto;padding:10px var(--space) 122px}
+    h1{font-size:34px;letter-spacing:-1.2px;line-height:1.2;font-weight:700;margin:0 0 8px}
+    .meta{color:var(--secondary);font-size:13px;margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .meta .saved{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11px}.saved i{width:5px;height:5px;background:var(--green);border-radius:50%}
+    .hero{margin:0 0 22px}.goals{display:grid;grid-template-columns:1fr 1fr;margin-top:22px;border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+    .goal{padding:17px 18px 16px;text-align:left;min-width:0;position:relative}
+    .goal:nth-child(odd)::after{content:'';position:absolute;right:0;top:18px;bottom:18px;width:1px;background:var(--line)}
+    .goal:nth-child(-n+2){border-bottom:1px solid var(--line)}
+    .eyebrow{display:flex;align-items:center;gap:6px;color:var(--secondary);font-size:12px;font-weight:500}.eyebrow svg{width:15px;height:15px;color:var(--accent)}
+    .value{font-size:30px;font-weight:650;letter-spacing:-1px;line-height:1.35;margin:7px 0 3px;white-space:nowrap}.unit{font-size:13px;font-weight:500;letter-spacing:0;margin-left:4px;color:var(--secondary)}
+    .goal small{display:block;font-size:11px;color:var(--secondary)}
+    .progress{height:4px;border-radius:4px;background:var(--track);margin-top:12px;overflow:hidden}.progress i{display:block;height:100%;background:var(--accent-fill);border-radius:4px;width:var(--amount)}
+    .dayband{padding:18px 0 0}.band-top{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--secondary);margin-bottom:10px}.now-label{color:var(--accent);font-weight:600}
+    .ruler{display:flex;justify-content:space-between;color:var(--secondary);font-size:10px;margin-bottom:8px}
+    .timeline{position:relative;display:grid;grid-template-columns:1.1fr 1.6fr 1.2fr 1.3fr .9fr;gap:4px}
+    .block{height:34px;display:flex;justify-content:center;align-items:center;font-size:10px;border-radius:7px;background:var(--soft);color:var(--accent);min-width:0}
+    .block.done{background:var(--accent-fill);color:var(--on-accent)}.block.later{background:var(--track);color:var(--secondary)}
+    .cursor{position:absolute;left:62%;top:-7px;bottom:-6px;width:2px;background:var(--accent)}.cursor::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);position:absolute;left:-2px;top:0}
+    .hint{display:flex;align-items:center;gap:9px;font-size:12px;padding:0 4px;margin:18px 0 16px;min-height:44px;color:var(--secondary)}.hint svg{width:17px;height:17px;color:var(--accent)}.chevron{margin-left:auto;color:var(--secondary);font-size:20px}
+    .mit{padding:15px 17px;border-radius:18px;background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:25px}.mit-label{font-size:11px;color:var(--secondary)}.mit-title{font-size:14px;font-weight:600;margin-top:4px}.pill{color:var(--accent);background:var(--soft);border-radius:20px;min-height:44px;padding:0 13px;font-size:12px;font-weight:600;white-space:nowrap}
+    section{margin-top:24px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px}h2{font-size:19px;letter-spacing:-.5px;line-height:1.4;margin:0;font-weight:650}.more{font-size:12px;color:var(--accent);min-height:44px;display:flex;align-items:center;gap:5px}
+    .panel{border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+    .next-row{display:flex;align-items:center;padding:12px 16px;gap:12px;min-height:75px}.next-row+.next-row{border-top:1px solid var(--line)}
+    .event-icon{width:33px;height:33px;background:var(--soft);color:var(--accent);display:flex;align-items:center;justify-content:center;border-radius:10px;flex:none}.event-icon svg{width:18px;height:18px}.event-copy{flex:1;min-width:0}.event-title{font-size:14px;font-weight:600;overflow-wrap:anywhere}.event-time{font-size:11px;color:var(--secondary);margin-top:3px}
+    .text-action{font-size:12px;min-width:44px;min-height:44px;color:var(--accent);font-weight:600}.tomorrow{color:var(--secondary)}
+    .week-body{padding:17px 18px}.week-summary{display:flex;align-items:baseline;gap:7px}.week-summary strong{font-size:25px;letter-spacing:-.7px;font-weight:650}.week-summary small{font-size:11px;color:var(--secondary)}
+    .chart{height:116px;display:flex;gap:21px;align-items:end;margin-top:19px;border-bottom:1px solid var(--line);padding:0 5px 0}.chart-bar{background:var(--soft);height:var(--height);border-radius:5px 5px 0 0;flex:1}.chart-bar.today{background:var(--accent-fill)}.chart-bar.future{background:var(--track)}
+    .weekdays{display:flex;justify-content:space-around;font-size:11px;color:var(--secondary);margin-top:7px}.weekdays .today{color:var(--accent);font-weight:600}
+    .days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:13px 8px;gap:3px}.day{text-align:center;min-width:0;padding:7px 0;border-radius:15px;min-height:108px}.day.selected{background:var(--soft);color:var(--accent)}.day-week{font-size:11px;color:var(--secondary)}.day-date{font-size:17px;font-weight:650;margin:4px 0 8px}.day-count{font-size:10px;color:var(--secondary)}.day-mark{height:12px;display:flex;justify-content:center;align-items:center;gap:2px;margin-bottom:5px}.day-mark i{width:3px;height:7px;background:var(--accent-fill);border-radius:2px}.day-mark i:nth-child(2){height:11px}.day-done{font-size:9px;color:var(--secondary);margin-top:3px}
+    .day-list{padding:0 15px 8px}.day-detail{display:flex;align-items:center;gap:10px;font-size:11px;padding:8px 0;color:var(--secondary);border-top:1px solid var(--line)}.day-detail b{color:var(--text);font-weight:500;flex:1}.day-detail .date{width:32px}
+    .modules{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border-radius:var(--radius);overflow:hidden}.module{padding:17px 16px;min-width:0;min-height:145px;border-bottom:1px solid var(--line)}.module:nth-child(odd){border-right:1px solid var(--line)}.module:nth-last-child(-n+2){border-bottom:0}.module h3{font-size:12px;font-weight:500;color:var(--secondary);margin:0 0 10px}.module strong{font-size:17px;letter-spacing:-.3px;font-weight:600}.module p{font-size:11px;color:var(--secondary);margin:6px 0}.module button{min-height:44px;font-size:12px;color:var(--accent);font-weight:600}.module .progress{margin-top:10px}.water-actions{display:flex;justify-content:space-between}
+    .footnote{text-align:center;margin-top:26px;color:var(--secondary);font-size:10px;letter-spacing:.2px}
+    .bottom-wrap{position:fixed;bottom:0;left:0;right:0;padding-bottom:env(safe-area-inset-bottom,8px);z-index:5;background:var(--nav);border-top:1px solid var(--line)}
+    .bottom-nav{height:76px;display:grid;grid-template-columns:repeat(5,1fr);max-width:540px;margin:auto;padding:6px 12px 11px}.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--secondary);font-size:10px}.tab svg{width:23px;height:23px}.tab.active{color:var(--accent);font-weight:650}.home-indicator{width:116px;height:5px;border-radius:5px;background:var(--text);margin:0 auto 7px;opacity:.85}
+    [data-material="glass"] .goals,[data-material="glass"] .panel,[data-material="glass"] .mit,[data-material="glass"] .modules{border:1px solid var(--glass-border);backdrop-filter:blur(24px) saturate(125%);-webkit-backdrop-filter:blur(24px) saturate(125%)}
+    [data-material="glass"] .bottom-wrap{left:12px;right:12px;bottom:9px;border:1px solid var(--glass-border);border-radius:30px;box-shadow:0 5px 28px #12243b12;backdrop-filter:blur(30px) saturate(135%);-webkit-backdrop-filter:blur(30px) saturate(135%)}
+    [data-material="glass"] .bottom-nav{height:68px;padding-top:5px;padding-bottom:5px}[data-material="glass"] .home-indicator{margin-bottom:6px;opacity:.5}
+    dialog{max-width:min(320px,90vw);border:1px solid var(--line);padding:24px;border-radius:24px;background:var(--surface);color:var(--text);backdrop-filter:blur(30px)}dialog::backdrop{background:#0005}dialog h2{font-size:19px}dialog p{font-size:14px;color:var(--secondary)}dialog button{width:100%;height:44px;color:var(--accent);font-weight:600}
+    @supports not (backdrop-filter:blur(1px)){[data-material="glass"]{--surface:#fff;--nav:#fff}[data-material="glass"][data-theme="dark"]{--surface:#1c2634;--nav:#1c2634}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+    @media(max-width:350px){:root{--space:16px}.value{font-size:26px}.goal{padding:15px 13px}.meta{font-size:11px;gap:6px}.meta .saved{font-size:10px}.brand{font-size:14px}.top-actions{gap:0}.chart{gap:16px}.next-row{gap:8px;padding-left:12px;padding-right:12px}.day-date{font-size:15px}}
+    @media(min-width:700px){.bottom-wrap{max-width:540px;margin:auto}[data-material="glass"] .bottom-wrap{max-width:516px}}
+  </style>
+</head>
+<body>
+  <svg style="display:none" aria-hidden="true"><defs>
+    <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 11h16m-11 4h1m4 0h1m-6 3h1"/></symbol>
+    <symbol id="book" viewBox="0 0 24 24"><path d="M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1v14"/></symbol>
+    <symbol id="heart" viewBox="0 0 24 24"><path d="M12 21S3 15 3 9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-9 12-9 12Z"/></symbol>
+    <symbol id="chart" viewBox="0 0 24 24"><path d="M4 4v16h17M8 15v-4m5 4V7m5 8V4"/></symbol>
+    <symbol id="timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 7v4l3 2m3-11 2 2"/></symbol>
+    <symbol id="water" viewBox="0 0 24 24"><path d="M12 2s-7 8-7 13a7 7 0 0 0 14 0C19 10 12 2 12 2Z"/></symbol>
+    <symbol id="play" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="4"/><path d="M8 11v5m-2.5-2.5h5M16 12h.1M18 15h.1M9 3h6"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="settings" viewBox="0 0 24 24"><path d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  </defs></svg>
+  <header class="topbar"><span class="brand">个人生活助手</span><div class="top-actions"><button class="setting" aria-label="设置"><svg><use href="#settings"/></svg></button><button class="add">＋ 记一笔</button></div></header>
+  <main>
+    <div class="hero" data-section="hero">
+      <h1>你好</h1><p class="meta"><span>2026年11月7日</span><span>周六</span><span>16:24</span><span class="saved"><i></i>已保存</span></p>
+      <div class="goals" data-section="goals">
+        <button class="goal"><span class="eyebrow"><svg><use href="#check"/></svg>待办完成率</span><div class="value">4<span class="unit">/ 6</span></div><small>完成率 67%</small><div class="progress"><i style="--amount:67%"></i></div></button>
+        <button class="goal"><span class="eyebrow"><svg><use href="#timer"/></svg>学习时长</span><div class="value">1<span class="unit">小时</span>35<span class="unit">分</span></div><small>目标 120 分钟</small><div class="progress"><i style="--amount:79%"></i></div></button>
+        <button class="goal"><span class="eyebrow"><svg><use href="#water"/></svg>喝水</span><div class="value">1,250<span class="unit">ml</span></div><small>目标 2,000 ml</small><div class="progress"><i style="--amount:62.5%"></i></div></button>
+        <button class="goal"><span class="eyebrow"><svg><use href="#play"/></svg>娱乐时长</span><div class="value">25<span class="unit">分钟</span></div><small>目标 60 分钟</small><div class="progress"><i style="--amount:42%"></i></div></button>
+      </div>
+      <div class="dayband" data-section="timeline"><div class="band-top"><span>今日时间带</span><span class="now-label">现在 16:24</span></div><div class="ruler"><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>24:00</span></div><div class="timeline" aria-label="今日时间带示意：阅读、学习已完成，训练与复盘待进行"><span class="block done">阅读</span><span class="block done">学习</span><span class="block done">学习</span><span class="block">训练</span><span class="block later">复盘</span><i class="cursor"></i></div></div>
+    </div>
+    <button class="hint" data-section="hint"><svg><use href="#sun"/></svg><span>昨天还没有复盘，花一点时间回顾一下</span><span class="chevron">›</span></button>
+    <div class="mit" data-section="mit"><div><div class="mit-label">昨天定下的最重要的一件事</div><div class="mit-title">完成本周的学习总结</div></div><button class="pill">加入今日待办</button></div>
+    <section data-section="next"><div class="section-head"><h2>接下来</h2><button class="more">日程 <span>›</span></button></div><div class="panel">
+      <div class="next-row"><div class="event-icon"><svg><use href="#heart"/></svg></div><div class="event-copy"><div class="event-title">上肢力量训练</div><div class="event-time">17:00–18:00</div></div><button class="text-action">开始</button></div>
+      <div class="next-row"><div class="event-icon"><svg><use href="#check"/></svg></div><div class="event-copy"><div class="event-title">整理本周错题</div><div class="event-time">无时间</div></div><button class="text-action">完成</button></div>
+      <div class="next-row"><div class="event-icon"><svg><use href="#book"/></svg></div><div class="event-copy"><div class="event-title">阅读半小时</div><div class="event-time">明天 09:00</div></div><span class="chevron">›</span></div>
+    </div></section>
+    <section data-section="week"><div class="section-head"><h2>本周学习</h2><span class="more" style="color:var(--secondary)">11.02 – 11.08</span></div><div class="panel week-body"><div class="week-summary"><strong>8 小时 35 分</strong><small>/ 目标 14 小时</small></div><div class="chart" role="img" aria-label="本周学习时长：周一90、周二120、周三60、周四80、周五70、周六95、周日0分钟"><i class="chart-bar" style="--height:75%"></i><i class="chart-bar" style="--height:100%"></i><i class="chart-bar" style="--height:50%"></i><i class="chart-bar" style="--height:67%"></i><i class="chart-bar" style="--height:58%"></i><i class="chart-bar today" style="--height:79%"></i><i class="chart-bar future" style="--height:0%"></i></div><div class="weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span class="today">六</span><span>日</span></div></div></section>
+    <section data-section="seven"><div class="section-head"><h2>未来七天</h2><button class="more">看完整日程 <span>›</span></button></div><div class="panel"><div class="days" id="days"></div><div class="day-list"><div class="day-detail"><span class="date">11.06</span><b>英语听力</b><span>3 / 3 完成</span></div><div class="day-detail"><span class="date">11.07</span><b>上肢力量训练</b><span>4 / 6 完成</span></div><div class="day-detail"><span class="date">11.08</span><b>阅读半小时</b><span>0 / 2 完成</span></div><div class="day-detail"><span class="date">11.09</span><b>数学学习</b><span>0 / 4 完成</span></div><div class="day-detail"><span class="date">11.10</span><b>下肢力量训练</b><span>0 / 3 完成</span></div><div class="day-detail"><span class="date">11.11</span><b>整理错题</b><span>0 / 2 完成</span></div><div class="day-detail"><span class="date">11.12</span><b>阅读与复盘</b><span>0 / 3 完成</span></div></div></div></section>
+    <section data-section="modules"><div class="section-head"><h2>各模块</h2></div><div class="modules">
+      <article class="module"><h3>今日计划</h3><strong>已完成 4 / 6</strong><p>下一项：上肢力量训练</p><button>勾选下一项</button></article>
+      <article class="module"><h3>学习</h3><strong>1 小时 35 分</strong><p>目标 120 分钟</p><div class="progress"><i style="--amount:79%"></i></div><button>开始计时</button></article>
+      <article class="module"><h3>阅读</h3><strong>《原子习惯》</strong><p>128 / 320 页</p><button>继续阅读</button></article>
+      <article class="module"><h3>喝水</h3><strong>1,250 ml</strong><p>目标 2,000 ml</p><div class="water-actions"><button>−1 杯</button><button>＋1 杯</button></div></article>
+      <article class="module"><h3>运动</h3><strong>上肢力量</strong><p>未完成</p><button>去训练</button></article>
+      <article class="module"><h3>娱乐</h3><strong>已用 25 分钟</strong><p>每日额度 60 分钟</p><p>剩余 35 分钟</p></article>
+    </div></section>
+    <p class="footnote">首页视觉示例 · 所有数据均为演示数据</p>
+  </main>
+  <footer class="bottom-wrap"><nav class="bottom-nav" aria-label="底部导航"><button class="tab active" aria-current="page"><svg><use href="#sun"/></svg><span>今天</span></button><button class="tab"><svg><use href="#calendar"/></svg><span>日程</span></button><button class="tab"><svg><use href="#book"/></svg><span>学习</span></button><button class="tab"><svg><use href="#heart"/></svg><span>生活</span></button><button class="tab"><svg><use href="#chart"/></svg><span>复盘</span></button></nav><div class="home-indicator" aria-hidden="true"></div></footer>
+  <dialog aria-labelledby="preview-title"><h2 id="preview-title">示例预览</h2><p id="preview-copy"></p><button id="close-dialog">知道了</button></dialog>
+  <script src="pages.js"></script>
+  <script>
+    const days = [['五','06',3,3],['六','07',6,4],['日','08',2,0],['一','09',4,0],['二','10',3,0],['三','11',2,0],['四','12',3,0]];
+    if (document.querySelector('#days')) document.querySelector('#days').innerHTML = days.map(([week,date,count,done],i)=>`<button class="day ${i===1?'selected':''}" aria-label="11月${date}日，${count}件安排，已完成${done}件"><div class="day-week">${week}</div><div class="day-date">${date}</div><div class="day-mark"><i></i><i></i><i></i></div><div class="day-count">${count} 件</div><div class="day-done">${done}/${count}</div></button>`).join('');
+    const dialog = document.querySelector('dialog');
+    document.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{
+      if(button.id==='close-dialog') { dialog.close(); return; }
+      document.querySelector('#preview-copy').textContent = `「${button.getAttribute('aria-label') || button.innerText.trim().split('\n')[0]}」在正式 APP 中执行对应操作。本页仅供比较视觉风格，不会修改你的记录。`;
+      dialog.showModal();
+    }));
+  </script>
+</body>
+</html>

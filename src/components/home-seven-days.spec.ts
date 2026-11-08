@@ -9,10 +9,11 @@ import type { SettingsRecord } from '@/db';
 import { useSettingsStore } from '@/stores/settings';
 
 /** 只替换「按日期取计划」，其余 db 导出保持原样（组件只用这一个函数）。 */
-const listAliveByDate = vi.fn(async (_table: string, date: string): Promise<Plan[]> => {
+async function defaultPlans(_table: string, date: string): Promise<Plan[]> {
   if (date === '2026-10-26') return [planFixture(date, 'a'), planFixture(date, 'b')];
   return [];
-});
+}
+const listAliveByDate = vi.fn(defaultPlans);
 vi.mock('@/db', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, listAliveByDate: (table: string, date: string) => listAliveByDate(table, date) };
@@ -73,6 +74,7 @@ let router: ReturnType<typeof createRouter>;
 beforeEach(() => {
   vi.setSystemTime(new Date(2026, 9, 25, 10, 0, 0));
   listAliveByDate.mockClear();
+  listAliveByDate.mockImplementation(defaultPlans);
   pinia = createPinia();
   setActivePinia(pinia);
   router = createRouter({ history: createWebHashHistory(), routes });
@@ -88,13 +90,22 @@ async function mountSeven() {
 }
 
 describe('首页未来七天', () => {
-  it('默认窗口是「昨天 → 后五天」共 7 天，今天那列反相', async () => {
+  it('首帧就渲染七天，避免查询完成时整块撑开', async () => {
+    const wrapper = mount(HomeSevenDays, { global: { plugins: [pinia, router] } });
+    expect(wrapper.findAll('.day')).toHaveLength(7);
+    await flushPromises();
+    expect(wrapper.findAll('.day')).toHaveLength(7);
+    wrapper.unmount();
+  });
+
+  it('保留七天窗口，默认选中今天', async () => {
     const wrapper = await mountSeven();
     const days = wrapper.findAll('.day');
     expect(days).toHaveLength(7);
     expect(wrapper.find('[data-test="seven-day-2026-10-24"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="seven-day-2026-10-30"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="seven-day-2026-10-25"]').classes()).toContain('today');
+    expect(wrapper.find('[data-test="seven-day-2026-10-25"]').attributes('aria-pressed')).toBe('true');
     expect(listAliveByDate).toHaveBeenCalledTimes(7);
   });
 
@@ -102,22 +113,58 @@ describe('首页未来七天', () => {
     const wrapper = await mountSeven();
     const empty = wrapper.find('[data-test="seven-day-2026-10-27"]');
     expect(empty.text()).toContain('0 件');
-    expect(empty.text()).toContain('还没有安排');
+    await empty.trigger('click');
+    expect(wrapper.find('[data-test="seven-empty"]').text()).toBe('这一天还没有安排');
+    expect(wrapper.findAll('[data-test="seven-empty"]')).toHaveLength(1);
   });
 
-  it('有安排的一天给件数与主项', async () => {
+  it('日期条只显示数量，选中后预览具体安排', async () => {
     const wrapper = await mountSeven();
     const day = wrapper.find('[data-test="seven-day-2026-10-26"]');
     expect(day.text()).toContain('2 件');
-    expect(day.text()).toContain('读书');
-    expect(day.findAll('.bar').length).toBe(2);
+    expect(day.text()).not.toContain('读书');
+    await day.trigger('click');
+    expect(wrapper.findAll('[data-test="seven-preview-item"]')).toHaveLength(2);
+    expect(wrapper.find('[data-test="seven-preview"]').text()).toContain('06:00');
   });
 
-  it('点某天把日期切过去并跳到日程页', async () => {
+  it('选择日期不改全局日期；查看全部才进入该日列表', async () => {
     const wrapper = await mountSeven();
-    await wrapper.find('[data-test="seven-day-2026-10-28"]').trigger('click');
+    await wrapper.find('[data-test="seven-day-2026-10-26"]').trigger('click');
+    expect(useDateStore().selectedDate).toBe('2026-10-25');
+    expect(router.currentRoute.value.query.view).toBeUndefined();
+    await wrapper.find('[data-test="seven-view-all"]').trigger('click');
     await flushPromises();
-    expect(useDateStore().selectedDate).toBe('2026-10-28');
+    expect(useDateStore().selectedDate).toBe('2026-10-26');
     expect(router.currentRoute.value.path).toBe('/plan');
+    expect(router.currentRoute.value.query.view).toBe('list');
+  });
+
+  it('最多三条，未完成优先，长清单通过查看全部打开', async () => {
+    listAliveByDate.mockImplementation(async (_, date) => date === '2026-10-25'
+      ? Array.from({ length: 8 }, (_, i) => ({ ...planFixture(date, String(i)), done: i === 0 })) : []);
+    const wrapper = await mountSeven();
+    expect(wrapper.findAll('[data-test="seven-preview-item"]')).toHaveLength(3);
+    expect(wrapper.findAll('.preview-row.done')).toHaveLength(0);
+    expect(wrapper.find('.preview-remaining').text()).toBe('还有 5 项');
+    expect(wrapper.find('[data-test="seven-view-all"]').text()).toContain('8 项');
+  });
+
+  it('单日失败不掩盖其它日期，重试后恢复', async () => {
+    let fail = true;
+    listAliveByDate.mockImplementation(async (table, date) => {
+      if (date === '2026-10-25' && fail) throw new Error('read failed');
+      return defaultPlans(table, date);
+    });
+    const wrapper = await mountSeven();
+    expect(wrapper.find('[role="alert"]').text()).toContain('未能加载');
+    await wrapper.find('[data-test="seven-day-2026-10-26"]').trigger('click');
+    expect(wrapper.findAll('[data-test="seven-preview-item"]')).toHaveLength(2);
+    await wrapper.find('[data-test="seven-day-2026-10-25"]').trigger('click');
+    fail = false;
+    await wrapper.find('[role="alert"] button').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="seven-empty"]').exists()).toBe(true);
   });
 });

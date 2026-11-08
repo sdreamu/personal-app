@@ -21,7 +21,7 @@ function writePersistedDate(date: string): void {
   }
 }
 
-/** 切日期守卫：返回 false 表示拦截本次切换（复盘页有未确认草稿时用），确认丢弃后用 force 绕过。 */
+/** 切日期守卫：返回 false 表示拦截本次切换（复盘页保存进行中时用），完成保存后用 force 绕过。 */
 let dateChangeGuard: ((next: string) => boolean) | null = null;
 
 export function setDateChangeGuard(guard: ((next: string) => boolean) | null): void {
@@ -44,7 +44,7 @@ export const useDateStore = defineStore('date', {
     isToday: (state) => state.selectedDate === logicalToday(useSettingsStore().dayStartMin),
   },
   actions: {
-    /** force=true 跳过守卫（用户在确认弹窗里选择丢弃草稿后使用）。 */
+    /** force=true 跳过守卫（完成保存后继续日期切换时使用）。 */
     setSelected(date: string, options: { force?: boolean } = {}) {
       if (
         options.force !== true &&

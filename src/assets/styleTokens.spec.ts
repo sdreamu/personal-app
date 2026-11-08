@@ -63,106 +63,40 @@ function norm(value: string | undefined): string | undefined {
   return value === undefined ? undefined : value.trim().toLowerCase();
 }
 
-// UI_GUIDE §2 关键颜色（浅色 / 深色）。good==success、warn==warning，通过别名解析比对。
-const LIGHT_COLORS: Record<string, string> = {
-  bg: '#f1f1e8',
-  panel: '#fafaf3',
-  text: '#141a15',
-  muted: '#565d51',
-  border: '#c9cdbc',
-  accent: '#12352a',
-  'accent-soft': '#dfe2d3',
-  good: '#1b6b54',
-  warn: '#8a5a12',
-  'hero-bg': '#12352a',
-};
 
-const DARK_COLORS: Record<string, string> = {
-  bg: '#141712',
-  panel: '#1c2018',
-  text: '#edefe6',
-  muted: '#9aa394',
-  border: '#333a2f',
-  accent: '#7fc0a3',
-  'accent-soft': '#25372e',
-  good: '#5fbf9b',
-  warn: '#d9a24f',
-  'hero-bg': '#0e2a21',
-};
-
-describe('样式令牌与 UI_GUIDE 一致', () => {
-  it(':root 关键颜色取值为 UI_GUIDE 浅色表', () => {
-    for (const [name, want] of Object.entries(LIGHT_COLORS)) {
-      expect(norm(resolveLight(name)), '--' + name).toBe(want);
+const LIGHT_COLORS: Record<string,string> = { bg:'#edf2f9', panel:'#ffffffb8', text:'#1c1c1e', muted:'#62626b', accent:'#0065d1', 'accent-fill':'#0070e0', danger:'#b42328', success:'#287d50', warning:'#795311' };
+const DARK_COLORS: Record<string,string> = { bg:'#060c16', panel:'#1d2a3bba', text:'#f5f5f7', muted:'#a5a5b0', accent:'#69afff', 'accent-fill':'#409cff', danger:'#ff9b9d', success:'#70ce9a', warning:'#efc06b' };
+function luminance(hex: string): number {
+  const v = hex.slice(1).match(/../g)!.map(v => parseInt(v,16)/255).map(v => v <= .04045 ? v/12.92 : ((v+.055)/1.055)**2.4);
+  return v[0]*.2126 + v[1]*.7152 + v[2]*.0722;
+}
+function contrast(a: string, b: string): number {
+  const x=luminance(a), y=luminance(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
+}
+describe('通透 UI 令牌与已确认规范一致', () => {
+  it('浅深主题使用苹果蓝及语义颜色', () => {
+    for(const [colors,resolver] of [[LIGHT_COLORS,resolveLight],[DARK_COLORS,resolveDark]] as const) {
+      for(const [name,want] of Object.entries(colors)) expect(norm(resolver(name)),name).toBe(want);
     }
   });
-
-  it("[data-theme='dark'] 关键颜色取值为 UI_GUIDE 深色表", () => {
-    for (const [name, want] of Object.entries(DARK_COLORS)) {
-      expect(norm(resolveDark(name)), '--' + name).toBe(want);
+  it('正文、辅助文字和主按钮在两套主题中符合普通文本 4.5:1', () => {
+    for(const r of [resolveLight,resolveDark]) {
+      for(const token of ['text','muted','accent','danger','success','warning']) expect(contrast(r(token)!,r('bg')!),token).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(r('on-accent')!,r('accent-fill')!)).toBeGreaterThanOrEqual(4.5);
     }
   });
-
-  it('浅色表完整：既有变量名改为 UI_GUIDE 取值（其余关键色）', () => {
-    expect(norm(resolveLight('success'))).toBe('#1b6b54');
-    expect(norm(resolveLight('warning'))).toBe('#8a5a12');
-    expect(norm(resolveLight('warning-soft'))).toBe('#f2e4c8');
-    expect(norm(resolveLight('on-accent'))).toBe('#f4f2e6');
-    expect(norm(resolveLight('hero-ink'))).toBe('#f4f2e6');
-    expect(norm(resolveLight('hero-sub'))).toBe('#9db3a6');
-    expect(norm(resolveLight('danger'))).toBe('#c0392b');
-    expect(norm(resolveLight('border-ink'))).toBe('#141a15');
-    expect(norm(resolveLight('slab'))).toBe('#c9cdbc');
+  it('卡片、输入和胶囊使用统一圆角，细分隔线不再使用硬墨线', () => {
+    expect(resolveLight('radius')).toBe('14px');
+    expect(resolveLight('radius-card')).toBe('24px');
+    expect(resolveLight('radius-pill')).toBe('999px');
+    expect(resolveLight('line-w')).toBe('1px');
+    for(const r of [resolveLight,resolveDark]) expect(r('border-ink')).toBe(r('border'));
   });
-
-  it('深色表完整：既有变量名改为 UI_GUIDE 深色取值（其余关键色）', () => {
-    expect(norm(resolveDark('success'))).toBe('#5fbf9b');
-    expect(norm(resolveDark('warning'))).toBe('#d9a24f');
-    expect(norm(resolveDark('warning-soft'))).toBe('#3a2d14');
-    expect(norm(resolveDark('on-accent'))).toBe('#12160f');
-    expect(norm(resolveDark('hero-ink'))).toBe('#edefe6');
-    expect(norm(resolveDark('hero-sub'))).toBe('#8fa89a');
-    expect(norm(resolveDark('border-ink'))).toBe('#edefe6');
-  });
-
-  it('新增的 UI_GUIDE 命名令牌存在且作为既有变量的别名', () => {
-    expect(norm(resolveLight('surface'))).toBe(norm(resolveLight('panel')));
-    expect(norm(resolveLight('surface-2'))).toBe(norm(resolveLight('panel-2')));
-    expect(norm(resolveLight('ink'))).toBe(norm(resolveLight('text')));
-    expect(norm(resolveLight('line'))).toBe(norm(resolveLight('border')));
-    expect(norm(resolveLight('accent-ink'))).toBe(norm(resolveLight('on-accent')));
-    expect(norm(resolveLight('good'))).toBe(norm(resolveLight('success')));
-    expect(norm(resolveLight('warn'))).toBe(norm(resolveLight('warning')));
-    expect(norm(resolveLight('warn-soft'))).toBe(norm(resolveLight('warning-soft')));
-    // 深色上下文同一别名解析到深色取值
-    expect(norm(resolveDark('surface'))).toBe('#1c2018');
-    expect(norm(resolveDark('ink'))).toBe('#edefe6');
-    expect(norm(resolveDark('good'))).toBe('#5fbf9b');
-    expect(norm(resolveDark('warn'))).toBe('#d9a24f');
-  });
-
-  it('首页问候大块令牌 hero-bg / hero-ink / hero-sub 在深浅两套都齐备', () => {
-    for (const token of ['hero-bg', 'hero-ink', 'hero-sub']) {
-      expect(rootTokens.has(token), ':root 缺失 --' + token).toBe(true);
-      expect(darkTokens.has(token), "[data-theme='dark'] 缺失 --" + token).toBe(true);
-    }
-  });
-
-  it('形状令牌：全站直角 2px（粗野主义），结构线 2px', () => {
-    expect(norm(resolveLight('radius'))).toBe('2px');
-    expect(norm(resolveLight('radius-card'))).toBe('2px');
-    expect(norm(resolveLight('radius-pill'))).toBe('2px');
-    expect(norm(resolveLight('line-w'))).toBe('2px');
-  });
-
-  it('材质层令牌齐备：荧光笔 / 手写 / 松绿场两层平面', () => {
-    expect(norm(rootTokens.get('mark'))).toContain('rgba(223, 232, 74');
-    expect(norm(resolveLight('font-hand'))).toContain('kaiti');
-    expect(norm(resolveLight('font-mono'))).toContain('ui-monospace');
-    for (const token of ['field', 'field-2', 'field-ink', 'field-sub', 'field-tick']) {
-      expect(rootTokens.has(token), ':root 缺失 --' + token).toBe(true);
-      // 深色表允许走别名（如 --field → var(--hero-bg)），只要解析得到值即可
-      expect(norm(resolveDark(token)), "[data-theme='dark'] 解析不到 --" + token).toBeTruthy();
+  it('旧变量保持语义别名，两套主题均有透明表面和不透明弹窗底', () => {
+    for(const r of [resolveLight,resolveDark]) {
+      for(const [a,b] of [['surface','panel'],['ink','text'],['good','success'],['hero-ink','text'],['hero-sub','muted']]) expect(r(a)).toBe(r(b));
+      expect(r('panel')).toMatch(/^#[a-f0-9]{8}$/i);
+      expect(r('modal-bg')).toMatch(/^#[a-f0-9]{6}$/i);
     }
   });
 });
@@ -202,7 +136,7 @@ describe('.vue 不得含硬编码颜色', () => {
   });
 });
 
-describe('圆角只用令牌（直角语言）', () => {
+describe('圆角只用令牌（通透圆角语言）', () => {
   function walk(dir: string, out: string[]): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = resolve(dir, entry.name);

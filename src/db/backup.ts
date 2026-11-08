@@ -21,7 +21,7 @@ import {
 } from './schema';
 import { errorMessage, nowMs } from './util';
 import { setLastBackupAt } from './settings';
-import { triggerDownload } from '@/utils/download';
+import { saveFile } from '@/utils/download';
 
 export function backupFileName(exportedAtMs: number): string {
   return `evan-backup-${backupTimestamp(exportedAtMs)}.json`;
@@ -44,16 +44,16 @@ export async function exportBackup(): Promise<BackupFile> {
   };
 }
 
-/** 浏览器端导出：生成文件下载并记录 last_backup_at。 */
+/** 导出备份并记录 last_backup_at：浏览器直接下载，原生壳里写盘 + 系统分享。 */
 export async function downloadBackup(): Promise<{ backup: BackupFile; filename: string }> {
   const backup = await exportBackup();
   const filename = backupFileName(backup.exported_at);
   await setLastBackupAt(backup.exported_at);
-  triggerDownload(filename, JSON.stringify(backup, null, 2));
+  await saveFile(filename, JSON.stringify(backup, null, 2));
   return { backup, filename };
 }
 
-/* triggerDownload 已提取到 @/utils/download（与文本导出共用）；备份仍传 application/json，行为不变。 */
+/* 下载已提取到 @/utils/download（与文本导出共用）；备份仍传 application/json，浏览器侧行为不变。 */
 
 export type BackupValidation = { ok: true; backup: BackupFile } | { ok: false; reason: string };
 

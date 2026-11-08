@@ -13,6 +13,7 @@ const TODAY = '2026-06-01';
 const YESTERDAY = '2026-05-31';
 
 let pinia: Pinia;
+const mounted: ReturnType<typeof mount>[] = [];
 
 beforeEach(async () => {
   vi.useRealTimers();
@@ -26,12 +27,15 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  mounted.splice(0).forEach(wrapper => wrapper.unmount());
   vi.useRealTimers();
   window.localStorage.clear();
 });
 
 function mountView() {
-  return mount(ReviewView, { global: { plugins: [pinia], stubs: { Teleport: true } } });
+  const wrapper = mount(ReviewView, { global: { plugins: [pinia], stubs: { Teleport: true } } });
+  mounted.push(wrapper);
+  return wrapper;
 }
 
 async function waitFor(check: () => boolean | Promise<boolean>, label: string): Promise<void> {
@@ -71,49 +75,27 @@ describe('ReviewView 复盘页', () => {
     expect(wrapper.find('[data-test="review-history"]').exists()).toBe(true);
   });
 
-  it('输入只留在草稿：不写库、不进历史；点「确认」才保存并出现在历史复盘', async () => {
+  it('连续输入自动保存并同步历史，无需确认', async () => {
     const wrapper = await mountLoaded();
-    const confirm = wrapper.find('[data-test="review-confirm"]');
-    expect(confirm.attributes('disabled')).toBeDefined();
-
+    expect(wrapper.find('[data-test="review-confirm"]').exists()).toBe(false);
     await wrapper.find('[data-test="review-record-worthy"]').setValue('跑完 5 公里');
     await wrapper.find('[data-test="review-day-summary"]').setValue('状态不错');
     await wrapper.find('[data-test="review-good"]').setValue('专注');
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    expect(await listAliveByDate('reviews', TODAY)).toHaveLength(0);
-    // 未确认的草稿不出现在历史复盘里：没写过的日期根本不占行
-    expect(wrapper.find('[data-date="' + TODAY + '"]').exists()).toBe(false);
-
-    await confirm.trigger('click');
-    await waitFor(
-      async () => (await listAliveByDate('reviews', TODAY)).length === 1,
-      '确认后未写入复盘',
-    );
-
+    await waitFor(async () => (await listAliveByDate('reviews', TODAY))[0]?.good === '专注', '未自动保存');
     const rows = await listAliveByDate('reviews', TODAY);
+    expect(rows).toHaveLength(1);
     expect(rows[0]?.record_worthy).toBe('跑完 5 公里');
     expect(rows[0]?.day_summary).toBe('状态不错');
-    expect(rows[0]?.good).toBe('专注');
-
-    await waitFor(
-      () => wrapper.find('[data-date="' + TODAY + '"]').exists(),
-      '历史复盘未刷新',
-    );
-    expect(wrapper.find('[data-date="' + TODAY + '"]').find('[data-test="history-summary"]').text()).toBe('状态不错');
+    expect(wrapper.find(`[data-date="${TODAY}"] [data-test="history-summary"]`).text()).toBe('状态不错');
+    expect(wrapper.find('[data-test="review-save-status"]').text()).toBe('已自动保存');
   });
 
-  it('评分同样先存草稿，点「确认」后才落库', async () => {
+  it('评分自动保存，重复点击可清除', async () => {
     const wrapper = await mountLoaded();
     await wrapper.findAll('[data-test="rating-star"]')[3]?.trigger('click');
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    expect(await listAliveByDate('reviews', TODAY)).toHaveLength(0);
-
-    await wrapper.find('[data-test="review-confirm"]').trigger('click');
-    await waitFor(
-      async () => (await listAliveByDate('reviews', TODAY)).length === 1,
-      '确认后未写入评分',
-    );
-    expect((await listAliveByDate('reviews', TODAY))[0]?.rating).toBe(4);
+    await waitFor(async () => (await listAliveByDate('reviews', TODAY))[0]?.rating === 4, '评分未保存');
+    await wrapper.findAll('[data-test="rating-star"]')[3]?.trigger('click');
+    await waitFor(async () => (await listAliveByDate('reviews', TODAY))[0]?.rating === null, '评分未清除');
   });
 
   it('历史区间查看不改变全局日期；「编辑这一天」才切日期', async () => {
@@ -148,30 +130,41 @@ describe('ReviewView 复盘页', () => {
     await waitFor(() => reviewStore.loadedDate === YESTERDAY, '未载入所选日期复盘');
   });
 
-  it('有未确认草稿时切日期被拦下，确认丢弃后才切换', async () => {
+  it('切日期前保存当前输入，不丢弃草稿', async () => {
     const wrapper = await mountLoaded();
-    const dateStore = useDateStore();
-
-    await wrapper.find('[data-test="review-good"]').setValue('没点确认的草稿');
-
-    dateStore.prevDay();
-    await flushPromises();
-    expect(dateStore.selectedDate).toBe(TODAY);
-    expect(wrapper.find('[data-test="review-leave-modal"]').exists()).toBe(true);
-
-    await wrapper.find('[data-test="review-leave-cancel"]').trigger('click');
-    expect(wrapper.find('[data-test="review-leave-modal"]').exists()).toBe(false);
-    expect(dateStore.selectedDate).toBe(TODAY);
-    expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe(
-      '没点确认的草稿',
-    );
-
-    dateStore.prevDay();
-    await flushPromises();
-    await wrapper.find('[data-test="review-leave-discard"]').trigger('click');
-    expect(dateStore.selectedDate).toBe(YESTERDAY);
-    await waitFor(() => useReviewStore().loadedDate === YESTERDAY, '未载入所选日期复盘');
+    await wrapper.find('[data-test="review-good"]').setValue('立即切日期的记录');
+    useDateStore().prevDay();
+    await waitFor(() => useReviewStore().loadedDate === YESTERDAY, '未切日期');
+    expect((await listAliveByDate('reviews', TODAY))[0]?.good).toBe('立即切日期的记录');
     expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe('');
+    expect(wrapper.find('[data-test="review-leave-modal"]').exists()).toBe(false);
+  });
+
+  it('保存失败保留输入并允许重试，失败时不切日期', async () => {
+    const wrapper = await mountLoaded();
+    const store = useReviewStore();
+    const original = store.upsertReview.bind(store);
+    vi.spyOn(store, 'upsertReview').mockRejectedValueOnce(new Error('disk full'));
+    await wrapper.find('[data-test="review-good"]').setValue('保留这段话');
+    useDateStore().prevDay();
+    await waitFor(() => wrapper.find('[data-test="review-save-retry"]').exists(), '没有失败恢复入口');
+    expect(useDateStore().selectedDate).toBe(TODAY);
+    expect((wrapper.find('[data-test="review-good"]').element as HTMLTextAreaElement).value).toBe('保留这段话');
+    vi.mocked(store.upsertReview).mockImplementation(original);
+    await wrapper.find('[data-test="review-save-retry"]').trigger('click');
+    await waitFor(async () => (await listAliveByDate('reviews', TODAY))[0]?.good === '保留这段话', '重试未保存');
+  });
+
+  it('加载失败有明确恢复入口，重试后可继续记录', async () => {
+    const store = useReviewStore();
+    const original = store.load.bind(store);
+    const spy = vi.spyOn(store, 'load').mockRejectedValueOnce(new Error('读取失败'));
+    const wrapper = mountView();
+    await waitFor(() => wrapper.find('[data-test="review-load-error"]').exists(), '未显示读取失败');
+    spy.mockImplementation(original);
+    await wrapper.find('[data-test="review-load-error"] button').trigger('click');
+    await waitFor(() => wrapper.find('[data-test="review-self"]').exists(), '重试没有恢复');
+    spy.mockRestore();
   });
 
   it('没有草稿时切日期不弹确认', async () => {

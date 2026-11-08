@@ -1,5 +1,7 @@
 # 个人生活助手
 
+[GitHub 开源仓库](https://github.com/sdreamu/personal-app) · [MIT 许可证](./LICENSE) · [Android / Windows 打包说明](./docs/PACKAGING.md)
+
 一个**本地优先**的个人生活管理应用：把日程、学习、读书、健身、饮食、娱乐计时和复盘放在同一个页面里，
 所有数据只存在你自己浏览器的 IndexedDB 里——没有后端、没有账号、不上传任何东西。
 

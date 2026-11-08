@@ -38,6 +38,8 @@ const PLAN_VIEW_KEY = 'evan-plan-view';
 const PLAN_WINDOW_KEY = 'evan-plan-week-start';
 
 function readViewMode(): PlanViewMode {
+  const requested = router.currentRoute.value.query.view;
+  if (requested === 'week' || requested === 'day' || requested === 'list') return requested;
   try {
     const raw = window.localStorage.getItem(PLAN_VIEW_KEY);
     return raw === 'day' || raw === 'list' ? raw : 'week';
@@ -79,6 +81,7 @@ watch(weekStart, (start) => {
 
 function setView(mode: PlanViewMode): void {
   viewMode.value = mode;
+  if (router.currentRoute.value.query.view) void router.replace({ query: { ...router.currentRoute.value.query, view: mode } });
 }
 
 /** 7 天窗口翻页：上一周 / 回到今天（默认窗口）/ 下一周。 */
@@ -93,7 +96,7 @@ function handleWeekNav(step: 'prev' | 'today' | 'next'): void {
 
 /** 点某一天：下钻到「单日时间轴」（日期已由 ScheduleWeek 切好）。 */
 function handleDayPick(): void {
-  viewMode.value = 'day';
+  setView('day');
 }
 
 /** 列表视图：按时间排序，无时间的排最后。 */
@@ -262,9 +265,6 @@ function onKeydown(event: KeyboardEvent): void {
 
 <template>
   <section class="page plan-page" data-test="plan-view">
-    <div v-if="viewMode === 'week'" data-test="week-view">
-      <ScheduleWeek :window-start="weekStart" @nav="handleWeekNav" @pick="handleDayPick" />
-    </div>
     <div class="settings-card plan-header" data-test="plan-header">
       <div class="header-row">
         <h1 class="page-title">日程</h1>
@@ -298,7 +298,7 @@ function onKeydown(event: KeyboardEvent): void {
           </button>
         </div>
         <button class="primary-btn" data-test="add-plan-btn" @click="openCreate">+ 新增计划</button>
-        <span class="hint">快捷键 N 新建</span>
+        <span class="hint keyboard-hint">快捷键 N 新建</span>
       </div>
 
       <div class="progress-row" data-test="progress-row">
@@ -339,6 +339,10 @@ function onKeydown(event: KeyboardEvent): void {
           一键顺延昨日未完成（{{ planStore.rolloverCount }}）
         </button>
       </div>
+    </div>
+
+    <div v-if="viewMode === 'week'" data-test="week-view">
+      <ScheduleWeek :window-start="weekStart" @nav="handleWeekNav" @pick="handleDayPick" />
     </div>
 
     <div v-if="planStore.loading && planStore.loadedDate === null" class="hint" data-test="plan-loading">
@@ -663,5 +667,11 @@ function onKeydown(event: KeyboardEvent): void {
   .plan-body {
     grid-template-columns: 1fr;
   }
+}
+@media (max-width: 768px) {
+  .header-row, .plan-list-row { flex-wrap: wrap; }
+  .todo-item { flex-wrap: wrap; }
+  .todo-main { min-width: 150px; }
+  .todo-ops { max-width: 100%; flex-wrap: wrap; }
 }
 </style>

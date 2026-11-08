@@ -230,7 +230,7 @@ const ticks = computed(() =>
 .ev.cur {
   background: var(--hero-ink);
   color: var(--field);
-  box-shadow: 3px 3px 0 var(--field-2);
+  box-shadow: var(--shadow);
 }
 .ev.cur .ev-time {
   color: var(--field-sub);

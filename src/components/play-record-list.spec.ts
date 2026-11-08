@@ -45,6 +45,19 @@ afterEach(() => {
 });
 
 describe('娱乐记录区 PlayRecordList', () => {
+  it('后台刷新时保留已显示的列表节点', async () => {
+    await seedPlay('2026-06-03', '刷新时保持', 20);
+    await play.loadPlayData('2026-06-03');
+    const wrapper = mountList();
+    const original = wrapper.find('[data-test="record-list"]').element;
+    play.loading = true;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-test="record-list"]').element).toBe(original);
+    expect(wrapper.find('[data-test="list-loading"]').exists()).toBe(false);
+    play.loading = false;
+    wrapper.unmount();
+  });
+
   it('手动补记：日期默认选中日期，保存生成 source=manual 记录并显示', async () => {
     const wrapper = mountList();
     await flushPromises();

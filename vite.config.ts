@@ -27,6 +27,21 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       port: resolveDevPort(env.DEV_PORT),
       strictPort: true,
+      // Windows 上 pnpm 会在项目根目录留下一批临时目录（.package.json.<pid>.xxxx.tmpdir）。
+      // 文件监听器一旦盯上里面的被锁文件就抛 EBUSY，chokidar 的 error 事件没人接，
+      // 整个 dev server 直接退出（实测 code 3）。这些目录本来也不该触发 HMR。
+      watch: {
+        ignored: [
+          '**/.git/**',
+          '**/node_modules/**',
+          '**/dist/**',
+          '**/test-results/**',
+          '**/playwright-report/**',
+          '**/*.tmpdir/**',
+          '**/.package.json.*/**',
+          '**/*.tmp-*',
+        ],
+      },
       // 首屏慢的真正原因：冷启动时 Vite 要"现发现现打包"依赖 + 现转译整棵模块图，
       // 第一个请求会一直挂着（实测冷启动 / 请求 19s，浏览器就是白屏）。
       // warmup 在服务端起来时就把这些文件转译好，浏览器第一个请求直接命中缓存。

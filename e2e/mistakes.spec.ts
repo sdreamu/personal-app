@@ -37,7 +37,10 @@ test('AC-76 错题本文字录入与卡片操作', async ({ page }) => {
   // 新增一道错题
   await page.click('[data-test="add-mistake-btn"]');
   await expect(page.locator('[data-test="mistake-form"]')).toBeVisible();
-  await page.fill('[data-test="mistake-form-subject"]', '数学');
+  await page.locator('[data-test="mistake-form-add-subject"]').click();
+  await page.locator('[data-test="mistake-new-subject"]').fill('数学');
+  await page.locator('[data-test="mistake-new-subject-save"]').click();
+  await expect(page.locator('[data-test="mistake-form-subject"]').getByRole('button', { name: '数学', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.fill('[data-test="mistake-form-question"]', '求 lim(x→0) sin x / x 时直接代入了');
   await page.fill('[data-test="mistake-form-correction"]', '先等价无穷小替换再取极限');
   await page.click('[data-test="mistake-reason-概念不清"]');
@@ -78,11 +81,11 @@ test('AC-76 错题本文字录入与卡片操作', async ({ page }) => {
   await page.click('[data-test="mistakes-filter-all"]');
   await expect(page.locator('[data-test="mistake-card"]')).toHaveCount(1);
 
-  // 跟着日期走：顶栏有日期控件，切到后一天是空的，回到今天又回来
-  await expect(page.locator('[data-test="date-switch"]')).toBeVisible();
+  // 错题本无日期控件，全局日期不会隐藏已收录错题。
+  await expect(page.locator('[data-test="date-switch"]')).toHaveCount(0);
+  await gotoHash(page, 'plan');
   await page.click('[data-test="next-day"]');
-  await expect(page.locator('[data-test="mistakes-empty"]')).toBeVisible();
-  await page.click('[data-test="go-today"]');
+  await gotoHash(page, 'mistakes');
   await expect(page.locator('[data-test="mistake-card"]')).toHaveCount(1);
 
   // 删除 → 卡片消失，撤销后回来

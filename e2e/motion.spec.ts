@@ -6,26 +6,26 @@ test.beforeEach(async ({ page }) => {
 });
 
 /** AC-74：按下主按钮 = 位移 2px 且硬投影消失（粗野主义「按进去」）。 */
-test('AC-74 按下手感：2px 位移 + 阴影消失', async ({ page }) => {
+test('AC-74 按下手感：轻微缩放 + 透明反馈', async ({ page }) => {
   await gotoHash(page, 'plan');
   const button = page.locator('[data-test="rollover-btn"]');
   await expect(button).toBeVisible();
 
   await button.hover();
-  expect(await button.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe('none');
+  expect(await button.evaluate((el) => getComputedStyle(el).boxShadow)).toBe('none');
 
   await page.mouse.down();
   // 过渡 90ms，用 poll 等它走完（不要固定 sleep）
   await expect
     .poll(() => button.evaluate((el) => getComputedStyle(el).transform), { timeout: 3000 })
-    .toContain('matrix(1, 0, 0, 1, 2, 2)');
+    .toContain('matrix(0.985, 0, 0, 0.985, 0, 0)');
   expect(await button.evaluate((el) => getComputedStyle(el).boxShadow)).toBe('none');
   await page.mouse.up();
 
   // 松开恢复原位
   await expect
     .poll(() => button.evaluate((el) => getComputedStyle(el).transform), { timeout: 3000 })
-    .not.toContain('matrix(1, 0, 0, 1, 2, 2)');
+    .not.toContain('matrix(0.985, 0, 0, 0.985, 0, 0)');
 });
 
 /** AC-74：勾选待办那一刻走「完成态」过渡（行上出现 done-flash），最终变灰划线。 */

@@ -7,6 +7,7 @@ import { useEscToCloseModal } from '@/composables/useEscToCloseModal';
 import { addDays, formatDateCNWeekday, logicalToday } from '@/utils/date';
 import { useDateStore } from '@/stores/date';
 import TopBar from './TopBar.vue';
+import PageDateControls from './PageDateControls.vue';
 
 const Stub = defineComponent({ template: '<div />' });
 
@@ -26,11 +27,11 @@ function makeRouter() {
 
 /** 与 App.vue 相同的运行环境：全局 Esc 由 useEscToCloseModal 一次性监听。 */
 const Host = defineComponent({
-  components: { TopBar },
+  components: { TopBar, PageDateControls },
   setup() {
     useEscToCloseModal();
   },
-  template: '<TopBar />',
+  template: '<div><TopBar /><PageDateControls /></div>',
 });
 
 let pinia: Pinia;

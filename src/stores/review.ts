@@ -34,7 +34,7 @@ export type ReviewPatch = Partial<
   >
 >;
 
-/** 走 300ms 防抖自动保存的文字字段：三栏文字 + 新增两栏（值得记录 / 一句话总结）。 */
+/** 走页面防抖自动保存的文字字段：三栏文字 + 新增两栏（值得记录 / 一句话总结）。 */
 export const REVIEW_TEXT_FIELDS = ['good', 'improve', 'mit', 'record_worthy', 'day_summary'] as const;
 export type ReviewTextField = (typeof REVIEW_TEXT_FIELDS)[number];
 export type ReviewTextPatch = Partial<Pick<Review, ReviewTextField>>;
@@ -260,12 +260,12 @@ const upsertChains = new Map<string, Promise<unknown>>();
  * 复盘模块 store（4b）：
  * load(date) 载入选中日期复盘 + 各表当天数据并计算 7 项指标，同时载入全部复盘历史；
  * upsertReview(date, patch) 按 date 定位 reviews 行（存在则更新、不存在则新增）；
- * 自评内容不再自动保存：页面在本地维护草稿，用户点「确认」时一次性调用 upsertReview 落库，
- * 未确认的修改不写库、也不会出现在历史复盘里。
+ * 页面合并连续输入后自动调用 upsertReview，保存成功同步历史列表。
  */
 export const useReviewStore = defineStore('review', {
   state: () => ({
     loading: false,
+    loadVersion: 0,
     loadedDate: null as string | null,
     review: null as Review | null,
     reviews: [] as Review[],
@@ -298,6 +298,7 @@ export const useReviewStore = defineStore('review', {
   actions: {
     /** 载入选中日期全部复盘所需数据（指标只读聚合 + 历史列表）。 */
     async load(date: string): Promise<void> {
+      const version = ++this.loadVersion;
       this.loading = true;
       try {
         const [reviews, plans, studyRecords, waterRecords, workoutRecords, playRecords] =
@@ -309,6 +310,7 @@ export const useReviewStore = defineStore('review', {
             listAliveByDate('workout_records', date),
             listAliveByDate('play_records', date),
           ]);
+        if (version !== this.loadVersion) return;
         this.reviews = sortReviewsDesc(reviews);
         this.review = this.reviews.find((row) => row.date === date) ?? null;
         this.plans = plans;
@@ -326,7 +328,7 @@ export const useReviewStore = defineStore('review', {
         });
         this.loadedDate = date;
       } finally {
-        this.loading = false;
+        if (version === this.loadVersion) this.loading = false;
       }
     },
 

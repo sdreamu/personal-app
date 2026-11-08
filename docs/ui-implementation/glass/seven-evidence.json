@@ -1,0 +1,22 @@
+{
+  "contract": "contract.md：首页七天日期条和单日三条预览；用户确认的通透苹果蓝，首页查看忙闲和具体安排，完整清单进入该日列表。",
+  "targetViewports": ["320x812", "390x844", "614x547", "1440x900"],
+  "accessibility": {"status":"pass","evidence":"日期按钮aria-pressed及今日aria-current=date，键盘聚焦轮廓可见；日期触摸宽度至少44px、预览行至少52px、完整清单按钮44px。样式令牌检查通过，两主题实际复核；未做屏幕阅读器审计。"},
+  "responsive": {"status":"pass","evidence":"两主题四种宽度无主内容横向溢出；320px日期条内部可滑动，长标题最多两行；三条上限保持区块长度受控。短屏可滚动访问页尾，390px手机点击全部后能打开八条完整列表。"},
+  "contentStates": {
+    "loading":{"status":"pass","evidence":"隔离Chrome注入组件加载状态，保持七天和选中日期并显示正在加载安排；screenshots/home-seven-loading.png。"},
+    "empty":{"status":"pass","evidence":"实际空库及选择空日期时只显示这一天还没有安排，不批量重复空日期；screenshots/home-seven-empty.png。"},
+    "error":{"status":"pass","evidence":"隔离Chrome注入单日失败显示重试；点击重试通过真实数据库恢复。单元测试另验证数据库查询抛错与其它日期可读；screenshots/home-seven-error.png。"},
+    "partial":{"status":"pass","evidence":"单元测试验证单日失败时其它日期仍有两条安排可读；未安排时间的记录显示待安排，定时记录显示09:00。"},
+    "success":{"status":"pass","evidence":"八条计划只预览三条且显示还有5项；选择另一日停留首页，查看全部进入该日list视图并显示八条，切换日视图后刷新仍正确。"},
+    "permission":{"status":"not-applicable","reason":"仅使用现有本地计划读取与路由，不新增设备或网络权限。"}
+  },
+  "renderedEvidence": [
+    {"viewport":"320x812","artifact":"screenshots/home-seven-light-320.png","observation":"窄屏日期条内部滑动，三条长短标题、完成状态及查看全部；同目录有深色。"},
+    {"viewport":"390x844","artifact":"screenshots/home-seven-light-390.png","observation":"七天日期条和选中日三条预览，不再逐日列出主项；同目录有深色。"},
+    {"viewport":"614x547","artifact":"screenshots/home-seven-dark-614.png","observation":"用户批注视口下的通透深色，紧凑日期与具体待办；短屏需滚动访问卡片底部。"},
+    {"viewport":"1440x900","artifact":"screenshots/home-seven-dark-1440.png","observation":"桌面横排日期、单日三条预览，时间与状态对齐；同目录有浅色。"}
+  ],
+  "validation": ["15项相关单元测试通过", "9项浏览器测试通过（3项首页预览、6项日程回归）", "TypeScript与Vite生产构建通过"],
+  "limitations": ["本机Chrome验证；未在原生手机安装包中实测。", "加载和错误的浏览器截图使用隔离组件状态；实际查询失败由单元测试覆盖。"]
+}

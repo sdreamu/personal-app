@@ -1,38 +1,39 @@
-/* 手写样式，无第三方 UI 库；浅色/深色通过 CSS 变量切换 */
+/* 通透视觉系统，规范见 docs/UI_GUIDE.md。 */
 :root {
-  /* 让原生控件/滚动条跟着主题走 */
   color-scheme: light;
-  /* ===== 颜色令牌（唯一依据 docs/UI_GUIDE.md §2 · 浅色表） =====
-     v5「灰绿纸 + 松绿 + 朱砂」：四支颜色全部 ≥4.8:1，都能直接当文字用。 */
-  --bg: #f1f1e8;
-  --panel: #fafaf3;
-  --panel-2: #edeedf;
-  --text: #141a15;
-  --muted: #565d51;
-  --border: #c9cdbc;
-  --border-ink: #141a15;
-  --accent: #12352a;
-  --accent-soft: #dfe2d3;
-  --on-accent: #f4f2e6;
-  --danger: #c0392b;
-  --danger-soft: #f4dfda;
-  --success: #1b6b54;
-  --success-soft: #dde8df;
-  --warning: #8a5a12;
-  --warning-soft: #f2e4c8;
-  --shadow: 4px 4px 0 var(--text);
-  --shadow-up: 0 -4px 0 var(--text);
-  --slab: #c9cdbc;
-  --overlay: rgba(20, 26, 21, 0.55);
+  --bg: #edf2f9;
+  --panel: #ffffffb8;
+  --panel-2: #ffffff65;
+  --modal-bg: #f7faff;
+  --text: #1c1c1e;
+  --muted: #62626b;
+  --border: #c8d3e07d;
+  --glass-border: #ffffffd9;
+  --border-ink: var(--border);
+  --accent: #0065d1;
+  --accent-fill: #0070e0;
+  --accent-soft: #eaf3ff;
+  --on-accent: #ffffff;
+  --cover-ink: #1c1c1e;
+  --danger: #b42328;
+  --danger-soft: #ffebec;
+  --success: #287d50;
+  --success-soft: #e8f5ec;
+  --warning: #795311;
+  --warning-soft: #fff1d8;
+  --shadow: 0 7px 28px #38597c08;
+  --shadow-up: 0 5px 28px #12243b12;
+  --slab: transparent;
+  --overlay: #07132166;
+  --wash: #83b6ec24;
+  --track: #e9eaf0;
   --nav-active-bar: transparent;
-  --nav-active-bg: var(--text);
-  --nav-active-text: var(--panel);
-  --bottom-nav-bg: var(--bg);
-  --bottom-nav-h: 58px;
+  --nav-active-bg: var(--accent-soft);
+  --nav-active-text: var(--accent);
+  --bottom-nav-bg: #ffffffbd;
+  --bottom-nav-h: 68px;
   --touch: 44px;
-  --grid-paper: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M0 0H24M0 0V24' fill='none' stroke='%23141A15' stroke-opacity='.07' stroke-width='1'/></svg>");
-
-  /* ===== UI_GUIDE 命名的令牌：既有变量的别名 ===== */
+  --grid-paper: none;
   --surface: var(--panel);
   --surface-2: var(--panel-2);
   --ink: var(--text);
@@ -41,66 +42,58 @@
   --good: var(--success);
   --warn: var(--warning);
   --warn-soft: var(--warning-soft);
-
-  /* ===== 首页松绿场：问候 + 时间带（两层平面） ===== */
-  --hero-bg: #12352a;
-  --hero-ink: #f4f2e6;
-  --hero-sub: #9db3a6;
-  --field: var(--hero-bg);
-  --field-2: #0e2a21;
-  --field-ink: var(--hero-ink);
-  --field-sub: var(--hero-sub);
-  --field-tick: #2a5c48;
-
-  /* ===== 荧光笔 / 手写（材质层，不是 UI 色） ===== */
-  --mark: rgba(223, 232, 74, 0.62);
-  --font-mono: ui-monospace, SFMono-Regular, 'Cascadia Mono', Consolas, monospace;
-  --font-hand: 'KaiTi', '楷体', 'Kaiti SC', 'STKaiti', serif;
-
-  /* ===== 形状：全站直角，2px 仅用于抗锯齿 ===== */
-  --radius: 2px;
-  --radius-card: 2px;
-  --radius-pill: 2px;
-  --line-w: 2px;
+  --hero-bg: var(--panel);
+  --hero-ink: var(--text);
+  --hero-sub: var(--muted);
+  --field: var(--panel);
+  --field-2: var(--modal-bg);
+  --field-ink: var(--text);
+  --field-sub: var(--muted);
+  --field-tick: var(--border);
+  --mark: var(--accent-soft);
+  --font-mono: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-hand: var(--font-mono);
+  --radius: 14px;
+  --radius-card: 24px;
+  --radius-pill: 999px;
+  --radius-small: 7px;
+  --radius-sheet: 30px;
+  --line-w: 1px;
 }
 [data-theme='dark'] {
   color-scheme: dark;
-  /* UI_GUIDE §2 · 深色表：只重定义变量，不写组件样式 */
-  --bg: #141712;
-  --panel: #1c2018;
-  --panel-2: #242a20;
-  --text: #edefe6;
-  --muted: #9aa394;
-  --border: #333a2f;
-  --border-ink: #edefe6;
-  --accent: #7fc0a3;
-  --accent-soft: #25372e;
-  --on-accent: #12160f;
-  --danger: #e0725c;
-  --danger-soft: #3a211c;
-  --success: #5fbf9b;
-  --success-soft: #1e332b;
-  --warning: #d9a24f;
-  --warning-soft: #3a2d14;
-  --shadow: 4px 4px 0 #000000;
-  --shadow-up: 0 -4px 0 #000000;
-  --slab: #3a4136;
-  --overlay: rgba(0, 0, 0, 0.66);
-  --nav-active-bg: var(--text);
-  --nav-active-text: #141712;
-  --bottom-nav-bg: var(--bg);
-  --hero-bg: #0e2a21;
-  --hero-ink: #edefe6;
-  --hero-sub: #8fa89a;
-  --field-2: #0a2018;
-  --field-tick: #24503e;
-  --mark: rgba(223, 232, 74, 0.42);
-  --grid-paper: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M0 0H24M0 0V24' fill='none' stroke='%23EDEFE6' stroke-opacity='.06' stroke-width='1'/></svg>");
+  --bg: #060c16;
+  --panel: #1d2a3bba;
+  --panel-2: #ffffff07;
+  --modal-bg: #182434;
+  --text: #f5f5f7;
+  --muted: #a5a5b0;
+  --border: #b6cae51e;
+  --glass-border: #ffffff1f;
+  --accent: #69afff;
+  --accent-fill: #409cff;
+  --accent-soft: #182b44;
+  --on-accent: #071321;
+  --danger: #ff9b9d;
+  --danger-soft: #3b2029;
+  --success: #70ce9a;
+  --success-soft: #173629;
+  --warning: #efc06b;
+  --warning-soft: #382b16;
+  --shadow: 0 8px 28px #00000015;
+  --shadow-up: 0 8px 28px #00000030;
+  --overlay: #00000066;
+  --wash: #347cd320;
+  --track: #37373e;
+  --bottom-nav-bg: #172434ce;
+  --hero-bg: var(--panel);
+  --hero-ink: var(--text);
+  --hero-sub: var(--muted);
 }
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
 body {
-  font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background-color: var(--bg);
   color: var(--text);
   font-size: 15px;
@@ -115,6 +108,7 @@ input, select { font: inherit; color: inherit; }
   display: flex;
   flex-direction: column;
   height: 100%;
+  height: 100dvh;
   background-color: var(--bg);
 }
 
@@ -142,7 +136,7 @@ input, select { font: inherit; color: inherit; }
   border-radius: var(--radius);
   padding: 2px 8px;
   line-height: 1.4;
-  box-shadow: 2px 2px 0 var(--border-ink);
+  box-shadow: var(--shadow);
 }
 .icon-btn:hover { background: var(--panel-2); }
 .today-btn {
@@ -175,7 +169,10 @@ input, select { font: inherit; color: inherit; }
 }
 @keyframes pulse { 50% { opacity: 0.55; } }
 
-.save-status { color: var(--muted); white-space: nowrap; font-size: 13px; }
+.save-status { display: inline-grid; flex-shrink: 0; color: var(--muted); white-space: nowrap; font-size: 13px; }
+/* 为最长的保存提示预留宽度，避免每次写入都推动旁边的按钮。 */
+.save-status::before { content: '已自动保存 ✓'; visibility: hidden; font-weight: 600; grid-area: 1 / 1; }
+.save-status-label { grid-area: 1 / 1; text-align: right; }
 .save-status.saving { color: var(--warning); }
 .save-status.error { color: var(--danger); font-weight: 600; }
 
@@ -243,7 +240,7 @@ input, select { font: inherit; color: inherit; }
   color: var(--nav-active-text);
   border-color: var(--border-ink);
   font-weight: 600;
-  box-shadow: 3px 3px 0 var(--border);
+  box-shadow: var(--shadow);
 }
 /* 当前页：左侧色条 + 强调色文字 */
 .nav-link.active::before { content: none; }
@@ -254,8 +251,8 @@ input, select { font: inherit; color: inherit; }
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-group-toggle {
@@ -344,7 +341,7 @@ input, select { font: inherit; color: inherit; }
   border-radius: var(--radius);
   padding: 8px 16px;
   font-weight: 600;
-  box-shadow: 3px 3px 0 var(--border);
+  box-shadow: var(--shadow);
 }
 .primary-btn:hover { opacity: 0.9; }
 /* ---------- N4 交互手感：按下 = 硬投影被按进去（2px 位移 + 阴影消失） ---------- */
@@ -361,14 +358,16 @@ input, select { font: inherit; color: inherit; }
 .primary-btn:active,
 .ghost-btn:active,
 .danger-btn:active {
-  transform: translate(2px, 2px);
+  transform: scale(0.985);
+  opacity: 0.75;
   box-shadow: none;
 }
-.home-card:active,
-.book-card:active,
-.todo-item:active,
-.timeline-block:active {
-  transform: translate(2px, 2px);
+.home-card:active:not(:has(:is(button, a, input, select, textarea):active)),
+.book-card:active:not(:has(:is(button, a, input, select, textarea):active)),
+.todo-item:active:not(:has(:is(button, a, input, select, textarea):active)),
+.timeline-block:active:not(:has(:is(button, a, input, select, textarea):active)) {
+  transform: scale(0.985);
+  opacity: 0.75;
   box-shadow: none;
 }
 /* 完成反馈：勾选瞬间 mark 闪一下（只在"变成完成"时由脚本挂上这个类，打开页面不动） */
@@ -382,16 +381,6 @@ input, select { font: inherit; color: inherit; }
 }
 .done-flash {
   animation: done-flash 180ms ease-out;
-}
-/* 页面切换：140ms 淡入 + 4px 位移 */
-.page-fade-enter-active,
-.page-fade-leave-active {
-  transition: opacity 140ms ease-out, transform 140ms ease-out;
-}
-.page-fade-enter-from,
-.page-fade-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
 }
 /* 系统开启"减少动态效果"：所有过渡/动画时长归零（状态切换仍即时生效，只是不再有过程） */
 @media (prefers-reduced-motion: reduce) {
@@ -411,7 +400,7 @@ input, select { font: inherit; color: inherit; }
   background: var(--panel);
   border-radius: var(--radius);
   padding: 7px 14px;
-  box-shadow: 2px 2px 0 var(--border);
+  box-shadow: var(--shadow);
 }
 .ghost-btn:hover { background: var(--panel-2); }
 .danger-btn {
@@ -696,38 +685,33 @@ a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
    ========================================================================== */
 .num, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
-mark.hl { position: relative; background: none; color: inherit; isolation: isolate; padding: 0 2px; }
-mark.hl::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  left: -5px;
-  right: -6px;
-  top: 38%;
-  height: 54%;
-  background: var(--mark);
-  transform: rotate(-1deg) skewX(-7deg);
-  border-radius: 1px 7px 2px 9px; /* keep: 手划痕的四角故意不齐，别改成令牌 */
-  mix-blend-mode: multiply;
-  pointer-events: none;
-}
+mark.hl { background: none; color: inherit; }
+.hand { font-family: inherit; color: var(--text); }
+.hand-note { transform: none; }
+.hand-note .hand-date { margin-top: 5px; font-size: 12px; color: var(--muted); }
+.tag { position: static; display: inline-block; color: var(--text); font-size: 16px; font-weight: 650; margin-bottom: 12px; }
 
-.hand { font-family: var(--font-hand); color: var(--text); }
-.hand-note { transform: rotate(-1.2deg); transform-origin: left top; }
-.hand-note .hand-date { margin-top: 5px; font-size: 11px; color: var(--muted); letter-spacing: 0.12em; font-family: var(--font-mono); }
-
-.tag {
-  position: absolute;
-  top: 0;
-  left: 14px;
-  transform: translateY(-52%) rotate(-1.2deg);
-  background: var(--panel);
-  border: var(--line-w) solid var(--border-ink);
-  box-shadow: 3px 3px 0 var(--border-ink);
-  padding: 2px 10px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  z-index: 2;
+/* Android / 小屏：布局可收缩，正文滚动独立于导航，长文本不裁切。 */
+.app-shell > header { flex-shrink: 0; padding-top: env(safe-area-inset-top, 0px); }
+.app-body, .content { min-height: 0; }
+.content { overflow-wrap: anywhere; overscroll-behavior-y: contain; scroll-padding-bottom: 90px; }
+.field, .settings-grid > *, .metric-item { min-width: 0; }
+input, select, textarea { max-width: 100%; min-width: 0; }
+textarea { font: inherit; }
+button, a, select, .home-card, .book-card, .todo-item, .timeline-block { -webkit-tap-highlight-color: transparent; }
+button, .bottom-tab { touch-action: manipulation; }
+.modal { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px); }
+.modal header, .modal footer { flex-shrink: 0; gap: 8px; }
+.modal header h3 { min-width: 0; overflow-wrap: anywhere; }
+.modal footer { flex-wrap: wrap; }
+.segmented { flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .topbar { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  .topbar .timer-capsule { order: 5; flex-basis: 100%; white-space: normal; overflow-wrap: anywhere; min-height: 44px; }
+  .content { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  .page { width: 100%; min-width: 0; }
+  .date-switch { gap: 4px; }
+  .seg-btn { flex: 1 1 auto; padding: 8px 12px; white-space: normal; }
+  .error-bar { flex-wrap: wrap; }
+  .ghost-btn, .primary-btn, .danger-btn, .icon-btn { min-width: var(--touch); }
 }

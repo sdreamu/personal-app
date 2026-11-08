@@ -5,6 +5,24 @@ import TrendChart from './TrendChart.vue';
 const DATES = ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04'];
 
 describe('心情 / 精力曲线（P3）', () => {
+  it('只有一天或间断记录也显示数据点，重合的两组记录均保留', () => {
+    const wrapper = mount(TrendChart, {
+      props: {
+        dates: DATES,
+        series: [
+          { key: 'mood', label: '心情', values: [null, 3, null, 5] },
+          { key: 'energy', label: '精力', values: [null, 3, null, null] },
+        ],
+      },
+    });
+    expect(wrapper.findAll('[data-test="trend-point-mood"]')).toHaveLength(2);
+    const energy = wrapper.get('[data-test="trend-point-energy"]');
+    const mood = wrapper.get('[data-test="trend-point-mood"]');
+    expect(energy.attributes('cx')).toBe(mood.attributes('cx'));
+    expect(energy.attributes('cy')).toBe(mood.attributes('cy'));
+    expect(Number(energy.attributes('r'))).toBeGreaterThan(0);
+    expect(Number(energy.attributes('r'))).toBeLessThan(Number(mood.attributes('r')));
+  });
   it('两条线分别渲染 polylines，点数与记录天数一致', () => {
     const wrapper = mount(TrendChart, {
       props: {

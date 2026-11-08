@@ -2,3 +2,5 @@ packages:
   - .
 allowBuilds:
   esbuild: true
+  # electron 的 postinstall 才会去下载 Electron 运行时（约 110MB）；pnpm 默认拦着不跑
+  electron: true

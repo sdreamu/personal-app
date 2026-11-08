@@ -36,6 +36,15 @@ describe('启动配置', () => {
     expect(bat).not.toContain('C:\\Users');
   });
 
+  it('vite.config.ts 的监听器忽略 pnpm 临时目录与产物目录（否则 Windows 上 EBUSY 会搞死 dev server）', () => {
+    const cfg = read('vite.config.ts');
+    expect(cfg).toContain('watch:');
+    expect(cfg).toContain('ignored');
+    // pnpm 的 .package.json.<pid>.xxxx.tmpdir 与 test-results 都不该触发 HMR
+    expect(cfg).toMatch(/tmpdir/);
+    expect(cfg).toContain('test-results');
+  });
+
   it('playwright.config.ts 不得写死 DSH 运行时路径', () => {
     const cfg = read('playwright.config.ts');
     expect(cfg).not.toContain('dsh-runtimes');

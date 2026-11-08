@@ -3,7 +3,7 @@ import { defineComponent } from 'vue';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
-import type { Plan, PlayRecord, SettingsRecord, StudyRecord, Water } from '@/db';
+import type { Plan, PlayRecord, SettingsRecord, StudyRecord, WorkoutRecord, WorkoutTemplate, Water } from '@/db';
 import { useHomeStore } from '@/stores/home';
 import { useSettingsStore } from '@/stores/settings';
 import HomeTiles from './HomeTiles.vue';
@@ -20,6 +20,7 @@ function makeRouter(): Router {
       { path: '/plan', component: Stub },
       { path: '/study/timer', component: Stub },
       { path: '/life/diet', component: Stub },
+      { path: '/life/workout', component: Stub },
       { path: '/life/play', component: Stub },
       { path: '/:pathMatch(.*)*', redirect: '/plan' },
     ],
@@ -147,9 +148,9 @@ describe('首页今日数据方块', () => {
     expect(wrapper.find('[data-test="tile-study-main"]').text()).toBe('01:30:00');
     expect(wrapper.find('[data-test="tile-study-sub"]').text()).toBe('目标 120 分钟');
 
-    expect(wrapper.find('[data-test="tile-water-label"]').text()).toBe('喝水');
-    expect(wrapper.find('[data-test="tile-water-main"]').text()).toBe('750 ml');
-    expect(wrapper.find('[data-test="tile-water-sub"]').text()).toBe('目标 2000 ml');
+    expect(wrapper.find('[data-test="tile-workout-label"]').text()).toBe('运动');
+    expect(wrapper.find('[data-test="tile-workout-main"]').text()).toBe('休息日');
+    expect(wrapper.find('[data-test="tile-water"]').exists()).toBe(false);
 
     expect(wrapper.find('[data-test="tile-play-label"]').text()).toBe('娱乐时长');
     expect(wrapper.find('[data-test="tile-play-main"]').text()).toBe('75 分钟');
@@ -170,26 +171,29 @@ describe('首页今日数据方块', () => {
     expect(wrapper.find('[data-test="tile-plan-main"]').text()).toBe('0/0');
     expect(wrapper.find('[data-test="tile-plan-sub"]').text()).toBe('完成率 0%');
     expect(wrapper.find('[data-test="tile-study-main"]').text()).toBe('00:00:00');
-    expect(wrapper.find('[data-test="tile-water-main"]').text()).toBe('0 ml');
+    expect(wrapper.find('[data-test="tile-workout-main"]').text()).toBe('休息日');
     expect(wrapper.find('[data-test="tile-play-main"]').text()).toBe('0 分钟');
   });
 
-  it('store 数据变化后方块文本同步更新', async () => {
-    const home = useHomeStore();
-    home.$patch({ today: TODAY, waterRecords: [] });
-    const wrapper = mountTiles();
-    expect(wrapper.find('[data-test="tile-water-main"]').text()).toBe('0 ml');
-
-    home.$patch({ waterRecords: [waterFixture(250)] });
+  it('运动计划从待训练变为已完成，休息计划保持休息日', async () => {
+    const home=useHomeStore();
+    home.$patch({ today: TODAY, todayWorkoutTemplate: { id:'t', weekday:1, type_name:'上肢力量', exercise_names:[], created_at:1, updated_at:1, deleted_at:null } as WorkoutTemplate });
+    const wrapper=mountTiles();
+    expect(wrapper.find('[data-test="tile-workout-main"]').text()).toBe('待训练');
+    expect(wrapper.find('[data-test="tile-workout-sub"]').text()).toBe('今日计划：上肢力量');
+    home.$patch({ todayWorkoutRecord: { id:'r', date:TODAY, type_name:'上肢力量', exercises:[], duration_min:30, done:true, created_at:1, updated_at:1, deleted_at:null } as WorkoutRecord });
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('[data-test="tile-water-main"]').text()).toBe('250 ml');
+    expect(wrapper.find('[data-test="tile-workout-main"]').text()).toBe('已完成');
+    home.$patch({ todayWorkoutTemplate: { ...home.todayWorkoutTemplate!, type_name:'休息' } });
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-test="tile-workout-main"]').text()).toBe('休息日');
   });
 
-  it('点击 4 个方块分别跳 /plan、/study/timer、/life/diet、/life/play', async () => {
+  it('点击 4 个方块分别跳 /plan、/study/timer、/life/workout、/life/play', async () => {
     const cases: readonly (readonly [string, string])[] = [
       ['tile-plan', '/plan'],
       ['tile-study', '/study/timer'],
-      ['tile-water', '/life/diet'],
+      ['tile-workout', '/life/workout'],
       ['tile-play', '/life/play'],
     ];
 

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { listAliveByDate, type Plan, type StudyRecord } from '@/db';
 import { useDateStore } from '@/stores/date';
 import { useSettingsStore } from '@/stores/settings';
+import { usePlanStore } from '@/stores/plan';
 import { addDays, formatDuration, logicalToday, MINUTES_PER_DAY, parseDateKey, weekdayCN } from '@/utils/date';
 
 /**
@@ -41,7 +42,9 @@ const emit = defineEmits<{
 
 const dateStore = useDateStore();
 const settings = useSettingsStore();
-const columns = ref<WeekColumn[]>([]);
+const planStore = usePlanStore();
+const columns = ref<WeekColumn[]>(windowDates().map(date => summarize(date, [], [])));
+let loadVersion = 0;
 const loading = ref(true);
 
 const selected = computed(() => dateStore.selectedDate);
@@ -57,61 +60,65 @@ function laneOf(plan: Plan, customKeys: Set<string>): 'study' | 'life' | 'other'
   return 'other';
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
+function windowDates(): string[] {
   const today = logicalToday(settings.dayStartMin);
-  const nowOffset = ((new Date().getHours() * 60 + new Date().getMinutes() - settings.dayStartMin) % MINUTES_PER_DAY + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const result: WeekColumn[] = [];
+  const start = props.windowStart && parseDateKey(props.windowStart) !== null
+    ? props.windowStart : addDays(today, -1);
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+}
 
-  // 默认窗口：昨天 → 后五天（N2 之后可由父组件通过 windowStart 平移整周）
-  const startDate =
-    props.windowStart !== null && props.windowStart !== undefined && parseDateKey(props.windowStart) !== null
-      ? props.windowStart
-      : addDays(today, -1);
-  for (let index = 0; index < 7; index += 1) {
-    const date = addDays(startDate, index);
-    let plans: Plan[] = [];
-    let records: StudyRecord[] = [];
-    try {
-      plans = await listAliveByDate('plans', date);
-      records = await listAliveByDate('study_records', date);
-    } catch {
-      plans = [];
-      records = [];
-    }
-
-    const lanes: WeekColumn['lanes'] = { study: [], life: [], other: [] };
-    const customKeys = new Set<string>();
-    for (const plan of plans) {
-      if (plan.category_key !== 'study' && plan.category_key !== 'life') customKeys.add(plan.category_key);
-    }
-    for (const plan of plans) {
-      if (plan.start_min === null || plan.end_min === null || plan.end_min <= plan.start_min) continue;
-      const lane = laneOf(plan, customKeys);
-      lanes[lane].push({
-        left: `${percent(plan.start_min)}%`,
-        width: `${Math.max(2, percent(plan.end_min - plan.start_min))}%`,
-        done: plan.done,
-        miss: !plan.done && date <= today && plan.end_min <= nowOffset,
-        title: plan.title,
-      });
-    }
-
-    const isToday = date === today;
-    const firstUndone = plans.find((plan) => !plan.done) ?? plans[0] ?? null;
-    result.push({
-      date,
-      weekday: weekdayCN(date).replace('周', ''),
-      dayLabel: date.slice(5).replace('-', '.'),
-      isToday,
-      count: plans.length,
-      doneCount: plans.filter((plan) => plan.done).length,
-      studySec: records.reduce((sum, record) => sum + record.duration_sec, 0),
-      main: firstUndone === null ? '还没有安排' : firstUndone.title,
-      lanes,
+function summarize(date: string, plans: Plan[], records: StudyRecord[]): WeekColumn {
+  const today = logicalToday(settings.dayStartMin);
+  const now = new Date();
+  const nowOffset = ((now.getHours() * 60 + now.getMinutes() - settings.dayStartMin) % MINUTES_PER_DAY + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  const lanes: WeekColumn['lanes'] = { study: [], life: [], other: [] };
+  const customKeys = new Set<string>();
+  for (const plan of plans) {
+    if (plan.category_key !== 'study' && plan.category_key !== 'life') customKeys.add(plan.category_key);
+  }
+  for (const plan of plans) {
+    if (plan.start_min === null || plan.end_min === null || plan.end_min <= plan.start_min) continue;
+    const lane = laneOf(plan, customKeys);
+    lanes[lane].push({
+      left: `${percent(plan.start_min)}%`,
+      width: `${Math.max(2, percent(plan.end_min - plan.start_min))}%`,
+      done: plan.done,
+      miss: !plan.done && date <= today && plan.end_min <= nowOffset,
+      title: plan.title,
     });
   }
 
+  const isToday = date === today;
+  const firstUndone = plans.find((plan) => !plan.done) ?? plans[0] ?? null;
+  return {
+    date,
+    weekday: weekdayCN(date).replace('周', ''),
+    dayLabel: date.slice(5).replace('-', '.'),
+    isToday,
+    count: plans.length,
+    doneCount: plans.filter((plan) => plan.done).length,
+    studySec: records.reduce((sum, record) => sum + record.duration_sec, 0),
+    main: firstUndone === null ? '还没有安排' : firstUndone.title,
+    lanes,
+  };
+}
+
+async function load(): Promise<void> {
+  const version = ++loadVersion;
+  loading.value = true;
+  // 首帧已保留七天布局；刷新时保留现有内容，查询完成后一次更新。
+  const result = await Promise.all(windowDates().map(async date => {
+    try {
+      const [plans, records] = await Promise.all([
+        listAliveByDate('plans', date),
+        listAliveByDate('study_records', date),
+      ]);
+      return summarize(date, plans, records);
+    } catch {
+      return summarize(date, [], []);
+    }
+  }));
+  if (version !== loadVersion) return;
   columns.value = result;
   loading.value = false;
 }
@@ -133,6 +140,7 @@ onMounted(() => {
 
 watch(() => settings.dayStartMin, () => void load());
 watch(() => props.windowStart, () => void load());
+watch(() => planStore.plans, () => void load(), { deep: true });
 </script>
 
 <template>
@@ -158,7 +166,7 @@ watch(() => props.windowStart, () => void load());
       </ul>
     </div>
 
-    <div class="week-grid" :class="{ loading }">
+    <div class="week-grid" :aria-busy="loading">
       <button
         v-for="column in columns"
         :key="column.date"
@@ -188,194 +196,57 @@ watch(() => props.windowStart, () => void load());
         <span class="day-count num">{{ column.count }} 件</span>
         <span class="day-study num">{{ column.studySec > 0 ? formatDuration(column.studySec) : '— —' }}</span>
         <span class="day-main">{{ column.main }}</span>
-        <span v-if="column.count > 0" class="day-done num">完成 {{ column.doneCount }}/{{ column.count }}</span>
+        <span :style="{ visibility: column.count > 0 ? undefined : 'hidden' }" class="day-done num">完成 {{ column.doneCount }}/{{ column.count }}</span>
       </button>
     </div>
+    <div class="week-agenda"><button v-for="column in columns.filter(day => day.count > 0)" :key="column.date" type="button" class="agenda-row" @click="pick(column.date)"><span>{{ column.dayLabel }}</span><b>{{ column.main }}</b><span>{{ column.doneCount }}/{{ column.count }}</span></button></div>
   </section>
 </template>
 
 <style scoped>
-.week {
-  margin: 0 0 18px;
-  padding: 16px 16px 12px;
-  background: var(--panel);
-  border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
-}
-.week-range {
-  color: var(--muted);
-  font-size: 13px;
-}
-.week-nav {
-  display: inline-flex;
-  gap: 6px;
-  margin-left: auto;
-}
-.week-nav .ghost-btn {
-  padding: 3px 10px;
-  font-size: 12px;
-}
-.week-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-.week-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-}
-.legend {
-  display: flex;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 11px;
-  color: var(--muted);
-}
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.dot {
-  width: 8px;
-  height: 8px;
-  display: inline-block;
-}
-.week-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-}
-.day {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-height: 132px;
-  padding: 9px 8px 8px;
-  text-align: left;
-  background: none;
-  border: none;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-}
-.day:hover {
-  background: var(--panel-2);
-}
-.day.sel {
-  outline: 2px solid var(--border-ink);
-  outline-offset: -2px;
-}
-.day.today {
-  background: var(--text);
-  color: var(--panel);
-}
-.day-head {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-.day-weekday {
-  font-size: 12px;
-  font-weight: 700;
-}
-.day-date {
-  font-size: 11px;
-  color: var(--muted);
-}
-.day.today .day-date {
-  color: var(--hero-sub);
-}
-.lanes {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 3px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.day.today .lanes {
-  border-color: var(--field-tick);
-}
-.lane {
-  position: relative;
-  height: 7px;
-}
-.bar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-}
-.lane-study .bar {
-  background: var(--accent);
-}
-.lane-life .bar {
-  background: var(--muted);
-}
-.lane-other .bar {
-  background: var(--border-ink);
-  opacity: 0.5;
-}
-.day.today .lane-study .bar {
-  background: var(--hero-ink);
-}
-.day.today .lane-life .bar {
-  background: var(--hero-sub);
-}
-.day.today .lane-other .bar {
-  background: var(--hero-ink);
-  opacity: 0.45;
-}
-.bar.done {
-  opacity: 0.4;
-}
-.bar.miss {
-  background: var(--danger);
-  opacity: 1;
-}
-.day-count {
-  font-size: 13px;
-  font-weight: 600;
-}
-.day-study {
-  font-size: 11px;
-  color: var(--muted);
-}
-.day.today .day-study {
-  color: var(--hero-sub);
-}
-.day-main {
-  font-size: 11px;
-  line-height: 1.3;
-  color: var(--muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.day.today .day-main {
-  color: var(--hero-sub);
-}
-.day-done {
-  margin-top: auto;
-  font-size: 10px;
-  color: var(--muted);
-}
-.day.today .day-done {
-  color: var(--hero-sub);
-}
-.week-grid.loading {
-  opacity: 0.6;
-}
-@media (max-width: 980px) {
-  .week-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.week-agenda { display: none; }
+.agenda-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 12px 0; text-align: left; border: none; border-bottom: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 12px; }
+.agenda-row b { flex: 1; min-width: 0; color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+.week { margin: 24px 0; }
+.week-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
+.week-title { margin: 0; font-size: 19px; font-weight: 650; }
+.week-range { color: var(--muted); font-size: 13px; }
+.week-nav { display: flex; gap: 4px; margin-left: auto; }
+.week-nav .ghost-btn { background: transparent; padding: 6px 10px; font-size: 12px; }
+.legend { display: flex; gap: 14px; padding: 0; margin: 0; list-style: none; width: 100%; color: var(--muted); font-size: 11px; }
+.legend li { display: flex; align-items: center; gap: 5px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.dot.lane-study { background: var(--accent); }
+.dot.lane-other { opacity: .5; }
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(44px, 1fr)); gap: 6px; overflow-x: auto; padding: 3px 2px 8px; }
+.day { display: flex; flex-direction: column; gap: 7px; min-height: 170px; min-width: 0; padding: 14px 10px; border: none; border-radius: var(--radius); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.day:hover { background: var(--panel-2); }
+.day.sel { box-shadow: inset 0 0 0 1px var(--accent); }
+.day.today { background: var(--accent-soft); color: var(--accent); }
+.day-head { display: flex; flex-direction: column; gap: 5px; }
+.day-weekday { font-size: 12px; color: var(--muted); }
+.day-date { font-size: 19px; font-weight: 650; }
+.lanes { display: flex; flex-direction: column; gap: 3px; padding: 3px 0; }
+.lane { position: relative; height: 4px; }
+.bar { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: var(--radius-small); }
+.lane-life .bar { background: var(--muted); }
+.lane-other .bar { background: var(--muted); opacity: .5; }
+.bar.done { opacity: .4; }
+.bar.miss { background: var(--danger); opacity: 1; }
+.day-count { font-size: 12px; font-weight: 600; }
+.day-study, .day-done { font-size: 11px; color: var(--muted); }
+.day-main { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; color: var(--muted); }
+.day-done { margin-top: auto; }
+@media (max-width: 768px) {
+  .week-agenda { display: block; }
+  .week-head { gap: 6px 10px; }
+  .week-nav { flex-basis: 100%; margin-left: 0; justify-content: space-between; }
+  .week-nav .ghost-btn { padding: 4px 0; }
+  .week-grid { gap: 3px; }
+  .day { padding: 12px 3px; min-height: 118px; text-align: center; gap: 6px; }
+  .day-head { align-items: center; }
+  .day-date { font-size: 14px; }
+  .day-main, .day-study, .day-done { display: none; }
+  .legend { margin-top: 4px; }
 }
 </style>

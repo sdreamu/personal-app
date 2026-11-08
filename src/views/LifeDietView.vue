@@ -23,7 +23,7 @@ const sections = computed(() => diet.mealSections);
 const firstMealKey = computed(() => sections.value[0]?.key ?? null);
 const openMealKey = ref<string | null>(null);
 const isEmpty = computed(
-  () => !diet.loading && diet.loadedDate === selectedDate.value && diet.meals.length === 0,
+  () => diet.loadedDate === selectedDate.value && diet.meals.length === 0,
 );
 
 async function load(): Promise<void> {

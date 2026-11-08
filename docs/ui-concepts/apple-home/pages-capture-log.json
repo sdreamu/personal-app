@@ -1,0 +1,672 @@
+{
+  "status": "pass",
+  "pages": [
+    {
+      "id": "home",
+      "name": "首页",
+      "route": "/home",
+      "group": "今天",
+      "source": "HomeView.vue"
+    },
+    {
+      "id": "plan",
+      "name": "日程",
+      "route": "/plan",
+      "group": "日程",
+      "source": "PlanView.vue"
+    },
+    {
+      "id": "books",
+      "name": "读书",
+      "route": "/study/books",
+      "group": "学习",
+      "source": "StudyBooksView.vue"
+    },
+    {
+      "id": "book-detail",
+      "name": "书籍详情",
+      "route": "/study/books/:id",
+      "group": "学习",
+      "source": "StudyBookDetailView.vue"
+    },
+    {
+      "id": "subjects",
+      "name": "科目",
+      "route": "/study/subjects",
+      "group": "学习",
+      "source": "StudySubjectsView.vue"
+    },
+    {
+      "id": "timer",
+      "name": "计时器",
+      "route": "/study/timer",
+      "group": "学习",
+      "source": "StudyTimerView.vue"
+    },
+    {
+      "id": "mistakes",
+      "name": "错题本",
+      "route": "/mistakes",
+      "group": "学习",
+      "source": "MistakesView.vue"
+    },
+    {
+      "id": "diet",
+      "name": "饮食",
+      "route": "/life/diet",
+      "group": "生活",
+      "source": "LifeDietView.vue"
+    },
+    {
+      "id": "workout",
+      "name": "健身",
+      "route": "/life/workout",
+      "group": "生活",
+      "source": "LifeWorkoutView.vue"
+    },
+    {
+      "id": "play",
+      "name": "娱乐",
+      "route": "/life/play",
+      "group": "生活",
+      "source": "LifePlayView.vue"
+    },
+    {
+      "id": "review",
+      "name": "复盘",
+      "route": "/review",
+      "group": "复盘",
+      "source": "ReviewView.vue"
+    },
+    {
+      "id": "settings",
+      "name": "设置",
+      "route": "/settings",
+      "group": "设置",
+      "source": "SettingsView.vue"
+    }
+  ],
+  "forms": [
+    {
+      "id": "plan-form",
+      "name": "新增计划",
+      "base": "plan",
+      "source": "PlanFormModal.vue"
+    },
+    {
+      "id": "settlement",
+      "name": "保存学习记录",
+      "base": "timer",
+      "source": "SettlementModal.vue"
+    },
+    {
+      "id": "book-form",
+      "name": "添加书籍",
+      "base": "books",
+      "source": "StudyBooksView.vue"
+    },
+    {
+      "id": "subject-form",
+      "name": "添加科目",
+      "base": "subjects",
+      "source": "StudySubjectsView.vue"
+    },
+    {
+      "id": "mistake-form",
+      "name": "记一道错题",
+      "base": "mistakes",
+      "source": "MistakesView.vue"
+    },
+    {
+      "id": "meal-form",
+      "name": "记录晚餐",
+      "base": "diet",
+      "source": "MealSection.vue"
+    }
+  ],
+  "results": [
+    {
+      "id": "home",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "plan",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "books",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "book-detail",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "subjects",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "timer",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mistakes",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "diet",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "workout",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "play",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "review",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "settings",
+      "theme": "light",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "plan-form",
+      "theme": "light",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "settlement",
+      "theme": "light",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "book-form",
+      "theme": "light",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "subject-form",
+      "theme": "light",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "mistake-form",
+      "theme": "light",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "meal-form",
+      "theme": "light",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "home",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "plan",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "books",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "book-detail",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "subjects",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "timer",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "mistakes",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "diet",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "workout",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "play",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "review",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "settings",
+      "theme": "dark",
+      "kind": "page",
+      "viewports": [
+        320,
+        390,
+        430
+      ],
+      "status": "pass"
+    },
+    {
+      "id": "plan-form",
+      "theme": "dark",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "settlement",
+      "theme": "dark",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "book-form",
+      "theme": "dark",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "subject-form",
+      "theme": "dark",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "mistake-form",
+      "theme": "dark",
+      "kind": "form",
+      "status": "pass"
+    },
+    {
+      "id": "meal-form",
+      "theme": "dark",
+      "kind": "form",
+      "status": "pass"
+    }
+  ],
+  "renderedEvidence": [
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/home-light.png",
+      "observation": "首页, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-light.png",
+      "observation": "日程, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/books-light.png",
+      "observation": "读书, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-detail-light.png",
+      "observation": "书籍详情, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subjects-light.png",
+      "observation": "科目, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/timer-light.png",
+      "observation": "计时器, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistakes-light.png",
+      "observation": "错题本, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/diet-light.png",
+      "observation": "饮食, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/workout-light.png",
+      "observation": "健身, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/play-light.png",
+      "observation": "娱乐, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/review-light.png",
+      "observation": "复盘, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settings-light.png",
+      "observation": "设置, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-form-light.png",
+      "observation": "新增计划, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settlement-light.png",
+      "observation": "保存学习记录, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-form-light.png",
+      "observation": "添加书籍, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subject-form-light.png",
+      "observation": "添加科目, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistake-form-light.png",
+      "observation": "记一道错题, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/meal-form-light.png",
+      "observation": "记录晚餐, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/home-dark.png",
+      "observation": "首页, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-dark.png",
+      "observation": "日程, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/books-dark.png",
+      "observation": "读书, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-detail-dark.png",
+      "observation": "书籍详情, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subjects-dark.png",
+      "observation": "科目, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/timer-dark.png",
+      "observation": "计时器, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistakes-dark.png",
+      "observation": "错题本, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/diet-dark.png",
+      "observation": "饮食, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/workout-dark.png",
+      "observation": "健身, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/play-dark.png",
+      "observation": "娱乐, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/review-dark.png",
+      "observation": "复盘, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settings-dark.png",
+      "observation": "设置, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-form-dark.png",
+      "observation": "新增计划, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settlement-dark.png",
+      "observation": "保存学习记录, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-form-dark.png",
+      "observation": "添加书籍, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subject-form-dark.png",
+      "observation": "添加科目, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistake-form-dark.png",
+      "observation": "记一道错题, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/meal-form-dark.png",
+      "observation": "记录晚餐, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "320x844",
+      "artifact": "screenshots/glass-pages/workout-dark-320.png",
+      "observation": "Additional narrow/wide viewport capture of the densest exercise-set form. Wider screens intentionally center the mobile concept."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/glass-pages/workout-dark-1440.png",
+      "observation": "Additional narrow/wide viewport capture of the densest exercise-set form. Wider screens intentionally center the mobile concept."
+    },
+    {
+      "viewport": "430x844",
+      "artifact": "screenshots/glass-pages/settings-light-430.png",
+      "observation": "430px grouped settings with labels and editable numeric controls."
+    }
+  ],
+  "contactSheets": [
+    "screenshots/glass-pages/daily-light-overview.png",
+    "screenshots/glass-pages/daily-dark-overview.png",
+    "screenshots/glass-pages/study-light-overview.png",
+    "screenshots/glass-pages/study-dark-overview.png",
+    "screenshots/glass-pages/life-light-overview.png",
+    "screenshots/glass-pages/life-dark-overview.png",
+    "screenshots/glass-pages/forms-light-overview.png",
+    "screenshots/glass-pages/forms-dark-overview.png"
+  ]
+}

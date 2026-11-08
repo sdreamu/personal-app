@@ -84,9 +84,7 @@ watch(
   background: var(--field);
   color: var(--hero-ink);
   border: var(--line-w) solid var(--border-ink);
-  box-shadow:
-    7px 7px 0 var(--slab),
-    14px 14px 0 var(--border-ink);
+  box-shadow: var(--shadow);
 }
 .home-field::after {
   content: '';
@@ -125,9 +123,7 @@ watch(
 @media (max-width: 980px) {
   .home-field {
     padding: 16px 16px 0;
-    box-shadow:
-      4px 4px 0 var(--slab),
-      8px 8px 0 var(--border-ink);
+    box-shadow: var(--shadow);
   }
   .home-field-top {
     flex-direction: column;

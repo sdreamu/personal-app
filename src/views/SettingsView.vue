@@ -26,7 +26,7 @@ import { useSaveStatusStore } from '@/stores/saveStatus';
 import { useSettingsStore } from '@/stores/settings';
 import { useToastStore } from '@/stores/toast';
 import { addDays, formatDateTimeCN, logicalToday, pad2 } from '@/utils/date';
-import { triggerDownload } from '@/utils/download';
+import { saveFile } from '@/utils/download';
 
 const settings = useSettingsStore();
 const saveStatus = useSaveStatusStore();
@@ -176,7 +176,7 @@ async function handleExportText(): Promise<void> {
     const source = await loadExportSource(range.start, range.end);
     const filename = textExportFileName(range.start, range.end);
     // 注意：这里绝不调用 setLastBackupAt / 不写 settings.last_backup_at —— 文本导出不刷新备份提醒。
-    triggerDownload(filename, exportText(source), 'text/markdown');
+    await saveFile(filename, exportText(source), 'text/markdown');
     saveStatus.idle();
     toast.success('文本已导出：' + filename);
   } catch (err) {

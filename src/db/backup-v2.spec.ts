@@ -147,9 +147,14 @@ describe('v1 旧备份兼容导入', () => {
 describe('v2 备份 round-trip', () => {
   it('导出→清空→导入后全部 18 张表与 id 完全一致，图片仍是 base64 data URL', async () => {
     await createRecord('exercises', { name: '卧推' });
+    const subject = await createRecord('subjects', {
+      name: '数学', weekly_goal_min: 0, deadline: null, archived: false,
+      knowledge_points: ['导数', '三角函数'],
+    });
     const mistake = await createRecord('mistakes', {
       date: '2026-06-01',
       subject_name: '数学',
+      knowledge_point: '导数',
       question_text: '求导',
       question_images: [PNG_DATA_URL],
       correction_text: null,
@@ -201,6 +206,8 @@ describe('v2 备份 round-trip', () => {
     }
 
     const restored = await getRecord('mistakes', mistake.id);
+    expect(restored?.knowledge_point).toBe('导数');
+    expect((await getRecord('subjects', subject.id))?.knowledge_points).toEqual(['导数', '三角函数']);
     expect(restored?.question_images).toEqual([PNG_DATA_URL]);
     expect(restored?.correction_images).toEqual([PNG_DATA_URL, PNG_DATA_URL]);
     expect(restored?.reasons).toEqual(['计算错误']);

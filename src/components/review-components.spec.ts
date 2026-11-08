@@ -103,11 +103,15 @@ describe('ReviewMoodPicker 三项打分', () => {
     const wrapper = mountPicker();
     const bars = wrapper.findAll('[data-test="energy-bar"]');
     expect(bars).toHaveLength(5);
+    expect(bars.map((bar) => bar.text())).toEqual(['1', '2', '3', '4', '5']);
 
     await bars[4]?.trigger('click');
     expect(lastEmit(wrapper, 'update:energy')).toEqual([5]);
 
     await wrapper.setProps({ energy: 5 });
+    expect(wrapper.findAll('[data-test="energy-bar"][aria-pressed="true"]')).toHaveLength(1);
+    expect(wrapper.find('[data-test="energy-description"]').exists()).toBe(false);
+    expect(bars[4]?.attributes('aria-label')).toContain('充沛');
     await wrapper.findAll('[data-test="energy-bar"]')[4]?.trigger('click');
     expect(lastEmit(wrapper, 'update:energy')).toEqual([null]);
   });
@@ -160,7 +164,7 @@ describe('ReviewHistory 区间历史列表', () => {
     const rows = wrapper.findAll('[data-test="history-item"]');
     expect(rows).toHaveLength(2);
     expect(rows.map((row) => row.attributes('data-date'))).toEqual(['2026-06-01', '2026-05-10']);
-    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 2 / 30 天');
+    expect(wrapper.find('[data-test="history-range-stats"]').exists()).toBe(false);
 
     const first = rows[0];
     expect(first?.text()).toContain('6月1日 周一');
@@ -180,11 +184,11 @@ describe('ReviewHistory 区间历史列表', () => {
     await wrapper.find('[data-test="history-preset-7"]').trigger('click');
     expect(wrapper.findAll('[data-test="history-item"]')).toHaveLength(1);
     expect(wrapper.find('[data-date="2026-05-10"]').exists()).toBe(false);
-    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 1 / 7 天');
+    expect(wrapper.find('[data-test="history-range-stats"]').exists()).toBe(false);
 
     await wrapper.find('[data-test="history-preset-all"]').trigger('click');
     expect(wrapper.findAll('[data-test="history-item"]')).toHaveLength(2);
-    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 2 / 23 天'); // 05-10 ~ 06-01
+    expect(wrapper.find('[data-test="history-range-stats"]').exists()).toBe(false); // 05-10 ~ 06-01
   });
 
   it('手动改起止日期：只显示区间内已写的日期，未填写日期不占行', async () => {
@@ -193,8 +197,8 @@ describe('ReviewHistory 区间历史列表', () => {
     await wrapper.find('[data-test="history-end"]').setValue('2026-05-11');
     const rows = wrapper.findAll('[data-test="history-item"]');
     expect(rows.map((row) => row.attributes('data-date'))).toEqual(['2026-05-10']);
-    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 1 / 3 天');
-    expect(wrapper.find('[data-test="history-supplement"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="history-range-stats"]').exists()).toBe(false);
+    expect(wrapper.find('[data-test="history-open-date"]').exists()).toBe(true);
   });
 
   it('结束日期不会超过今天', async () => {
@@ -202,7 +206,7 @@ describe('ReviewHistory 区间历史列表', () => {
     await wrapper.find('[data-test="history-end"]').setValue('2026-06-30');
     const rows = wrapper.findAll('[data-test="history-item"]');
     expect(rows[0]?.attributes('data-date')).toBe('2026-06-01');
-    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 2 / 30 天');
+    expect(wrapper.find('[data-test="history-range-stats"]').exists()).toBe(false);
   });
 
   it('点有复盘的日期展开只读详情，不发 select-date；点「编辑这一天」才发', async () => {
@@ -227,6 +231,6 @@ describe('ReviewHistory 区间历史列表', () => {
     const wrapper = mountHistory([]);
     expect(wrapper.find('[data-test="history-empty"]').exists()).toBe(true);
     expect(wrapper.findAll('[data-test="history-item"]')).toHaveLength(0);
-    expect(wrapper.find('[data-test="history-range-stats"]').text()).toBe('已写 0 / 30 天');
+    expect(wrapper.find('[data-test="history-range-stats"]').exists()).toBe(false);
   });
 });

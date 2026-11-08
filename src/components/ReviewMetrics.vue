@@ -5,7 +5,7 @@ import type { ReviewMetrics } from '@/stores/review';
 /**
  * 复盘页 7 项自动汇总（只读）。
  * 数值与文案由 useReviewStore.computeMetrics 计算，组件只负责渲染。
- * v5：一格一个读数，1px 细线分栏，数字走等宽；只有「没做到」的地方给朱砂。
+ * 数字采用开放排版，不嵌套边框；未运动保持安静的辅助色。
  */
 const props = defineProps<{
   metrics: ReviewMetrics;
@@ -36,7 +36,7 @@ const items = computed(() => [
   <div class="review-metrics" data-test="review-metrics">
     <div class="metrics-head">
       <h2>今日自动汇总</h2>
-      <span class="metrics-note">按当天记录实时算，不用手填</span>
+      <span class="metrics-note">随当天记录更新</span>
     </div>
     <div class="metrics-grid" data-test="metrics-grid">
       <div
@@ -54,53 +54,13 @@ const items = computed(() => [
 </template>
 
 <style scoped>
-.review-metrics {
-  margin-bottom: 18px;
-  padding: 16px 16px 14px;
-  background: var(--panel);
-  border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
-}
-.metrics-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.metrics-head h2 {
-  margin: 0;
-  font-size: 15px;
-}
-.metrics-note {
-  font-size: 11px;
-  color: var(--muted);
-}
-/* 1px 细线分栏（表格画法：容器只画上/左，格子画右/下，最后一行不吃空槽） */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-}
-.metric-item {
-  padding: 10px 12px;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.metric-label {
-  margin-bottom: 5px;
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-}
-.metric-value {
-  font-size: 15px;
-  font-weight: 700;
-  word-break: keep-all;
-  overflow-wrap: break-word;
-}
-.metric-item.miss .metric-value {
-  color: var(--danger);
-}
+.metrics-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
+.metrics-head h2 { margin:0; font-size:18px; letter-spacing:-.02em; }
+.metrics-note { font-size:12px; color:var(--muted); }
+.metrics-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px 24px; }
+.metric-item { min-width:0; }
+.metric-label { margin-bottom:8px; font-size:12px; color:var(--muted); line-height:1.5; }
+.metric-value { font-size:clamp(16px,2.5vw,22px); font-weight:600; line-height:1.6; letter-spacing:-.035em; overflow-wrap:anywhere; }
+.metric-item.miss .metric-value { color:var(--muted); }
+@media (max-width:768px) { .metrics-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 20px; } }
 </style>

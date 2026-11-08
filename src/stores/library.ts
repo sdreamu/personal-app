@@ -547,6 +547,29 @@ export const useLibraryStore = defineStore('library', {
       this.bumpRevision();
       return subject;
     },
+    /** 错题分类不要求学习目标；零值表示尚未设置，学习页仍可另行设置目标。 */
+    async createMistakeSubject(nameRaw: string): Promise<Subject | null> {
+      const name = nameRaw.trim();
+      if (!name) return null;
+      const existing = (await listAlive('subjects')).find(subject => subject.name === name);
+      if (existing) return existing;
+      const subject = await this.runWithSaveStatus(() => createRecord('subjects', {
+        name, weekly_goal_min: 0, deadline: null, archived: false, knowledge_points: [],
+      }));
+      this.bumpRevision();
+      return subject;
+    },
+    async addKnowledgePoint(subjectId: string, name: string): Promise<void> {
+      const point = name.trim();
+      const subject = await getRecord('subjects', subjectId);
+      if (!point || !subject || !isAlive(subject)) return;
+      const points = Array.isArray(subject.knowledge_points) ? subject.knowledge_points : [];
+      if (!points.includes(point)) {
+        await this.runWithSaveStatus(() => updateRecord('subjects', subjectId, { knowledge_points: [...points, point] }));
+      }
+      await this.loadSubjects();
+      this.bumpRevision();
+    },
     async saveSubject(id: string, input: SubjectInput): Promise<Subject | null> {
       const fields = validateSubject(input.name, input.weeklyGoalMin);
       if (!fields) return null;

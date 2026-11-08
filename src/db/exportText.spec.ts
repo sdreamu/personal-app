@@ -18,6 +18,18 @@ const D2 = '2026-06-02';
 const OUT = '2026-05-31';
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
 
+it('错题文本导出包含知识点分类，旧错题仍可导出', () => {
+  const source = emptyExportSource(D1, D2);
+  source.mistakes = [
+    mistake({ id: 'classified', date: D1, subject_name: '数学', knowledge_point: '导数', question_text: '求导' }),
+    mistake({ id: 'legacy', date: D1, question_text: '旧错题' }),
+  ];
+  const text = exportText(source);
+  expect(text).toContain('[未掌握｜数学｜导数｜难度 3] 求导');
+  expect(text).toContain('旧错题');
+  expect(text).not.toContain('undefined');
+});
+
 /** 区间外记录用的时间戳：OUT（2026-05-31）当天 09:00。 */
 const OUT_MS = new Date(2026, 4, 31, 9, 0, 0).getTime();
 

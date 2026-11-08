@@ -115,6 +115,8 @@ export interface Excerpt extends BaseFields {
 
 /** 8. 科目。 */
 export interface Subject extends BaseFields {
+  /** 可选分类字段，旧记录按空数组读取，随 JSON 备份保存。 */
+  knowledge_points?: string[];
   name: string;
   weekly_goal_min: number;
   deadline: string | null;
@@ -234,6 +236,8 @@ export interface Exercise extends BaseFields {
 
 /** 18. 错题本。图片一律以 base64 data URL 字符串存储（可被 JSON 备份直接带走，禁止 Blob）。 */
 export interface Mistake extends BaseFields {
+  /** 旧错题未标注时按未分类读取。 */
+  knowledge_point?: string | null;
   date: string;
   subject_name: string | null;
   question_text: string | null;

@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
         <button v-if="showResume" class="primary-btn" data-test="resume-btn" @click="timerStore.resumeTimer()">继续</button>
         <button v-if="showEnd" class="danger-btn" data-test="end-btn" @click="timerStore.endTimer()">结束</button>
       </div>
-      <p class="field-hint">快捷键：Space 开始 / 暂停 / 继续（弹窗打开时不响应）</p>
+      <p class="field-hint keyboard-hint">快捷键：Space 开始 / 暂停 / 继续（弹窗打开时不响应）</p>
     </div>
 
     <div v-if="!timerExists" class="timer-panel">
@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
   padding: 16px 18px 14px;
   background: var(--field);
   border: var(--line-w) solid var(--border-ink);
-  box-shadow: 7px 7px 0 var(--slab), 14px 14px 0 var(--border-ink);
+  box-shadow: var(--shadow);
   text-align: center;
 }
 .timer-field::after {
@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
 .timer-field .ghost-btn,
 .timer-field .danger-btn {
   border: var(--line-w) solid var(--hero-ink);
-  box-shadow: 3px 3px 0 var(--border-ink);
+  box-shadow: var(--shadow);
   font-weight: 700;
 }
 .timer-field .primary-btn {
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
   padding: 16px 16px 14px;
   background: var(--panel);
   border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
+  box-shadow: var(--shadow);
 }
 .timer-panel h2 {
   margin: 0 0 12px;

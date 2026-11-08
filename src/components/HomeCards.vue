@@ -199,7 +199,7 @@ async function completeNext(): Promise<void> {
   margin-top: 22px;
   background: var(--panel);
   border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
+  box-shadow: var(--shadow);
 }
 .home-card {
   padding: 14px 16px;
@@ -275,7 +275,7 @@ async function completeNext(): Promise<void> {
 .home-card .primary-btn {
   background: var(--panel);
   color: var(--text);
-  box-shadow: 2px 2px 0 var(--border-ink);
+  box-shadow: var(--shadow);
 }
 .home-card .primary-btn:hover {
   background: var(--panel-2);

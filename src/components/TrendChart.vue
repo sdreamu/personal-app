@@ -24,6 +24,7 @@ interface SeriesGeometry {
   label: string;
   values: (number | null)[];
   segments: string[];
+  points: { x: number; y: number }[];
   count: number;
   average: number | null;
 }
@@ -32,7 +33,8 @@ const geometries = computed<SeriesGeometry[]>(() =>
   props.series.map((item) => {
     const geo = buildSparkline(item.values, { width, height, min: props.min, max: props.max, limit: item.values.length });
     const stats = summarize(item.values);
-    return { ...item, segments: geo.segments, count: stats.count, average: stats.average };
+    const points = geo.points ? geo.points.split(' ').map((point) => { const [x, y] = point.split(',').map(Number); return { x: x!, y: y! }; }) : [];
+    return { ...item, segments: geo.segments, points, count: stats.count, average: stats.average };
   }),
 );
 
@@ -65,7 +67,7 @@ const lastDate = computed(() => props.dates[props.dates.length - 1] ?? '');
     </ul>
 
     <p v-if="isEmpty" class="hint" data-test="trend-empty">
-      还没有心情 / 精力记录。每天在下面选一次，这里就会长出曲线。
+      还没有心情 / 精力记录。每天记录心情与精力，这里就会生成曲线。
     </p>
 
     <template v-else>
@@ -95,6 +97,9 @@ const lastDate = computed(() => props.dates[props.dates.length - 1] ?? '');
             fill="none"
             :data-test="'trend-line-' + item.key"
           />
+          <circle v-for="(point, index) in item.points" :key="item.key + '-point-' + index"
+            :cx="point.x" :cy="point.y" :r="item.key === 'energy' ? 3 : 4.5"
+            class="trend-point" :class="'series-' + item.key" :data-test="'trend-point-' + item.key" />
         </template>
       </svg>
       <div class="trend-axis num">
@@ -143,6 +148,7 @@ const lastDate = computed(() => props.dates[props.dates.length - 1] ?? '');
 .trend-svg {
   width: 100%;
   height: auto;
+  min-height: 120px;
   border: var(--line-w) solid var(--border-ink);
   background: var(--panel);
 }
@@ -161,6 +167,9 @@ const lastDate = computed(() => props.dates[props.dates.length - 1] ?? '');
 .series-energy {
   stroke: var(--text);
 }
+.trend-point { fill: var(--panel); stroke-width: 2; }
+.series-energy { stroke-dasharray: 5 3; }
+.trend-point.series-energy { stroke-dasharray: none; fill: var(--text); }
 .trend-axis {
   display: flex;
   justify-content: space-between;

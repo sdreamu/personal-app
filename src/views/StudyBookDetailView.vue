@@ -50,7 +50,7 @@ const remainingText = computed(() =>
 );
 
 async function load(): Promise<void> {
-  loading.value = true;
+  // 仅首次载入显示加载页；保存页码、摘录后刷新时保留正文和滚动位置。
   const row = await getRecord('books', bookId.value);
   book.value = row !== undefined && isAlive(row) ? row : null;
   if (book.value !== null) {

@@ -77,7 +77,7 @@ function onDateInput(event: Event): void {
           {{ option.label }}
         </button>
       </div>
-      <p class="hint">快捷键：← / → 切换前后一天，T 或 Home 回到今天。</p>
+      <p class="hint keyboard-hint">快捷键：← / → 切换前后一天，T 或 Home 回到今天。</p>
     </div>
   </BaseModal>
 </template>

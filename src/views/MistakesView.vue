@@ -4,23 +4,34 @@ import BaseModal from '@/components/BaseModal.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import ImageInput from '@/components/ImageInput.vue';
 import { useLibraryStore } from '@/stores/library';
-import { useDateStore } from '@/stores/date';
+import { useSettingsStore } from '@/stores/settings';
+import { useToastStore } from '@/stores/toast';
+import { logicalToday } from '@/utils/date';
 import { MISTAKE_IMAGE_LIMIT, MISTAKE_REASONS, useMistakesStore, type MistakeInput } from '@/stores/mistakes';
 import type { Mistake } from '@/db';
 
 /**
- * 错题本 #/mistakes（PRD M9，Q5 拍板：一题一卡 + 预设错误原因 + 进日期切换）。
- * 文字录入在这里；照片录入（M10）后续接在同一张卡片的图片区。
+ * 错题本 #/mistakes：汇总全部日期，按科目和知识点分类。
+ * 题目和订正支持文字、拍照、上传照片组合录入。
  */
 const mistakes = useMistakesStore();
 const library = useLibraryStore();
-const dateStore = useDateStore();
+const settings = useSettingsStore();
+const toast = useToastStore();
 
 const formOpen = ref(false);
+const formSaving = ref(false);
+const formError = ref('');
+const photoBusy = reactive({ question: false, correction: false });
+const addingFormSubject = ref(false);
+const newFormSubject = ref('');
+const formSubjectError = ref('');
+const formSubjectSaving = ref(false);
 const editingId = ref<string | null>(null);
 const form = reactive({
   date: '',
   subjectName: '',
+  knowledgePoint: '',
   questionText: '',
   correctionText: '',
   reasons: [] as string[],
@@ -32,9 +43,9 @@ const form = reactive({
   correctionImages: [] as string[],
 });
 
-const selectedDate = computed(() => dateStore.selectedDate);
-const reasonOptions = computed(() => [...MISTAKE_REASONS]);
-/** 科目候选：科目表里有名字的 + 本日期错题里用过的。 */
+
+const reasonOptions = computed(() => [...new Set([...MISTAKE_REASONS, ...form.reasons])]);
+/** 科目候选：已保存的科目 + 全部错题里用过的科目。 */
 const subjectOptions = computed(() => {
   const names = new Set<string>();
   for (const subject of library.subjects) names.add(subject.name);
@@ -47,9 +58,11 @@ function emptyToText(value: string | null | undefined): string {
 }
 
 function openCreate(): void {
+  resetFormFeedback();
   editingId.value = null;
-  form.date = selectedDate.value;
-  form.subjectName = '';
+  form.date = logicalToday(settings.dayStartMin);
+  form.subjectName = mistakes.subjectFilter ?? '';
+  form.knowledgePoint = mistakes.knowledgeFilter ?? '';
   form.questionText = '';
   form.correctionText = '';
   form.reasons = [];
@@ -63,9 +76,11 @@ function openCreate(): void {
 }
 
 function openEdit(item: Mistake): void {
+  resetFormFeedback();
   editingId.value = item.id;
   form.date = item.date;
   form.subjectName = emptyToText(item.subject_name);
+  form.knowledgePoint = emptyToText(item.knowledge_point);
   form.questionText = emptyToText(item.question_text);
   form.correctionText = emptyToText(item.correction_text);
   form.reasons = [...item.reasons];
@@ -76,6 +91,37 @@ function openEdit(item: Mistake): void {
   form.questionImages = [...item.question_images];
   form.correctionImages = [...item.correction_images];
   formOpen.value = true;
+}
+
+function resetFormFeedback(): void {
+  formError.value = '';
+  photoBusy.question = false;
+  photoBusy.correction = false;
+  addingFormSubject.value = false;
+  newFormSubject.value = '';
+  formSubjectError.value = '';
+}
+
+function chooseSubject(name: string): void {
+  if (form.subjectName !== name) form.knowledgePoint = '';
+  form.subjectName = name;
+}
+
+async function addFormSubject(): Promise<void> {
+  if (formSubjectSaving.value) return;
+  const name = newFormSubject.value.trim();
+  if (!name) { formSubjectError.value = '请填写科目名称'; return; }
+  formSubjectSaving.value = true;
+  formSubjectError.value = '';
+  try {
+    const subject = await library.createMistakeSubject(name);
+    if (!subject) return;
+    await library.loadSubjects();
+    chooseSubject(subject.name);
+    addingFormSubject.value = false;
+    newFormSubject.value = '';
+  } catch { formSubjectError.value = '科目未能添加，请重试'; }
+  finally { formSubjectSaving.value = false; }
 }
 
 function toggleReason(reason: string): void {
@@ -95,6 +141,7 @@ function addCustomReason(): void {
 function payload(): MistakeInput {
   return {
     date: form.date,
+    knowledgePoint: form.knowledgePoint,
     subjectName: form.subjectName.trim() === '' ? null : form.subjectName,
     questionText: form.questionText,
     correctionText: form.correctionText,
@@ -108,33 +155,33 @@ function payload(): MistakeInput {
 }
 
 async function save(): Promise<void> {
+  if (formSaving.value || photoBusy.question || photoBusy.correction || formSubjectSaving.value) return;
+  formError.value = '';
   const input = payload();
-  if (editingId.value === null) {
-    const created = await mistakes.create(input);
-    if (created === null) return;
-    // 日期和当前页不同（补记到别的日子）：跟着切过去，用户能马上看到
-    if (created.date !== selectedDate.value) dateStore.setSelected(created.date);
-  } else {
-    const updated = await mistakes.save(editingId.value, input);
-    if (updated === null) return;
-    if (updated.date !== selectedDate.value) {
-      dateStore.setSelected(updated.date);
-      return;
-    }
+  if (!input.questionText.trim() && !input.correctionText.trim() && !input.questionImages?.length && !input.correctionImages?.length) {
+    formError.value = '写一点题目或订正，或者添加一张照片再保存';
+    return;
   }
-  formOpen.value = false;
+  formSaving.value = true;
+  try {
+    const result = editingId.value === null
+      ? await mistakes.create(input)
+      : await mistakes.save(editingId.value, input);
+    if (result) formOpen.value = false;
+  } catch { formError.value = '保存失败，请重试'; }
+  finally { formSaving.value = false; }
 }
 
+const loadError = ref('');
 async function load(): Promise<void> {
-  await mistakes.load(selectedDate.value);
+  loadError.value = '';
+  try { await Promise.all([library.loadSubjects(), mistakes.load()]); }
+  catch { loadError.value = '错题未能加载，请重试'; }
 }
 
-onMounted(() => {
-  void library.loadSubjects();
-  void load();
-});
+onMounted(() => { void load(); });
 
-watch(selectedDate, () => void load());
+watch(() => mistakes.subjectFilter, () => { mistakes.knowledgeFilter = null; });
 
 function difficultyStars(level: number): string {
   return '★'.repeat(level) + '☆'.repeat(Math.max(0, 5 - level));
@@ -142,6 +189,41 @@ function difficultyStars(level: number): string {
 
 function subjectLabel(item: Mistake): string {
   return item.subject_name ?? '未分类';
+}
+
+const categoryOpen = ref(false);
+const categorySubject = ref('');
+const categoryPoint = ref('');
+const categoryError = ref('');
+const categorySaving = ref(false);
+function knowledgeOptions(subject: string): string[] {
+  const points = new Set(library.subjects.find(row => row.name === subject)?.knowledge_points ?? []);
+  for (const item of mistakes.items) if (item.subject_name === subject && item.knowledge_point) points.add(item.knowledge_point);
+  return [...points].sort((a,b) => a.localeCompare(b,'zh-Hans-CN'));
+}
+function openCategory(point: boolean): void {
+  categorySubject.value = point ? mistakes.subjectFilter ?? '' : '';
+  categoryPoint.value = '';
+  categoryError.value = '';
+  categoryOpen.value = true;
+}
+async function saveCategory(): Promise<void> {
+  if (categorySaving.value) return;
+  const name = categorySubject.value.trim();
+  if (!name) { categoryError.value = '请填写科目名称'; return; }
+  categorySaving.value = true;
+  categoryError.value = '';
+  try {
+    let subject = library.subjects.find(row => row.name === name);
+    if (!subject) subject = await library.createMistakeSubject(name) ?? undefined;
+    if (!subject) { categoryError.value = '请检查科目名称'; return; }
+    if (categoryPoint.value.trim()) await library.addKnowledgePoint(subject.id, categoryPoint.value);
+    await library.loadSubjects();
+    mistakes.subjectFilter = name;
+    categoryOpen.value = false;
+    toast.success('分类已保存');
+  } catch { categoryError.value = '保存分类失败，请重试'; }
+  finally { categorySaving.value = false; }
 }
 </script>
 
@@ -175,23 +257,32 @@ function subjectLabel(item: Mistake): string {
 
       <div class="mistakes-meta">
         <span class="num" data-test="mistakes-progress">
-          {{ selectedDate }} · 共 {{ mistakes.total }} 条 · 已掌握 {{ mistakes.masteredCount }} 条
+          共 {{ mistakes.total }} 条 · 已掌握 {{ mistakes.masteredCount }} 条
         </span>
-        <label class="mistakes-subject-filter">
-          科目
-          <select v-model="mistakes.subjectFilter" data-test="mistakes-subject-filter">
-            <option :value="null">全部</option>
-            <option v-for="name in mistakes.usedSubjects" :key="name" :value="name">{{ name }}</option>
-          </select>
-        </label>
+      </div>
+      <div class="classification" aria-label="错题分类">
+        <div class="filter-heading"><span>科目</span><button class="text-add" data-test="add-mistake-subject" @click="openCategory(false)">＋ 添加科目</button></div>
+        <div class="filter-chips" data-test="mistakes-subject-filter">
+          <button class="filter-chip" :aria-pressed="mistakes.subjectFilter === null" @click="mistakes.subjectFilter = null">全部科目</button>
+          <button v-for="name in subjectOptions" :key="name" class="filter-chip" :aria-pressed="mistakes.subjectFilter === name" @click="mistakes.subjectFilter = name">{{ name }}</button>
+        </div>
+        <template v-if="mistakes.subjectFilter">
+          <div class="filter-heading"><span>知识点</span><button class="text-add" data-test="add-knowledge-point" @click="openCategory(true)">＋ 添加知识点</button></div>
+          <div class="filter-chips" data-test="mistakes-knowledge-filter">
+            <button class="filter-chip" :aria-pressed="mistakes.knowledgeFilter === null" @click="mistakes.knowledgeFilter = null">全部知识点</button>
+            <button v-for="point in knowledgeOptions(mistakes.subjectFilter)" :key="point" class="filter-chip" :aria-pressed="mistakes.knowledgeFilter === point" @click="mistakes.knowledgeFilter = point">{{ point }}</button>
+          </div>
+        </template>
       </div>
     </div>
 
+    <p v-if="mistakes.loading" role="status" class="hint">正在加载错题…</p>
+    <div v-else-if="loadError" role="alert"><p>{{ loadError }}</p><button class="ghost-btn" @click="load">重新加载</button></div>
     <EmptyState
-      v-if="mistakes.visible.length === 0"
+      v-else-if="mistakes.visible.length === 0"
       data-test="mistakes-empty"
       icon="📕"
-      title="这一天还没有错题"
+      :title="mistakes.total === 0 ? '还没有收录错题' : '当前分类下没有错题'"
       description="做错的题记下来，看清错在哪，比刷十道新题有用。"
       action-label="记一道错题"
       @action="openCreate"
@@ -207,6 +298,7 @@ function subjectLabel(item: Mistake): string {
       >
         <div class="mistake-head">
           <span class="badge" data-test="mistake-subject">{{ subjectLabel(item) }}</span>
+          <span v-if="item.knowledge_point" class="badge" data-test="mistake-knowledge">{{ item.knowledge_point }}</span>
           <span class="mistake-stars num" data-test="mistake-difficulty">{{ difficultyStars(item.difficulty) }}</span>
           <span v-if="item.mastered" class="badge badge-done" data-test="mistake-mastered-badge">已掌握</span>
           <span class="mistake-ops">
@@ -226,7 +318,7 @@ function subjectLabel(item: Mistake): string {
         </div>
 
         <p class="mistake-question" data-test="mistake-question">
-          {{ item.question_text ?? '（没写题目）' }}
+          {{ item.question_text ?? (item.question_images.length ? '题目见照片' : '未填写题目文字') }}
         </p>
         <p v-if="item.correction_text" class="mistake-correction" data-test="mistake-correction">
           <span class="mistake-label">订正</span>{{ item.correction_text }}
@@ -256,83 +348,95 @@ function subjectLabel(item: Mistake): string {
       </li>
     </ul>
 
+    <BaseModal v-if="categoryOpen" id="mistake-category" title="添加分类" @close="categoryOpen = false">
+      <form id="mistake-category-form" class="category-form" @submit.prevent="saveCategory">
+        <label class="field"><span>科目名称</span><input v-model="categorySubject" list="mistake-category-subjects" data-test="category-subject" placeholder="例如：数学" required /><datalist id="mistake-category-subjects"><option v-for="name in subjectOptions" :key="name" :value="name" /></datalist></label>
+        <label class="field"><span>知识点（可选）</span><input v-model="categoryPoint" data-test="category-point" placeholder="例如：三角函数" /></label>
+        <p v-if="categoryError" role="alert" class="danger-text">{{ categoryError }}</p>
+      </form>
+      <template #footer><button class="ghost-btn" @click="categoryOpen = false">取消</button><button class="primary-btn" type="submit" form="mistake-category-form" :disabled="categorySaving" data-test="category-save">{{ categorySaving ? '保存中…' : '保存' }}</button></template>
+    </BaseModal>
     <BaseModal v-if="formOpen" id="mistake-form" title="记一道错题" @close="formOpen = false">
       <div class="mistake-form" data-test="mistake-form">
-        <label class="field">
-          <span>日期</span>
-          <input v-model="form.date" type="date" data-test="mistake-form-date" />
-        </label>
 
-        <label class="field">
-          <span>科目</span>
-          <input
-            v-model="form.subjectName"
-            list="mistake-subjects"
-            placeholder="比如 数学（可自由填写）"
-            data-test="mistake-form-subject"
-          />
-          <datalist id="mistake-subjects">
-            <option v-for="name in subjectOptions" :key="name" :value="name" />
-          </datalist>
-        </label>
+        <div class="field">
+          <span id="mistake-subject-label">科目</span>
+          <div class="filter-chips subject-choices" role="group" aria-labelledby="mistake-subject-label" data-test="mistake-form-subject">
+            <button type="button" class="filter-chip" :aria-pressed="form.subjectName === ''" @click="chooseSubject('')">未分类</button>
+            <button v-for="name in subjectOptions" :key="name" type="button" class="filter-chip" :aria-pressed="form.subjectName === name" @click="chooseSubject(name)">{{ name }}</button>
+            <button type="button" class="text-add" :aria-expanded="addingFormSubject" data-test="mistake-form-add-subject" @click="addingFormSubject = !addingFormSubject">＋ 新建科目</button>
+          </div>
+          <div v-if="addingFormSubject" class="inline-subject">
+            <input v-model="newFormSubject" aria-label="新科目名称" placeholder="科目名称" data-test="mistake-new-subject" @keyup.enter.prevent="addFormSubject" />
+            <button type="button" class="ghost-btn" :disabled="formSubjectSaving" data-test="mistake-new-subject-save" @click="addFormSubject">{{ formSubjectSaving ? '添加中…' : '添加' }}</button>
+          </div>
+          <p v-if="formSubjectError" role="alert" class="danger-text">{{ formSubjectError }}</p>
+        </div>
 
-        <label class="field">
-          <span>题目</span>
-          <textarea
-            v-model="form.questionText"
-            rows="3"
-            placeholder="把题干或题干关键条件写下来"
-            data-test="mistake-form-question"
-          />
-        </label>
-
-        <label class="field">
-          <span>订正</span>
-          <textarea
-            v-model="form.correctionText"
-            rows="3"
-            placeholder="正确思路 / 我在哪一步想错了"
-            data-test="mistake-form-correction"
-          />
-        </label>
-
+        <label class="field"><span>知识点</span><input v-model="form.knowledgePoint" list="mistake-knowledge-points" placeholder="例如：导数、三角函数" data-test="mistake-form-knowledge" /><datalist id="mistake-knowledge-points"><option v-for="point in knowledgeOptions(form.subjectName)" :key="point" :value="point" /></datalist></label>
         <ImageInput
           :model-value="form.questionImages"
           test-key="question"
-          label="题目照片"
+          label="题目"
+          camera embedded
           :max="MISTAKE_IMAGE_LIMIT"
           @update:model-value="form.questionImages = $event"
-        />
+          @busy-change="photoBusy.question = $event"
+        >
+          <textarea
+            v-model="form.questionText"
+            aria-label="题目文字"
+            rows="3"
+            placeholder="写下题目，也可以直接拍照或上传"
+            data-test="mistake-form-question"
+          />
+        </ImageInput>
+
+        <ImageInput
+          :model-value="form.correctionImages"
+          test-key="correction"
+          label="订正"
+          camera embedded
+          :max="MISTAKE_IMAGE_LIMIT"
+          @update:model-value="form.correctionImages = $event"
+          @busy-change="photoBusy.correction = $event"
+        >
+          <textarea
+            v-model="form.correctionText"
+            aria-label="订正文字"
+            rows="3"
+            placeholder="记录正确思路，或拍下订正过程"
+            data-test="mistake-form-correction"
+          />
+        </ImageInput>
 
         <div class="field">
-          <span>错在哪</span>
-          <div class="chip-row">
+          <span id="mistake-reasons-label">错在哪 <span class="field-note">可多选</span></span>
+          <div class="reason-options" role="group" aria-labelledby="mistake-reasons-label" data-test="mistake-form-reasons">
             <button
               v-for="reason in reasonOptions"
               :key="reason"
               type="button"
-              class="chip chip-btn"
-              :class="{ on: form.reasons.includes(reason) }"
+              class="reason-option"
               :aria-pressed="form.reasons.includes(reason)"
               :data-test="'mistake-reason-' + reason"
               @click="toggleReason(reason)"
             >
+              <span class="reason-check" aria-hidden="true"><svg v-if="form.reasons.includes(reason)" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg></span>
               {{ reason }}
             </button>
           </div>
           <div class="chip-row">
             <input
               v-model="form.customReason"
-              placeholder="其它原因（回车加上）"
+              placeholder="补充一个原因"
+              aria-label="自定义错误原因"
               data-test="mistake-form-custom-reason"
               @keyup.enter.prevent="addCustomReason"
             />
             <button type="button" class="ghost-btn" data-test="mistake-form-add-reason" @click="addCustomReason">
               加上
             </button>
-          </div>
-          <div v-if="form.reasons.length > 0" class="chip-row" data-test="mistake-form-reasons">
-            <span v-for="reason in form.reasons" :key="reason" class="chip on">{{ reason }}</span>
           </div>
         </div>
 
@@ -359,25 +463,18 @@ function subjectLabel(item: Mistake): string {
           <input v-model="form.note" placeholder="下次注意什么（可留空）" data-test="mistake-form-note" />
         </label>
 
-        <ImageInput
-          :model-value="form.correctionImages"
-          test-key="correction"
-          label="订正照片"
-          :max="MISTAKE_IMAGE_LIMIT"
-          @update:model-value="form.correctionImages = $event"
-        />
-
-        <label class="checkbox-field">
-          <input v-model="form.mastered" type="checkbox" data-test="mistake-form-mastered" />
-          <span>我已经会了（标记为已掌握）</span>
-        </label>
+        <button type="button" role="switch" aria-label="已经掌握" :aria-checked="form.mastered" class="mastery-toggle" data-test="mistake-form-mastered" @click="form.mastered = !form.mastered">
+          <span class="mastery-copy"><strong>已经掌握</strong><span>{{ form.mastered ? '已掌握，之后可以筛选查看' : '未掌握，留待下次复习' }}</span></span>
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb" /></span>
+        </button>
+        <p v-if="formError" role="alert" class="danger-text">{{ formError }}</p>
       </div>
 
       <template #footer>
         <button type="button" class="ghost-btn" data-test="mistake-form-cancel" @click="formOpen = false">
           取消
         </button>
-        <button type="button" class="primary-btn" data-test="mistake-form-save" @click="save">保存</button>
+        <button type="button" class="primary-btn" :disabled="formSaving || photoBusy.question || photoBusy.correction || formSubjectSaving" data-test="mistake-form-save" @click="save">{{ photoBusy.question || photoBusy.correction ? '照片处理中…' : formSaving ? '保存中…' : '保存' }}</button>
       </template>
     </BaseModal>
   </section>
@@ -496,14 +593,33 @@ function subjectLabel(item: Mistake): string {
   flex-wrap: wrap;
   align-items: center;
 }
-.chip-btn.on {
-  border-color: var(--accent);
-  color: var(--accent);
-}
 .mistake-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 22px;
+}
+.subject-choices .filter-chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.inline-subject { display: flex; gap: 8px; }
+.inline-subject input { flex: 1; min-width: 0; }
+.reason-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.reason-option { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--panel); color: var(--muted); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.reason-option[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.reason-check { display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 18px; border: 1px solid var(--border); border-radius: 50%; }
+.reason-option[aria-pressed='true'] .reason-check { border-color: var(--accent); }
+.reason-check svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.field-note { margin-left: 6px; font-size: 12px; }
+.mastery-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 76px; padding: 14px 0; border: none; border-top: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.mastery-copy { display: flex; flex-direction: column; gap: 6px; }
+.mastery-copy strong { font-size: 14px; font-weight: 600; }
+.mastery-copy > span { font-size: 12px; color: var(--muted); }
+.switch-track { display: flex; align-items: center; width: 52px; height: 32px; flex: 0 0 52px; padding: 3px; box-sizing: border-box; border-radius: var(--radius-pill); background: var(--track); }
+.switch-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--text); transition: transform 150ms ease-out; }
+.mastery-toggle[aria-checked='true'] .switch-track { background: var(--accent-fill); }
+.mastery-toggle[aria-checked='true'] .switch-thumb { transform: translateX(20px); background: var(--on-accent); }
+.category-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 .field {
   display: flex;
@@ -520,11 +636,5 @@ function subjectLabel(item: Mistake): string {
   border: var(--line-w) solid var(--border-ink);
   border-radius: var(--radius);
   background: var(--panel);
-}
-.checkbox-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
 }
 </style>

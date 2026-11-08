@@ -1,0 +1,46 @@
+# electron-builder 打包配置（Windows 桌面版）
+#
+# 产物（pnpm dist:win:out 之后，在 ../evan-release 下）：
+#   个人生活助手-Setup-0.1.0.exe ← NSIS 安装包（可选安装目录，建桌面/开始菜单快捷方式，带卸载项）
+#
+# 只有安装包：portable（免安装版）在本机验不过 —— launcher 起来后 90 秒内始终没解出 app 进程，
+# 只会在 %TEMP% 留下 ns*.tmp 解压目录。不发布没验过的产物，需要时再把 target 加回来调。
+#
+# 打包前置：pnpm build:electron —— 用相对 base 构建 dist/（app:// 协议下已能工作，相对路径更保险）。
+appId: com.evan.personalapp
+productName: 个人生活助手
+copyright: Copyright © 2026 Evan
+
+directories:
+  output: release
+  buildResources: build
+
+# 只打进构建产物和主进程：页面依赖已经由 Vite 全量打包进 dist/，
+# node_modules 一律不进去（体积从 ~200MB 降到几 MB 的壳 + electron 运行时）
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - '!node_modules/**/*'
+
+# 主进程不需要编译原生模块
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  # 个人自用，不出签名证书；首次运行 Windows SmartScreen 会提示"未知发布者"，这是预期行为
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 个人生活助手
+  artifactName: ${productName}-Setup-${version}.${ext}
+  uninstallDisplayName: 个人生活助手
+

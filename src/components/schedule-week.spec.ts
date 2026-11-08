@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import type { Plan, StudyRecord } from '@/db';
 import { useDateStore } from '@/stores/date';
@@ -117,6 +117,22 @@ async function mountWeek(props: { windowStart?: string | null } = {}) {
 }
 
 describe('日程页一周概览', () => {
+  it('数据库查询未完成时已渲染七天，翻周后旧查询不会覆盖新窗口', async () => {
+    let finishOld!: (plans: Plan[]) => void;
+    listAliveByDate.mockImplementationOnce(() => new Promise<Plan[]>(resolve => { finishOld = resolve; }));
+    const wrapper = mount(ScheduleWeek, { global: { plugins: [pinia] } });
+    expect(wrapper.findAll('.day')).toHaveLength(7);
+    expect(wrapper.find('.week-grid').attributes('aria-busy')).toBe('true');
+    await wrapper.setProps({ windowStart: '2026-11-02' });
+    await flushPromises();
+    expect(wrapper.find('[data-test="week-range"]').text()).toBe('11.02 – 11.08');
+    finishOld([]);
+    await flushPromises();
+    expect(wrapper.find('[data-test="week-range"]').text()).toBe('11.02 – 11.08');
+    expect(wrapper.find('.week-grid').attributes('aria-busy')).toBe('false');
+    wrapper.unmount();
+  });
+
   it('默认窗口 7 天：昨天 → 后五天，今天那列反相、当前选中那列描边', async () => {
     const wrapper = await mountWeek();
     expect(wrapper.findAll('.day')).toHaveLength(7);

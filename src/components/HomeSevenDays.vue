@@ -1,232 +1,138 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { listAliveByDate, type Plan } from '@/db';
 import { useDateStore } from '@/stores/date';
+import { usePlanStore } from '@/stores/plan';
 import { useSettingsStore } from '@/stores/settings';
-import { addDays, logicalToday, MINUTES_PER_DAY, weekdayCN } from '@/utils/date';
+import { addDays, formatDateCNWeekday, logicalToday, offsetToTime } from '@/utils/date';
 
-/**
- * 未来七天（v5）：今天前一天 → 今天后五天，一共 7 列。
- * 首页只给「这几天大概排了什么」：件数 + 形状；点某天跳日程页并把日期切过去。
- */
-interface DayColumn {
-  date: string;
-  weekday: string;
-  dayLabel: string;
-  isToday: boolean;
-  finished: number;
-  total: number;
-  main: string;
-  bars: Array<{ left: string; width: string }>;
-}
-
+interface DayColumn { date: string; plans: Plan[]; failed: boolean }
 const router = useRouter();
 const settings = useSettingsStore();
 const dateStore = useDateStore();
-const days = ref<DayColumn[]>([]);
+const planStore = usePlanStore();
+const selectedDate = ref(logicalToday(settings.dayStartMin));
+const days = ref<DayColumn[]>(windowDates().map(date => ({ date, plans: [], failed: false })));
+const loading = ref(true);
+let loadVersion = 0;
+const today = computed(() => logicalToday(settings.dayStartMin));
+const selected = computed(() => days.value.find(day => day.date === selectedDate.value));
+const preview = computed(() => (selected.value?.plans ?? []).slice(0, 3));
+const finished = computed(() => selected.value?.plans.filter(plan => plan.done).length ?? 0);
+const remaining = computed(() => Math.max(0, (selected.value?.plans.length ?? 0) - 3));
 
-function percent(offset: number): number {
-  return Math.min(100, Math.max(0, (offset / MINUTES_PER_DAY) * 100));
+function windowDates(): string[] {
+  const start = logicalToday(settings.dayStartMin);
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index - 1));
 }
-
-function summarize(date: string, plans: readonly Plan[]): DayColumn {
-  const timed = plans.filter((plan) => plan.start_min !== null && plan.end_min !== null);
-  const first = plans.find((plan) => !plan.done) ?? plans[0] ?? null;
-  return {
-    date,
-    weekday: weekdayCN(date).replace('周', ''),
-    dayLabel: date.slice(5).replace('-', '.'),
-    isToday: date === logicalToday(settings.dayStartMin),
-    finished: plans.filter((plan) => plan.done).length,
-    total: plans.length,
-    main: first === null ? '还没有安排' : first.title,
-    bars: timed.map((plan) => ({
-      left: `${percent(plan.start_min ?? 0)}%`,
-      width: `${Math.max(1.5, percent((plan.end_min ?? 0) - (plan.start_min ?? 0)))}%`,
-    })),
-  };
-}
-
 async function load(): Promise<void> {
-  const today = logicalToday(settings.dayStartMin);
-  const dates = Array.from({ length: 7 }, (_, index) => addDays(today, index - 1));
-  const result: DayColumn[] = [];
-  for (const date of dates) {
-    let plans: Plan[] = [];
+  const version = ++loadVersion;
+  loading.value = true;
+  const result = await Promise.all(windowDates().map(async date => {
     try {
-      plans = await listAliveByDate('plans', date);
-    } catch {
-      plans = [];
-    }
-    result.push(summarize(date, plans));
-  }
+      const plans = await listAliveByDate('plans', date);
+      plans.sort((a, b) => Number(a.done) - Number(b.done)
+        || (a.start_min ?? Infinity) - (b.start_min ?? Infinity)
+        || a.created_at - b.created_at || a.id.localeCompare(b.id));
+      return { date, plans, failed: false };
+    } catch { return { date, plans: [], failed: true }; }
+  }));
+  if (version !== loadVersion) return;
   days.value = result;
+  if (!result.some(day => day.date === selectedDate.value)) selectedDate.value = today.value;
+  loading.value = false;
 }
-
-function openDay(date: string): void {
-  dateStore.setSelected(date);
-  void router.push('/plan');
+function openDay(): void {
+  dateStore.setSelected(selectedDate.value);
+  void router.push({ path: '/plan', query: { view: 'list' } });
 }
-
-onMounted(() => {
-  void load();
-});
-
+function timeLabel(plan: Plan): string {
+  return plan.start_min === null ? '待安排' : offsetToTime(plan.start_min, settings.dayStartMin);
+}
+onMounted(() => { void load(); });
 watch(() => settings.dayStartMin, () => void load());
+watch(() => planStore.plans, () => void load(), { deep: true });
 </script>
 
 <template>
-  <section class="seven" data-test="home-seven-days">
+  <section class="seven" data-test="home-seven-days" aria-labelledby="seven-title">
     <div class="seven-head">
-      <h2 class="seven-title">未来七天</h2>
+      <h2 id="seven-title" class="seven-title">未来七天</h2>
       <RouterLink class="seven-more" to="/plan">看完整日程 →</RouterLink>
     </div>
-    <div class="seven-grid">
+    <div class="seven-grid" role="group" aria-label="选择预览日期">
       <button
-        v-for="day in days"
-        :key="day.date"
-        type="button"
-        class="day"
-        :class="{ today: day.isToday }"
-        :data-test="`seven-day-${day.date}`"
-        @click="openDay(day.date)"
+        v-for="day in days" :key="day.date" type="button" class="day"
+        :class="{ today: day.date === today, selected: day.date === selectedDate }"
+        :aria-pressed="day.date === selectedDate"
+        :aria-label="formatDateCNWeekday(day.date) + (day.failed ? '，加载失败' : '，' + day.plans.length + ' 件安排')"
+        :aria-current="day.date === today ? 'date' : undefined"
+        :data-test="'seven-day-' + day.date" @click="selectedDate = day.date"
       >
-        <span class="day-when">
-          <span class="day-weekday">{{ day.weekday }}</span>
-          <span class="day-date num">{{ day.dayLabel }}</span>
-        </span>
-        <span class="day-shape" aria-hidden="true">
-          <span v-for="(bar, index) in day.bars" :key="index" class="bar" :style="{ left: bar.left, width: bar.width }" />
-        </span>
-        <span class="day-count num">{{ day.total }} 件</span>
-        <span class="day-main">{{ day.main }}</span>
-        <span v-if="day.total > 0" class="day-done num">{{ day.finished }}/{{ day.total }}</span>
+        <span class="day-weekday">{{ day.date === today ? '今' : formatDateCNWeekday(day.date).slice(-1) }}</span>
+        <span class="day-date num">{{ day.date.slice(5).replace('-', '.') }}</span>
+        <span class="day-count num">{{ day.failed ? '—' : day.plans.length + ' 件' }}</span>
       </button>
+    </div>
+    <div class="day-preview" aria-live="polite" :aria-busy="loading" data-test="seven-preview">
+      <div class="preview-heading">
+        <h3>{{ formatDateCNWeekday(selectedDate) }}</h3>
+        <span v-if="!loading && !selected?.failed && selected?.plans.length" class="num">{{ finished }}/{{ selected.plans.length }} 已完成</span>
+      </div>
+      <p v-if="loading" class="preview-message" role="status">正在加载安排…</p>
+      <div v-else-if="selected?.failed" role="alert" class="preview-error">
+        <span>这一天的安排未能加载</span><button type="button" class="seven-more" @click="load">重试</button>
+      </div>
+      <p v-else-if="!preview.length" class="preview-message" data-test="seven-empty">这一天还没有安排</p>
+      <template v-else>
+        <ul class="preview-list">
+          <li v-for="plan in preview" :key="plan.id" data-test="seven-preview-item">
+            <button type="button" class="preview-row" :class="{ done: plan.done }" @click="openDay">
+              <span class="preview-check" aria-hidden="true"><svg v-if="plan.done" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg></span>
+              <span class="preview-time num">{{ timeLabel(plan) }}</span>
+              <span class="preview-title">{{ plan.title }}</span>
+              <span class="preview-status">{{ plan.done ? '已完成' : '未完成' }}</span>
+            </button>
+          </li>
+        </ul>
+        <div class="preview-footer">
+          <span class="preview-remaining">{{ remaining ? '还有 ' + remaining + ' 项' : '' }}</span>
+          <button type="button" class="seven-more" data-test="seven-view-all" @click="openDay">查看当天全部 {{ selected?.plans.length }} 项 →</button>
+        </div>
+      </template>
     </div>
   </section>
 </template>
 
 <style scoped>
-.seven {
-  position: relative;
-  margin: 26px 0 0;
-  padding: 18px 16px 14px;
-  background: var(--panel);
-  border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
-}
-.seven-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.seven-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-}
-.seven-more {
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-}
-.seven-more:hover {
-  color: var(--text);
-}
-.seven-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0;
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-}
-.day {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 112px;
-  padding: 9px 8px;
-  text-align: left;
-  background: none;
-  border: none;
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-}
-.day:hover {
-  background: var(--panel-2);
-}
-.day.today {
-  background: var(--text);
-  color: var(--panel);
-}
-.day.today:hover {
-  background: var(--text);
-}
-.day-when {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-.day-weekday {
-  font-size: 12px;
-  font-weight: 700;
-}
-.day-date {
-  font-size: 11px;
-  color: var(--muted);
-}
-.day.today .day-date {
-  color: var(--hero-sub);
-}
-.day-shape {
-  position: relative;
-  height: 14px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.day.today .day-shape {
-  border-color: var(--field-tick);
-}
-.bar {
-  position: absolute;
-  top: 3px;
-  height: 6px;
-  background: var(--accent);
-}
-.day.today .bar {
-  background: var(--hero-ink);
-}
-.day-count {
-  font-size: 13px;
-  font-weight: 600;
-}
-.day-main {
-  font-size: 11px;
-  line-height: 1.3;
-  color: var(--muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.day.today .day-main {
-  color: var(--hero-sub);
-}
-.day-done {
-  margin-top: auto;
-  font-size: 10px;
-  color: var(--muted);
-}
-.day.today .day-done {
-  color: var(--hero-sub);
-}
-@media (max-width: 980px) {
-  .seven-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.seven { margin-top: 20px; padding: 18px; }
+.seven-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.seven-title { margin: 0; font-size: 19px; }
+.seven-more { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: none; background: transparent; color: var(--accent); font-size: 12px; text-decoration: none; cursor: pointer; }
+.seven-grid { display: grid; grid-template-columns: repeat(7, minmax(44px, 1fr)); gap: 4px; overflow-x: auto; padding: 3px; margin: 0 -3px; }
+.day { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 88px; border: none; border-radius: var(--radius); background: transparent; color: var(--text); cursor: pointer; }
+.day-weekday { color: var(--muted); font-size: 12px; }
+.day-date { font-size: 13px; font-weight: 600; }
+.day-count { color: var(--muted); font-size: 10px; }
+.day-preview { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
+.preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.preview-heading h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.preview-heading > span, .preview-remaining { color: var(--muted); font-size: 11px; }
+.preview-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.preview-list li + li { border-top: 1px solid var(--border); }
+.preview-row { display: grid; grid-template-columns: 18px 48px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; min-height: 52px; padding: 10px 0; border: none; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.preview-check { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 50%; color: var(--accent); }
+.preview-check svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.preview-time, .preview-status { font-size: 11px; color: var(--muted); }
+.preview-title { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.preview-row.done .preview-title { color: var(--muted); text-decoration: line-through; }
+.preview-row.done .preview-check { border-color: var(--accent); background: var(--accent-soft); }
+.preview-message { margin: 16px 0 8px; color: var(--muted); font-size: 13px; }
+.preview-footer, .preview-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.preview-error { color: var(--muted); font-size: 13px; }
+@media (max-width: 350px) {
+  .preview-row { grid-template-columns: 18px 44px minmax(0, 1fr); }
+  .preview-status { grid-column: 3; font-size: 10px; }
 }
 </style>

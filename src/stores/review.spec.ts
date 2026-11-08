@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as database from '@/db';
 import { createPinia, setActivePinia, type Pinia } from 'pinia';
 import {
   createRecord,
@@ -458,4 +459,18 @@ describe('upsertReview / 历史列表', () => {
     expect(store.historyItems[0]?.summary).toBe('状态不错');
     expect(store.historyItems[0]?.record_worthy).toBe('跑完 5 公里');
   });
+});
+
+it('快速切日期时，较晚返回的旧日期查询不能覆盖新日期', async () => {
+  let release!: (rows: Review[]) => void;
+  const delayed = new Promise<Review[]>(resolve => { release=resolve; });
+  const spy = vi.spyOn(database, 'listAlive').mockReturnValueOnce(delayed as never);
+  try {
+    const oldLoad = store.load(TODAY);
+    await store.load(YESTERDAY);
+    release([]);
+    await oldLoad;
+    expect(store.loadedDate).toBe(YESTERDAY);
+    expect(store.loading).toBe(false);
+  } finally { spy.mockRestore(); }
 });

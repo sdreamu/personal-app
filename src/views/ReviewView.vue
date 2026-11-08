@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import BaseModal from '@/components/BaseModal.vue';
+import { computed, inject, onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { onBeforeRouteLeave, routerKey } from 'vue-router';
+import { useReviewAutosave } from '@/composables/useReviewAutosave';
 import ReviewHistory from '@/components/ReviewHistory.vue';
 import TrendChart from '@/components/TrendChart.vue';
 import { alignSeries, recentDates } from '@/utils/sparkline';
@@ -13,14 +14,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useToastStore } from '@/stores/toast';
 import { logicalToday } from '@/utils/date';
 
-/**
- * 复盘页 #/review（PRD §5.8 / AC-47~49）：
- * 上半部分 7 项自动汇总（只读，实时按 selectedDate 聚合）；
- * 下半部分自评：输入先留在本地草稿，点「确认」才一次性写入当天复盘
- * （未确认的修改不落库，也不会出现在历史复盘里）；
- * 有未确认草稿时切日期会被守卫拦下并弹确认，确认丢弃后才切；
- * 历史复盘按时间区间查看，看详情不改变全局日期，只有「编辑这一天」才切换日期。
- */
+/** 日记式复盘：自动保存；历史展开只读，编辑时先保存当前日期。 */
 const dateStore = useDateStore();
 const reviewStore = useReviewStore();
 const settingsStore = useSettingsStore();
@@ -61,9 +55,12 @@ const improveText = ref('');
 const mitText = ref('');
 
 const daySummaryCount = computed(() => daySummaryText.value.length);
-const saving = ref(false);
-/** 被守卫拦下的目标日期：非 null 时显示「还有未确认的修改」确认弹窗。 */
-const pendingSwitchDate = ref<string | null>(null);
+const ready = ref(false);
+const loadError = ref(false);
+const autosave = useReviewAutosave((date, patch) => reviewStore.upsertReview(date, patch));
+const saveLabel = computed(() => ({
+  idle: '输入后自动保存', pending: '等待保存…', saving: '保存中…', saved: '已自动保存', error: '保存失败，内容已保留',
+})[autosave.status.value]);
 
 function syncFromReview(): void {
   const review = reviewStore.review;
@@ -77,76 +74,64 @@ function syncFromReview(): void {
   mitText.value = review?.mit ?? '';
 }
 
-function sameText(draft: string, saved: string | null | undefined): boolean {
-  return draft.trim() === (saved ?? '').trim();
+function snapshot() {
+  return { rating: rating.value, mood: mood.value, energy: energy.value,
+    record_worthy: recordWorthyText.value, day_summary: daySummaryText.value,
+    good: goodText.value, improve: improveText.value, mit: mitText.value };
 }
 
-/** 草稿与已保存内容有差异时才允许点「确认」。 */
-const dirty = computed(() => {
-  const saved = reviewStore.review;
-  if (saved === null) {
-    return (
-      rating.value !== null ||
-      mood.value !== null ||
-      energy.value !== null ||
-      [recordWorthyText.value, daySummaryText.value, goodText.value, improveText.value, mitText.value].some(
-        (text) => text.trim() !== '',
-      )
-    );
-  }
-  return (
-    rating.value !== saved.rating ||
-    mood.value !== saved.mood ||
-    energy.value !== saved.energy ||
-    !sameText(recordWorthyText.value, saved.record_worthy) ||
-    !sameText(daySummaryText.value, saved.day_summary) ||
-    !sameText(goodText.value, saved.good) ||
-    !sameText(improveText.value, saved.improve) ||
-    !sameText(mitText.value, saved.mit)
-  );
-});
+watch([rating, mood, energy, recordWorthyText, daySummaryText, goodText, improveText, mitText], () => {
+  if (ready.value) autosave.enqueue(selectedDate.value, snapshot());
+}, { flush: 'sync' });
 
 async function load(): Promise<void> {
+  const date = selectedDate.value;
+  ready.value = false;
+  loadError.value = false;
   try {
-    await reviewStore.load(selectedDate.value);
+    await reviewStore.load(date);
+    if (selectedDate.value !== date || reviewStore.loadedDate !== date) return;
     syncFromReview();
+    const draft = autosave.restore(date);
+    if (draft) {
+      rating.value = draft.rating ?? null; mood.value = draft.mood ?? null; energy.value = draft.energy ?? null;
+      recordWorthyText.value = draft.record_worthy ?? ''; daySummaryText.value = draft.day_summary ?? '';
+      goodText.value = draft.good ?? ''; improveText.value = draft.improve ?? ''; mitText.value = draft.mit ?? '';
+    }
+    ready.value = true;
+    if (draft) autosave.enqueue(date, snapshot());
   } catch (err) {
+    if (selectedDate.value !== date) return;
+    loadError.value = true;
     toast.error(`加载复盘数据失败：${errorMessage(err)}`);
   }
 }
 
-watch(
-  () => dateStore.selectedDate,
-  async () => {
-    // 未确认的草稿按产品约定直接丢弃：切到新日期后以该日已保存的复盘为准。
-    await load();
-  },
-);
-
-/** 切日期前守卫：有未确认草稿就拦下并弹确认。 */
+watch(selectedDate, () => { void load(); });
+let requestedDate: string | null = null;
 function guardDateChange(next: string): boolean {
-  if (!dirty.value) return true;
-  pendingSwitchDate.value = next;
+  if (['idle', 'saved'].includes(autosave.status.value)) return true;
+  requestedDate = next;
+  void autosave.flush().then((saved) => {
+    if (saved && requestedDate === next) { requestedDate = null; dateStore.setSelected(next, { force: true }); }
+  });
   return false;
 }
 
-/** 确认丢弃草稿后强制切到目标日期；页面 watcher 会以该日已保存的复盘重载草稿。 */
-function discardDraftAndSwitch(): void {
-  const next = pendingSwitchDate.value;
-  pendingSwitchDate.value = null;
-  if (next !== null) dateStore.setSelected(next, { force: true });
-}
-
-function cancelSwitch(): void {
-  pendingSwitchDate.value = null;
-}
-
+function flushOnHide(): void { void autosave.flush(); }
 onMounted(() => {
   setDateChangeGuard(guardDateChange);
+  window.addEventListener('pagehide', flushOnHide);
   void load();
 });
-
-onUnmounted(() => setDateChangeGuard(null));
+if (inject(routerKey, null)) onBeforeRouteLeave(async () => await autosave.flush());
+onBeforeUnmount(() => {
+  ready.value = false;
+  requestedDate = null;
+  setDateChangeGuard(null);
+  window.removeEventListener('pagehide', flushOnHide);
+  autosave.dispose();
+});
 
 function onRatingChange(value: number | null): void {
   rating.value = value;
@@ -174,30 +159,6 @@ function onMitInput(event: Event): void {
   mitText.value = (event.target as HTMLTextAreaElement).value;
 }
 
-/** 点「确认」才把当天自评一次性写入数据库（历史复盘随之出现/更新）。 */
-async function confirmReview(): Promise<void> {
-  if (!dirty.value || saving.value) return;
-  saving.value = true;
-  try {
-    await reviewStore.upsertReview(selectedDate.value, {
-      rating: rating.value,
-      mood: mood.value,
-      energy: energy.value,
-      record_worthy: recordWorthyText.value,
-      day_summary: daySummaryText.value,
-      good: goodText.value,
-      improve: improveText.value,
-      mit: mitText.value,
-    });
-    syncFromReview();
-    toast.success('今日复盘已保存');
-  } catch {
-    // 保存失败已由 store 置顶栏状态、toast 与红条；草稿保留可继续修改后重试。
-  } finally {
-    saving.value = false;
-  }
-}
-
 function onSelectDate(date: string): void {
   dateStore.setSelected(date);
 }
@@ -205,19 +166,28 @@ function onSelectDate(date: string): void {
 
 <template>
   <section class="page review-page" data-test="review-view">
-    <h1 class="page-title">复盘</h1>
+    <div class="review-title-row">
+      <div><h1 class="page-title">复盘</h1><p class="review-date" data-test="review-date">{{ selectedDate }}</p></div>
+      <button v-if="selectedDate !== todayKey" class="ghost-btn" data-test="review-today" @click="onSelectDate(todayKey)">回到今天</button>
+    </div>
 
-    <div v-if="reviewStore.loading && reviewStore.metrics === null" class="hint" data-test="review-loading">
+    <div v-if="!ready && !loadError" class="hint" data-test="review-loading">
       正在加载复盘数据…
     </div>
 
+    <div v-else-if="loadError" class="review-load-error" role="alert" data-test="review-load-error">
+      复盘数据加载失败，请重试。<button class="ghost-btn" @click="load">重新加载</button>
+    </div>
     <template v-else>
       <ReviewMetrics v-if="reviewStore.metrics" :metrics="reviewStore.metrics" />
 
       <div class="review-self" data-test="review-self">
         <div class="self-head">
-          <h2>今日自评</h2>
-          <span class="self-note">三段话随便写，写完点确认才落库</span>
+          <h2>{{ selectedDate === todayKey ? '今日自评' : '这一天的自评' }}</h2>
+          <div class="save-feedback" role="status" aria-live="polite">
+            <span class="self-note" data-test="review-save-status">{{ saveLabel }}</span>
+            <button v-if="autosave.status.value === 'error'" class="ghost-btn" data-test="review-save-retry" @click="autosave.flush()">重试保存</button>
+          </div>
         </div>
         <ReviewMoodPicker
           :rating="rating"
@@ -287,20 +257,6 @@ function onSelectDate(date: string): void {
           </label>
         </div>
 
-        <div class="review-actions">
-          <span class="review-actions-hint" data-test="review-confirm-hint">
-            {{ dirty ? '有未确认的修改，点「确认」后才会保存并出现在历史复盘' : '修改后点「确认」才会保存' }}
-          </span>
-          <button
-            type="button"
-            class="primary-btn"
-            data-test="review-confirm"
-            :disabled="!dirty || saving"
-            @click="confirmReview"
-          >
-            {{ saving ? '保存中…' : '确认' }}
-          </button>
-        </div>
       </div>
 
       <ReviewHistory
@@ -318,115 +274,22 @@ function onSelectDate(date: string): void {
       </div>
     </template>
 
-    <BaseModal
-      v-if="pendingSwitchDate !== null"
-      id="review-leave-guard"
-      title="还有未确认的修改"
-      @close="cancelSwitch"
-    >
-      <p data-test="review-leave-modal">自评区的内容还没点「确认」，切走会丢弃这些修改。</p>
-      <template #footer>
-        <button type="button" class="ghost-btn" data-test="review-leave-cancel" @click="cancelSwitch">
-          继续编辑
-        </button>
-        <button type="button" class="primary-btn" data-test="review-leave-discard" @click="discardDraftAndSwitch">
-          丢弃并切换
-        </button>
-      </template>
-    </BaseModal>
   </section>
 </template>
 
 <style scoped>
-.review-self {
-  margin-bottom: 18px;
-  padding: 16px 16px 12px;
-  background: var(--panel);
-  border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
-}
-.self-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.self-head h2 {
-  margin: 0;
-  font-size: 15px;
-}
-.self-note {
-  font-size: 11px;
-  color: var(--muted);
-}
-.review-highlights {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
-  margin-top: 16px;
-}
-.review-texts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-.review-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
-}
-.review-field-label {
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-}
-.review-field textarea,
-.review-field input {
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  padding: 8px 10px;
-  resize: vertical;
-  color: var(--text);
-  min-height: 64px;
-  font: inherit;
-}
-.review-field input {
-  min-height: 0;
-}
-.review-field textarea::placeholder,
-.review-field input::placeholder {
-  color: var(--muted);
-}
-.review-field textarea:focus,
-.review-field input:focus {
-  outline: 2px solid var(--border-ink);
-  outline-offset: 1px;
-  border-color: var(--border-ink);
-  background: var(--panel);
-}
-.review-counter {
-  position: absolute;
-  right: 2px;
-  bottom: -16px;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-.review-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 26px;
-  padding-top: 12px;
-  border-top: var(--line-w) solid var(--border-ink);
-}
-.review-actions-hint {
-  color: var(--muted);
-  font-size: 12px;
-}
+.review-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; }
+.review-title-row .page-title { margin-bottom:4px; }
+.review-date { margin:0; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.self-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.self-head h2 { margin:0; font-size:18px; letter-spacing:-.02em; }
+.self-note { font-size:12px; color:var(--muted); }
+.save-feedback { display:flex; align-items:center; gap:8px; }
+.review-highlights, .review-texts { display:grid; grid-template-columns:minmax(0,1fr); gap:24px; margin-top:28px; }
+.review-field { display:flex; flex-direction:column; gap:6px; min-width:0; position:relative; }
+.review-field-label { color:var(--muted); font-size:13px; }
+.review-field textarea, .review-field input { width:100%; box-sizing:border-box; resize:vertical; color:var(--text); font:inherit; line-height:1.7; }
+.review-field textarea::placeholder, .review-field input::placeholder { color:var(--muted); opacity:1; }
+.review-counter { color:var(--muted); align-self:flex-end; font-size:11px; font-variant-numeric:tabular-nums; }
+.review-load-error { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
 </style>

@@ -1,0 +1,145 @@
+{
+  "contract": "contract.md：手机单手操作、今日进度优先，已确认的通透苹果蓝视觉，保留业务内容，仅顶部饮水摘要换为运动。 六项反馈：日程去嵌套框、柔和高亮、圆角日期、手机无电脑提示；错题跨日期分类与科目新增。",
+  "targetViewports": [
+    "320x812",
+    "390x844",
+    "430x932",
+    "1440x900",
+    "614x547"
+  ],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "styleTokens 对浅深主题正文/辅助/语义文字及主按钮配色检测 4.5:1；Playwright 验证键盘可见焦点、记一笔 44px、减少动态效果，表单控件保留原有 label。Chrome 验证，未进行屏幕阅读器审计。 新增分类按钮至少44px，使用aria-pressed与表单标签，分类按钮可键盘聚焦；截图复核深浅色。"
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "e2e/glass-ui.spec.ts 遍历全部顶层页面、两套主题、四种宽度，无内容横向溢出；书详情另有390px截图，长书名和长计划保持换行。 plan-design与mistakes-classification检查320/390/430/614/1440宽度（430仅错题本），包含长题干、日期按钮和换行分类。"
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "隔离Chrome将错题store置为loading，显示正在加载错题，保留页头分类结构；screenshots/mistakes-loading.png。"
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "空错题本提供录题入口；选中无题知识点显示当前分类下没有错题；screenshots/mistakes-empty.png。"
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "隔离Chrome注入一次分类保存失败：显示具体反馈、保留科目输入，再次保存成功；screenshots/mistakes-category-error.png。读取失败的重新加载入口另由view单元测试验证，未模拟实际硬盘损坏。"
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "旧记录没有knowledge_point时仍能显示并编辑；单元测试覆盖旧字段缺失；实际截图中题干可用而订正/图片未填写时卡片正常显示，screenshots/mistakes-refined-light-390.png。"
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "实际浏览器新增科目及知识点、刷新恢复、继承分类录题、筛选、切换全局日期后题目仍在；JSON备份恢复测试验证分类字段。日程新增后周条件数即时更新。"
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "此次视觉变更未增加设备权限或授权流程，使用既有本地数据库与浏览器原生文件选择。"
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "320x812",
+      "artifact": "screenshots/home-light-320.png",
+      "observation": "实际Vue首页浅色布局，真实隔离测试数据；对应深色截图亦在同目录。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/home-light-390.png",
+      "observation": "实际Vue首页浅色布局，真实隔离测试数据；对应深色截图亦在同目录。"
+    },
+    {
+      "viewport": "430x932",
+      "artifact": "screenshots/home-light-430.png",
+      "observation": "实际Vue首页浅色布局，真实隔离测试数据；对应深色截图亦在同目录。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/home-light-1440.png",
+      "observation": "实际Vue首页浅色布局，真实隔离测试数据；对应深色截图亦在同目录。"
+    },
+    {
+      "viewport": "320x812",
+      "artifact": "screenshots/mistakes-refined-light-320.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "320x812",
+      "artifact": "screenshots/mistakes-refined-dark-320.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/mistakes-refined-light-390.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/mistakes-refined-dark-390.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "430x932",
+      "artifact": "screenshots/mistakes-refined-light-430.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "430x932",
+      "artifact": "screenshots/mistakes-refined-dark-430.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "614x547",
+      "artifact": "screenshots/mistakes-refined-light-614.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "614x547",
+      "artifact": "screenshots/mistakes-refined-dark-614.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/mistakes-refined-light-1440.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/mistakes-refined-dark-1440.png",
+      "observation": "错题本无日期栏，开放页头、科目与知识点圆角按钮；长题干换行，分类触摸目标至少44px。短屏可滚动查看题卡。"
+    },
+    {
+      "viewport": "320x812",
+      "artifact": "screenshots/plan-refined-light-320.png",
+      "observation": "日程页无套叠外框，今日软蓝高亮、日期圆角；手机隐藏快捷键提示，桌面保留。周条新建后更新件数。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/plan-refined-light-390.png",
+      "observation": "日程页无套叠外框，今日软蓝高亮、日期圆角；手机隐藏快捷键提示，桌面保留。周条新建后更新件数。"
+    },
+    {
+      "viewport": "614x547",
+      "artifact": "screenshots/plan-refined-light-614.png",
+      "observation": "日程页无套叠外框，今日软蓝高亮、日期圆角；手机隐藏快捷键提示，桌面保留。周条新建后更新件数。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/plan-refined-light-1440.png",
+      "observation": "日程页无套叠外框，今日软蓝高亮、日期圆角；手机隐藏快捷键提示，桌面保留。周条新建后更新件数。"
+    }
+  ],
+  "validation": [
+    "110项相关单元测试通过（108项批次 + 新增2项错误恢复测试）；周概览变更后另复测10项通过",
+    "13项相关浏览器测试通过，覆盖日程操作、错题文字与图片、两主题分类与响应式及错误重试",
+    "TypeScript检查、Vite生产构建通过；本地设计证据检查通过"
+  ],
+  "limitations": [
+    "在本机Chrome中验证；未进行原生iOS/Android/Electron安装包实机验证。",
+    "状态注入使用隔离浏览器，不修改用户实际数据库。"
+  ]
+}

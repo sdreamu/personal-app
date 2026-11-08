@@ -1,0 +1,174 @@
+{
+  "contract": "review-contract.md：九条复盘页批注；开放汇总、日记式自动保存、历史查看和36px趋势间距。",
+  "targetViewports": [
+    "320x720",
+    "390x844",
+    "699x668",
+    "1440x900"
+  ],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Chrome键盘Tab后聚焦评分按钮可见2px焦点；15个评分/心情/精力按钮均44px且有aria-label与选中状态；历史行aria-expanded与详情关联，补写日期有独立标签和焦点。保留主题文本色，输入提示不额外降低透明度。检查了深浅色实际渲染与减少动态效果；未做屏幕阅读器审计。"
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "两主题四种尺寸均无主内容横向溢出；手机两列指标、宽屏三列。开放输入和长摘要可访问；历史详情、筛选和自选日期可操作，趋势与历史留出36px。"
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "隔离Chrome注入加载标记验证稳定标题与正在加载提示，编辑区暂不展示；screenshots/review-loading.png。"
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "空库历史显示补写入口与明确空提示，曲线文案使用生成曲线；screenshots/review-empty.png。"
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "浏览器注入读取错误展示重载入口并通过真实查询恢复；单元测试验证load拒绝时的重试。浏览器注入写入回调失败后保留输入、阻止丢失内容的离页，恢复写入后重试成功；screenshots/review-load-error.png与review-save-error.png。"
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "三天历史包含未填评分、心情、精力和摘要的记录，保持已填文字并显示缺项；趋势对缺失日期断线，浏览器验证仅填精力时单点曲线；screenshots/review-dark-1440-history.png。"
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "连续输入自动写入并更新历史；切日期先保存；历史详情不切当前日期。浏览器验证立即刷新恢复输入、昨日MIT在首页可加入、精力选择刷新保留。50单元测试与12浏览器测试通过。"
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "仅使用已有IndexedDB及浏览器本地草稿，不请求设备或网络权限，无新增访问边界。"
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "320x720",
+      "artifact": "screenshots/review-light-320-summary.png",
+      "observation": "light；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "320x720",
+      "artifact": "screenshots/review-light-320-self.png",
+      "observation": "light；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "320x720",
+      "artifact": "screenshots/review-light-320-history.png",
+      "observation": "light；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "320x720",
+      "artifact": "screenshots/review-dark-320-summary.png",
+      "observation": "dark；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "320x720",
+      "artifact": "screenshots/review-dark-320-self.png",
+      "observation": "dark；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "320x720",
+      "artifact": "screenshots/review-dark-320-history.png",
+      "observation": "dark；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/review-light-390-summary.png",
+      "observation": "light；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/review-light-390-self.png",
+      "observation": "light；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/review-light-390-history.png",
+      "observation": "light；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/review-dark-390-summary.png",
+      "observation": "dark；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/review-dark-390-self.png",
+      "observation": "dark；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/review-dark-390-history.png",
+      "observation": "dark；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "699x668",
+      "artifact": "screenshots/review-light-699-summary.png",
+      "observation": "light；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "699x668",
+      "artifact": "screenshots/review-light-699-self.png",
+      "observation": "light；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "699x668",
+      "artifact": "screenshots/review-light-699-history.png",
+      "observation": "light；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "699x668",
+      "artifact": "screenshots/review-dark-699-summary.png",
+      "observation": "dark；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "699x668",
+      "artifact": "screenshots/review-dark-699-self.png",
+      "observation": "dark；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "699x668",
+      "artifact": "screenshots/review-dark-699-history.png",
+      "observation": "dark；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/review-light-1440-summary.png",
+      "observation": "light；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/review-light-1440-self.png",
+      "observation": "light；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/review-light-1440-history.png",
+      "observation": "light；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/review-dark-1440-summary.png",
+      "observation": "dark；开放数字汇总，无嵌套卡框。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/review-dark-1440-self.png",
+      "observation": "dark；日记式输入，无框评分与可见焦点。"
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/review-dark-1440-history.png",
+      "observation": "dark；胶囊筛选、分隔列表与趋势间距，缺项可读。"
+    }
+  ],
+  "validation": [
+    "50项相关单元测试通过",
+    "12项浏览器测试通过（3项设计状态、7项复盘回归、2项手机与首页MIT关联）",
+    "TypeScript检查及Vite生产构建通过"
+  ],
+  "limitations": [
+    "本机Chrome验证，未在原生手机安装包实测。",
+    "加载和读取错误截图使用隔离组件状态；真实读取拒绝由单元测试覆盖。保存错误由隔离实例回调抛错触发。"
+  ]
+}

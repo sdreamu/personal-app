@@ -1,0 +1,240 @@
+{
+  "contract": "README.md and pages.js: static glass-style visual examples for all 12 current routes and 6 major forms, in light/dark. Only home goal 3 changes from water to workout. Other home contents and the lower water module remain. Gallery includes 8 separate home block crops per theme. No production behavior is implemented.",
+  "targetViewports": [
+    "320x844",
+    "390x844",
+    "430x844",
+    "1440x900"
+  ],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Related checks pass: inputs/textareas have associated labels, visible controls at least 44px tall, keyboard focus outline and preview dialog close behavior, reduced motion. Shared core text token contrast checked in verify.mjs. Manually inspected all eight light/dark contact sheets, narrow exercise inputs and long review/settings/workout captures. Destructive actions have semantic red. Production modal focus management and assistive-technology testing are outside this static composition scope."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "All 12 pages checked at 320/390/430px in light/dark with no document horizontal overflow. Every page has 390px first-fold and full-length renders. Six forms checked at 390px, with no horizontal form overflow. Additional 320px/1440px workout and 430px settings evidence saved. Gallery theme toggle and 390px/1440px layouts passed. Desktop intentionally centers a mobile layout."
+  },
+  "contentStates": {
+    "loading": {
+      "status": "not-applicable",
+      "reason": "Static local populated fixtures, with no asynchronous source or database loading; production loading UI is outside this screenshot deliverable."
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "Diet screenshot shows an unrecorded dinner with a clear record-dinner action, and the meal form provides its visual follow-up. The action opens preview-only feedback; no persistence is claimed."
+    },
+    "error": {
+      "status": "not-applicable",
+      "reason": "No real data requests, imports, mutations or failure-prone product operations are executed; error recovery is not represented."
+    },
+    "partial": {
+      "status": "not-applicable",
+      "reason": "All fixtures are complete and local, not fetched or aggregated; no partial-availability state is simulated or claimed."
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "Every page quick-add preview and each static form save opens an explicit demo explanation. Confirmation or Escape dismisses the native preview dialog. This validates preview feedback only, not successful application writes."
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "Local static screenshots request no device permissions and never access application storage or authenticated services. Add-photo/import controls are explanatory examples only."
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/home-light.png",
+      "observation": "首页, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-light.png",
+      "observation": "日程, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/books-light.png",
+      "observation": "读书, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-detail-light.png",
+      "observation": "书籍详情, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subjects-light.png",
+      "observation": "科目, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/timer-light.png",
+      "observation": "计时器, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistakes-light.png",
+      "observation": "错题本, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/diet-light.png",
+      "observation": "饮食, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/workout-light.png",
+      "observation": "健身, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/play-light.png",
+      "observation": "娱乐, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/review-light.png",
+      "observation": "复盘, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settings-light.png",
+      "observation": "设置, light: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-form-light.png",
+      "observation": "新增计划, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settlement-light.png",
+      "observation": "保存学习记录, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-form-light.png",
+      "observation": "添加书籍, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subject-form-light.png",
+      "observation": "添加科目, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistake-form-light.png",
+      "observation": "记一道错题, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/meal-form-light.png",
+      "observation": "记录晚餐, light: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/home-dark.png",
+      "observation": "首页, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-dark.png",
+      "observation": "日程, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/books-dark.png",
+      "observation": "读书, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-detail-dark.png",
+      "observation": "书籍详情, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subjects-dark.png",
+      "observation": "科目, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/timer-dark.png",
+      "observation": "计时器, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistakes-dark.png",
+      "observation": "错题本, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/diet-dark.png",
+      "observation": "饮食, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/workout-dark.png",
+      "observation": "健身, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/play-dark.png",
+      "observation": "娱乐, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/review-dark.png",
+      "observation": "复盘, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settings-dark.png",
+      "observation": "设置, dark: screenshot of fixed demo content using the selected glass direction."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/plan-form-dark.png",
+      "observation": "新增计划, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/settlement-dark.png",
+      "observation": "保存学习记录, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/book-form-dark.png",
+      "observation": "添加书籍, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/subject-form-dark.png",
+      "observation": "添加科目, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/mistake-form-dark.png",
+      "observation": "记一道错题, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-pages/meal-form-dark.png",
+      "observation": "记录晚餐, dark: static form composition; actual persistence and modal lifecycle are not implemented."
+    },
+    {
+      "viewport": "320x844",
+      "artifact": "screenshots/glass-pages/workout-dark-320.png",
+      "observation": "Additional narrow/wide viewport capture of the densest exercise-set form. Wider screens intentionally center the mobile concept."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/glass-pages/workout-dark-1440.png",
+      "observation": "Additional narrow/wide viewport capture of the densest exercise-set form. Wider screens intentionally center the mobile concept."
+    },
+    {
+      "viewport": "430x844",
+      "artifact": "screenshots/glass-pages/settings-light-430.png",
+      "observation": "430px grouped settings with labels and editable numeric controls."
+    }
+  ]
+}

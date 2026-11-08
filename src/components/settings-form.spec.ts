@@ -6,16 +6,18 @@ import { addDays, logicalToday } from '@/utils/date';
 import { useSettingsStore } from '@/stores/settings';
 import SettingsView from '@/views/SettingsView.vue';
 import HomeHero from '@/components/HomeHero.vue';
-import { triggerDownload } from '@/utils/download';
+import { saveFile } from '@/utils/download';
 
 // 文本导出会真的触发文件下载（jsdom 没有 URL.createObjectURL），这里只拦下载动作，
 // 数据装载（loadExportSource）与 Markdown 生成（exportText）都跑真实实现。
 vi.mock('@/utils/download', () => ({
   DOWNLOAD_REVOKE_DELAY_MS: 10_000,
   triggerDownload: vi.fn(),
+  // 导出统一走 saveFile（浏览器内部再落到 triggerDownload，原生壳走写盘 + 分享）
+  saveFile: vi.fn(async () => 'download'),
 }));
 
-const triggerDownloadMock = vi.mocked(triggerDownload);
+const saveFileMock = vi.mocked(saveFile);
 
 let pinia: Pinia;
 
@@ -39,7 +41,7 @@ function compact(date: string): string {
 beforeEach(async () => {
   pinia = createPinia();
   setActivePinia(pinia);
-  triggerDownloadMock.mockClear();
+  saveFileMock.mockClear();
   await resetDbForTests();
   await useSettingsStore().load();
 });
@@ -150,10 +152,10 @@ describe('设置页 · 文本导出', () => {
     await flushPromises();
     await wrapper.find('button[data-test="text-range-last7"]').trigger('click');
     await wrapper.find('button[data-test="export-text"]').trigger('click');
-    await waitFor(() => triggerDownloadMock.mock.calls.length === 1);
+    await waitFor(() => saveFileMock.mock.calls.length === 1);
 
     const start = addDays(today, -6);
-    const [filename, content, mime] = triggerDownloadMock.mock.calls[0] ?? [];
+    const [filename, content, mime] = saveFileMock.mock.calls[0] ?? [];
     expect(filename).toBe('evan-text-' + compact(start) + '-' + compact(today) + '.md');
     expect(mime).toBe('text/markdown');
 
@@ -199,9 +201,9 @@ describe('设置页 · 文本导出', () => {
     await wrapper.find('input[data-test="text-start"]').setValue(end);
     await wrapper.find('input[data-test="text-end"]').setValue(start);
     await wrapper.find('button[data-test="export-text"]').trigger('click');
-    await waitFor(() => triggerDownloadMock.mock.calls.length === 1);
+    await waitFor(() => saveFileMock.mock.calls.length === 1);
 
-    const [filename, content] = triggerDownloadMock.mock.calls[0] ?? [];
+    const [filename, content] = saveFileMock.mock.calls[0] ?? [];
     expect(filename).toBe('evan-text-' + compact(start) + '-' + compact(end) + '.md');
     expect(content as string).toContain('自定义区间计划');
     wrapper.unmount();
@@ -213,10 +215,10 @@ describe('设置页 · 文本导出', () => {
     await flushPromises();
     await wrapper.find('button[data-test="text-range-all"]').trigger('click');
     await wrapper.find('button[data-test="export-text"]').trigger('click');
-    await waitFor(() => triggerDownloadMock.mock.calls.length === 1);
+    await waitFor(() => saveFileMock.mock.calls.length === 1);
 
     const start = addDays(today, -29);
-    const [filename, content] = triggerDownloadMock.mock.calls[0] ?? [];
+    const [filename, content] = saveFileMock.mock.calls[0] ?? [];
     expect(filename).toBe('evan-text-' + compact(start) + '-' + compact(today) + '.md');
     expect(content as string).toContain('# 个人数据导出（' + start + ' ~ ' + today + '）');
     expect(content as string).toContain('_区间内没有记录。_');

@@ -95,7 +95,7 @@ watch(() => settings.dayStartMin, () => void load());
   padding: 20px 16px 12px;
   background: var(--panel);
   border: var(--line-w) solid var(--border-ink);
-  box-shadow: 5px 5px 0 var(--slab);
+  box-shadow: var(--shadow);
 }
 .panel-tab {
   position: absolute;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { compressImageToDataUrl, type ImageDeps } from '@/utils/image';
 
 /**
@@ -17,14 +17,21 @@ const props = withDefaults(
     deps?: ImageDeps;
     /** AC-86：手机端要能直接调相机拍一张（相机输入不带 multiple）。 */
     camera?: boolean;
+    /** 将文字输入与照片操作组合为同一个录入区。 */
+    embedded?: boolean;
   }>(),
-  { max: 4, testKey: 'default', label: '图片', camera: false },
+  { max: 4, testKey: 'default', label: '图片', camera: false, embedded: false },
 );
 
-const emit = defineEmits<{ (e: 'update:modelValue', value: string[]): void }>();
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string[]): void;
+  (e: 'busy-change', value: boolean): void;
+}>();
 
 const busy = ref(false);
 const error = ref('');
+let disposed = false;
+onBeforeUnmount(() => { disposed = true; });
 
 const images = computed(() => props.modelValue ?? []);
 const remaining = computed(() => Math.max(0, props.max - images.value.length));
@@ -35,6 +42,7 @@ function update(next: string[]): void {
 }
 
 async function onPick(event: Event): Promise<void> {
+  if (busy.value) return;
   const input = event.target as HTMLInputElement;
   const files = Array.from(input.files ?? []);
   input.value = '';
@@ -48,17 +56,20 @@ async function onPick(event: Event): Promise<void> {
   }
 
   busy.value = true;
+  emit('busy-change', true);
   const picked: string[] = [];
   try {
     for (const file of files.slice(0, slots)) {
       picked.push(await compressImageToDataUrl(file, props.deps === undefined ? {} : { deps: props.deps }));
     }
+    if (disposed) return;
     update([...images.value, ...picked]);
     if (files.length > slots) error.value = '最多 ' + props.max + ' 张，多选的没有加进来';
   } catch {
     error.value = '这张图读不出来，换一张再试';
   } finally {
     busy.value = false;
+    if (!disposed) emit('busy-change', false);
   }
 }
 
@@ -69,30 +80,34 @@ function removeAt(index: number): void {
 </script>
 
 <template>
-  <div class="image-input" data-test="image-input">
+  <div class="image-input" :class="{ 'image-composer': embedded }" :aria-busy="busy" data-test="image-input">
     <div class="image-head">
       <span class="image-label">{{ label }}</span>
       <span class="image-count num" data-test="image-count">{{ images.length }} / {{ max }} 张</span>
     </div>
 
+    <slot />
+
     <div class="image-sources">
-      <label v-if="camera" class="image-camera">
-        <span class="image-camera-text">拍照</span>
+      <label v-if="camera" class="image-camera" :class="{ disabled: busy || isFull }">
+        <span class="image-camera-text"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 6 8H3v12h18V8h-3l-2-3Z"/><circle cx="12" cy="13" r="4"/></svg>拍照</span>
         <input
           type="file"
           accept="image/*"
           capture="environment"
+          :aria-label="label + '：拍照'"
           :disabled="busy || isFull"
           :data-test="'image-camera-' + testKey"
           @change="onPick"
         />
       </label>
-      <label class="image-pick">
-        <span class="image-pick-text">{{ camera ? '从相册选' : '选择图片' }}</span>
+      <label class="image-pick" :class="{ disabled: busy || isFull }">
+        <span class="image-pick-text"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg>{{ camera ? '上传照片' : '选择图片' }}</span>
         <input
           type="file"
           accept="image/*"
           multiple
+          :aria-label="label + '：上传照片'"
           :disabled="busy || isFull"
           :data-test="'image-file-' + testKey"
           @change="onPick"
@@ -100,8 +115,8 @@ function removeAt(index: number): void {
       </label>
     </div>
 
-    <p v-if="busy" class="image-hint" :data-test="'image-busy-' + testKey">正在压缩…</p>
-    <p v-if="error" class="image-error" :data-test="'image-error-' + testKey">{{ error }}</p>
+    <p v-if="busy" role="status" class="image-hint" :data-test="'image-busy-' + testKey">正在处理照片…</p>
+    <p v-if="error" role="alert" class="image-error" :data-test="'image-error-' + testKey">{{ error }}</p>
 
     <ul v-if="images.length > 0" class="image-grid" :data-test="'image-grid-' + testKey">
       <li v-for="(src, index) in images" :key="'image-' + index" class="image-cell">
@@ -111,6 +126,7 @@ function removeAt(index: number): void {
           class="image-remove"
           :aria-label="'删除第 ' + (index + 1) + ' 张图片'"
           :data-test="'image-remove-' + testKey"
+          :disabled="busy"
           @click="removeAt(index)"
         >
           ✕
@@ -141,7 +157,7 @@ function removeAt(index: number): void {
   gap: 10px;
   flex-wrap: wrap;
 }
-/* 原生 file 输入盖在按钮下面（视觉上只剩"拍照 / 从相册选"，行为完全不变） */
+/* 原生 file 输入覆盖视觉按钮，保留系统相机及文件选择行为。 */
 .image-camera,
 .image-pick {
   position: relative;
@@ -162,12 +178,28 @@ function removeAt(index: number): void {
 }
 .image-camera-text,
 .image-pick-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  box-sizing: border-box;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2px 10px;
-  font-size: 12px;
-  color: var(--text);
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
+.image-sources svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.image-sources label:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-pill); }
+.image-sources .disabled { opacity: 0.45; }
+.image-composer { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 14px; gap: 12px; }
+.image-composer .image-head { justify-content: space-between; }
+.image-composer .image-label { font-weight: 600; }
+.image-composer .image-count { font-size: 12px; }
+.image-composer :slotted(textarea) { width: 100%; box-sizing: border-box; min-height: 76px; resize: vertical; border: none; background: transparent; color: var(--text); font: inherit; padding: 4px 0; line-height: 1.6; }
+.image-composer :slotted(textarea:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-small); }
 .image-camera:hover .image-camera-text,
 .image-pick:hover .image-pick-text {
   border-color: var(--accent);
@@ -191,8 +223,9 @@ function removeAt(index: number): void {
 }
 .image-cell {
   position: relative;
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius);
   border: var(--line-w) solid var(--border-ink);
   background: var(--panel);
 }
@@ -200,14 +233,15 @@ function removeAt(index: number): void {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: var(--radius);
   display: block;
 }
 .image-remove {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 20px;
-  height: 20px;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
   line-height: 1;
   padding: 0;
   border: var(--line-w) solid var(--border-ink);

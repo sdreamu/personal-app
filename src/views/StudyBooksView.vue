@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseModal from '@/components/BaseModal.vue';
 import BookCard from '@/components/BookCard.vue';
@@ -13,6 +13,76 @@ const router = useRouter();
 const library = useLibraryStore();
 const toast = useToastStore();
 
+const activeStatus = ref<BookStatus>('reading');
+const sorting = ref(false);
+const pointerSort = ref<{ id: string; x: number; y: number; startX: number; startY: number; moved: boolean; status: BookStatus; target: string | null } | null>(null);
+let scrollFrame = 0;
+function stopPointerSort(): void {
+  pointerSort.value = null;
+  cancelAnimationFrame(scrollFrame);
+  window.removeEventListener('pointermove', movePointerSort);
+  window.removeEventListener('pointerup', finishPointerSort);
+  window.removeEventListener('pointercancel', stopPointerSort);
+}
+function locatePointerTarget(): void {
+  const state = pointerSort.value;
+  if (!state) return;
+  const target = document.elementFromPoint(state.x, state.y);
+  const column = target?.closest<HTMLElement>('[data-book-status]');
+  if (!column) { state.target = state.id; return; }
+  state.status = column.dataset.bookStatus as BookStatus;
+  const card = target?.closest<HTMLElement>('[data-book-id]');
+  state.target = card?.dataset.bookId ?? null;
+  if (card && state.target !== state.id) {
+    const rect = card.getBoundingClientRect();
+    if (state.y > rect.top + rect.height / 2) {
+      const books = columns.value.find(col => col.key === state.status)!.books.filter(book => book.id !== state.id);
+      const index = books.findIndex(book => book.id === state.target);
+      state.target = books[index + 1]?.id ?? null;
+    }
+  }
+}
+function scrollDuringSort(): void {
+  const state = pointerSort.value;
+  if (!state) return;
+  const content = document.querySelector<HTMLElement>('.content');
+  if (content && state.moved) {
+    const rect = content.getBoundingClientRect();
+    const bottom = Math.min(rect.bottom, window.innerHeight - 75);
+    const delta = state.y < rect.top + 64 ? -8 : state.y > bottom - 64 ? 8 : 0;
+    if (delta) { content.scrollTop += delta; locatePointerTarget(); }
+  }
+  scrollFrame = requestAnimationFrame(scrollDuringSort);
+}
+function startPointerSort(book: Book, event: PointerEvent): void {
+  if (!sorting.value || event.button !== 0) return;
+  event.preventDefault();
+  stopPointerSort();
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+  pointerSort.value = { id: book.id, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, moved: false, status: book.status, target: book.id };
+  window.addEventListener('pointermove', movePointerSort, { passive: false });
+  window.addEventListener('pointerup', finishPointerSort);
+  window.addEventListener('pointercancel', stopPointerSort);
+  scrollFrame = requestAnimationFrame(scrollDuringSort);
+}
+function movePointerSort(event: PointerEvent): void {
+  const state = pointerSort.value;
+  if (!state) return;
+  event.preventDefault();
+  if (Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 8) state.moved = true;
+  state.x = event.clientX;
+  state.y = event.clientY;
+  locatePointerTarget();
+}
+function finishPointerSort(): void {
+  const state = pointerSort.value;
+  stopPointerSort();
+  if (!state?.moved || state.target === state.id) return;
+  dragId.value = state.id;
+  dropInto(state.status, state.target);
+}
+watch(sorting, stopPointerSort);
+onBeforeUnmount(stopPointerSort);
 const formOpen = ref(false);
 const editingId = ref<string | null>(null);
 const form = reactive({ title: '', author: '', totalPages: 300, status: 'want' as BookStatus });
@@ -65,10 +135,11 @@ async function save(): Promise<void> {
   };
   const saved =
     editingId.value === null ? await library.createBook(input) : await library.saveBook(editingId.value, input);
-  if (saved !== null) formOpen.value = false;
+  if (saved !== null) { activeStatus.value = form.status; formOpen.value = false; }
 }
 
 function changeStatus(book: Book, status: BookStatus): void {
+  activeStatus.value = status;
   void library.setBookStatus(book.id, status);
 }
 
@@ -130,14 +201,24 @@ function moveBook(book: Book, delta: number): void {
   <section class="page books-page" data-test="books-view">
     <header class="page-head">
       <h1 class="page-title">读书</h1>
+      <button class="ghost-btn" data-test="sort-books" :aria-pressed="sorting" @click="sorting = !sorting">{{ sorting ? '完成排序' : '排序' }}</button>
       <button class="primary-btn" data-test="add-book-btn" @click="openCreate">添加书籍</button>
     </header>
 
+    <div class="book-tabs" role="tablist" aria-label="书籍状态">
+      <button v-for="col in columns" :key="col.key" type="button" role="tab" :aria-selected="activeStatus === col.key"
+        :aria-controls="'books-' + col.key" :id="'book-tab-' + col.key" :data-test="'book-tab-' + col.key"
+        :class="{ active: activeStatus === col.key }" @click="activeStatus = col.key; sorting = false">{{ col.label }}（{{ col.books.length }}）</button>
+    </div>
+    <p v-if="sorting" class="hint">拖动手柄调整顺序，也可以点上移、下移；切换状态请使用书卡中的选项。</p>
     <div class="books-columns">
       <section
         v-for="col in columns"
         :key="col.key"
         class="book-column"
+        :class="{ 'mobile-active': activeStatus === col.key }"
+        :id="'books-' + col.key"
+        :data-book-status="col.key"
         :data-test="`column-${col.key}`"
         @dragover.prevent
         @drop.prevent="dropInto(col.key, null)"
@@ -148,10 +229,14 @@ function moveBook(book: Book, delta: number): void {
             v-for="book in col.books"
             :key="book.id"
             :book="book"
+            :sorting="sorting"
+            :data-book-id="book.id"
+            :class="{ 'sort-source': pointerSort?.id === book.id, 'sort-target': pointerSort?.target === book.id && pointerSort.id !== book.id }"
+            @sort-start="startPointerSort(book, $event)"
             :can-move-up="col.books[0]?.id !== book.id"
             :can-move-down="col.books[col.books.length - 1]?.id !== book.id"
             @move="moveBook(book, $event)"
-            @open="openDetail(book)"
+            @open="!sorting && openDetail(book)"
             @edit="openEdit(book)"
             @delete="library.deleteBook(book.id)"
             @status-change="changeStatus(book, $event)"
@@ -226,4 +311,18 @@ function moveBook(book: Book, delta: number): void {
 .column-cards { display: flex; flex-direction: column; gap: 10px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .field { margin-bottom: 12px; }
+.book-tabs { display: none; }
+.page-head { flex-wrap: wrap; margin-bottom: 16px; }
+.page-head h1 { margin-right: auto; }
+.sort-source { opacity: .55; }
+.sort-target { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 1200px) and (min-width: 769px) { .books-columns { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+  .book-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .book-tabs button { flex: 1; min-height: 44px; padding: 8px; border: 1px solid var(--border); background: var(--panel); }
+  .book-tabs button.active { background: var(--text); color: var(--panel); }
+  .books-columns { grid-template-columns: minmax(0, 1fr); }
+  .book-column { display: none; }
+  .book-column.mobile-active { display: block; }
+}
 </style>

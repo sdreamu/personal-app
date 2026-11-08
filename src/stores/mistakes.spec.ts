@@ -10,6 +10,7 @@ import {
 } from '@/db';
 import { exportText } from '@/db/exportText';
 import { useToastStore } from './toast';
+import { useLibraryStore } from './library';
 import { MISTAKE_IMAGE_LIMIT, MISTAKE_REASONS, clampDifficulty, useMistakesStore, type MistakeInput } from './mistakes';
 
 const BASE = new Date('2026-06-01T10:00:00').getTime();
@@ -133,7 +134,7 @@ describe('错题本 store（M9）', () => {
     expect(store.items).toHaveLength(1);
   });
 
-  it('读取只按当前日期：切日期换成另一天，筛选与科目候选跟着变', async () => {
+  it('汇总全部日期，按科目和知识点筛选', async () => {
     const store = useMistakesStore();
     await store.load(TODAY);
     await store.create(input());
@@ -155,11 +156,35 @@ describe('错题本 store（M9）', () => {
     store.subjectFilter = null;
     expect(store.visible[0]?.mastered).toBe(false);
 
-    // 换一天：只剩明天那条
+    // 日期参数兼容旧调用，但不会隐藏其它日期的记录。
     await store.load(TOMORROW);
-    await store.create(input({ date: TOMORROW, subjectName: '英语', questionText: '完形填空' }));
-    expect(store.total).toBe(1);
-    expect(store.items[0]?.subject_name).toBe('英语');
+    const english = await store.create(input({ date: TOMORROW, subjectName: '英语', knowledgePoint: '定语从句', questionText: '完形填空' }));
+    expect(store.total).toBe(3);
+    store.subjectFilter = '英语';
+    store.knowledgeFilter = '定语从句';
+    expect(store.visible.map(row => row.id)).toEqual([english!.id]);
+    store.knowledgeFilter = '时态';
+    expect(store.visible).toHaveLength(0);
+    await store.save(english!.id, input({ date: TOMORROW, subjectName: '英语', knowledgePoint: '时态' }));
+    await store.load();
+    expect(store.visible[0]?.knowledge_point).toBe('时态');
+    expect(store.total).toBe(3);
+  });
+
+  it('分类无需学习目标，知识点去重并随备份恢复', async () => {
+    const library = useLibraryStore();
+    const subject = await library.createMistakeSubject(' 数学 ');
+    expect(subject!.weekly_goal_min).toBe(0);
+    expect((await library.createMistakeSubject('数学'))!.id).toBe(subject!.id);
+    await library.addKnowledgePoint(subject!.id, ' 三角函数 ');
+    await library.addKnowledgePoint(subject!.id, '三角函数');
+    const store = useMistakesStore();
+    const mistake = await store.create(input({ knowledgePoint: '三角函数' }));
+    const backup = await exportBackup();
+    expect(backup.tables.subjects[0]?.knowledge_points).toEqual(['三角函数']);
+    expect((await importBackupFromJson(JSON.stringify(backup))).ok).toBe(true);
+    expect((await getRecord('subjects', subject!.id))?.knowledge_points).toEqual(['三角函数']);
+    expect((await getRecord('mistakes', mistake!.id))?.knowledge_point).toBe('三角函数');
   });
 
   it('预设错误原因就是 4 个（Q5 拍板）', () => {
@@ -170,6 +195,16 @@ describe('错题本 store（M9）', () => {
 describe('错题照片（P2）', () => {
   const IMG_A = 'data:image/jpeg;base64,AAAA';
   const IMG_B = 'data:image/jpeg;base64,BBBB';
+
+  it('题目或订正仅有照片也能保存，刷新后仍存在', async () => {
+    const store = useMistakesStore();
+    await store.create(input({ questionText: '', correctionText: '', questionImages: [IMG_A] }));
+    await store.create(input({ questionText: '', correctionText: '', correctionImages: [IMG_B] }));
+    await store.load();
+    expect(store.items).toHaveLength(2);
+    expect(store.items.some(row => row.question_images[0] === IMG_A)).toBe(true);
+    expect(store.items.some(row => row.correction_images[0] === IMG_B)).toBe(true);
+  });
 
   it('题目/订正照片落库；单组超过 4 张只留前 4 张', async () => {
     const store = useMistakesStore();

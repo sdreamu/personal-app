@@ -37,8 +37,9 @@ const Host = defineComponent({
   template: '<TopBar />',
 });
 
-const DATE_PAGES = ['/plan', '/life/diet', '/life/workout', '/life/play', '/review'];
+const DATE_PAGES = ['/plan', '/life/diet', '/life/workout', '/life/play'];
 const NON_DATE_PAGES = [
+  '/review',
   '/home',
   '/study/books',
   '/study/books/book-1',
@@ -90,20 +91,14 @@ describe('顶栏常驻「＋ 记一笔」', () => {
 });
 
 describe('顶栏日期控件的显示范围（AC-59）', () => {
-  it('5 个日期相关页面显示：前一天 / 日期标签 / 后一天 / 回到今天', async () => {
-    for (const path of DATE_PAGES) {
+  it('所有页面顶栏均无日期和主题切换，设置入口可直达设置页', async () => {
+    for (const path of [...DATE_PAGES, ...NON_DATE_PAGES]) {
       const mounted = await mountAt(path);
-      expect(mounted.wrapper.find('[data-test="date-switch"]').exists(), path).toBe(true);
-      expect(mounted.wrapper.find('[data-test="prev-day"]').exists(), path).toBe(true);
-      expect(mounted.wrapper.find('[data-test="date-label"]').exists(), path).toBe(true);
-      expect(mounted.wrapper.find('[data-test="next-day"]').exists(), path).toBe(true);
-
-      // 回到今天按钮只在非今天时出现（切到昨天后出现）
-      useDateStore().setSelected(addDays(logicalToday(), -1));
+      expect(mounted.wrapper.find('[data-test="date-switch"]').exists()).toBe(false);
+      expect(mounted.wrapper.findComponent({ name: 'ThemeToggle' }).exists()).toBe(false);
+      await mounted.wrapper.get('[data-test="settings-link"]').trigger('click');
       await flushPromises();
-      expect(mounted.wrapper.find('[data-test="go-today"]').exists(), path).toBe(true);
-      useDateStore().goToday();
-      await flushPromises();
+      expect(mounted.router.currentRoute.value.path).toBe('/settings');
     }
   });
 
@@ -118,17 +113,16 @@ describe('顶栏日期控件的显示范围（AC-59）', () => {
     }
   });
 
-  it('唯一来源 config/nav.ts：dateSwitchPaths 恰好 6 条，判定函数区分 12 条路由', () => {
+  it('唯一来源 config/nav.ts：日期页共 5 条，错题本独立于日期', () => {
     expect(dateSwitchPaths).toEqual([
       '/plan',
       '/life/diet',
       '/life/workout',
       '/life/play',
-      '/mistakes',
-      '/review',
     ]);
     for (const path of dateSwitchPaths) expect(showsDateSwitch(path), path).toBe(true);
     for (const path of NON_DATE_PAGES) expect(showsDateSwitch(path), path).toBe(false);
+    expect(showsDateSwitch('/mistakes')).toBe(false);
   });
 
   it('非日期页面快捷键仍全局生效：← / → 切换日期，T / Home 回今天', async () => {
@@ -155,13 +149,4 @@ describe('顶栏日期控件的显示范围（AC-59）', () => {
     expect(dateStore.selectedDate).toBe(today);
   });
 
-  it('日期弹窗打开后切到非日期页面会自动关闭，不留下悬空弹窗', async () => {
-    const mounted = await mountAt('/plan');
-    await mounted.wrapper.find('[data-test="date-label"]').trigger('click');
-    expect(mounted.wrapper.find('[data-test="date-jump-popover"]').exists()).toBe(true);
-
-    await mounted.router.push('/home');
-    await flushPromises();
-    expect(mounted.wrapper.find('[data-test="date-jump-popover"]').exists()).toBe(false);
-  });
 });

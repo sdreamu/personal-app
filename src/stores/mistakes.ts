@@ -4,7 +4,7 @@ import {
   errorMessage,
   getRecord,
   isAlive,
-  listAliveByDate,
+  listAlive,
   nowMs,
   softDelete,
   undoDelete,
@@ -26,6 +26,7 @@ export function clampDifficulty(value: number): number {
 export interface MistakeInput {
   date: string;
   subjectName: string | null;
+  knowledgePoint?: string | null;
   questionText: string;
   correctionText: string;
   reasons: string[];
@@ -54,19 +55,21 @@ export const useMistakesStore = defineStore('mistakes', {
   state: () => ({
     loaded: false,
     loading: false,
-    /** 当前加载的逻辑日期。 */
+    /** 保留旧调用的日期参数，列表不再按日期截断。 */
     date: '',
     items: [] as Mistake[],
     /** 科目筛选（null = 全部）。 */
     subjectFilter: null as string | null,
     /** 只看未掌握。 */
     onlyUnmastered: false,
+    knowledgeFilter: null as string | null,
   }),
   getters: {
-    /** 当前日期下按筛选条件可见的错题：未掌握优先，其次按创建时间倒序。 */
+    /** 按科目、知识点与掌握状态筛选全部错题：未掌握优先，其次按创建时间倒序。 */
     visible(state): Mistake[] {
       return state.items
         .filter((item) => state.subjectFilter === null || item.subject_name === state.subjectFilter)
+        .filter((item) => state.knowledgeFilter === null || item.knowledge_point === state.knowledgeFilter)
         .filter((item) => !state.onlyUnmastered || !item.mastered)
         .slice()
         .sort((a, b) => {
@@ -80,7 +83,7 @@ export const useMistakesStore = defineStore('mistakes', {
     masteredCount(state): number {
       return state.items.filter((item) => item.mastered).length;
     },
-    /** 本日期出现过的科目（下拉筛选与选科目时的候选来源）。 */
+    /** 全部错题出现过的科目，兼容未建立科目档案的旧记录。 */
     usedSubjects(state): string[] {
       const names = new Set<string>();
       for (const item of state.items) {
@@ -104,12 +107,12 @@ export const useMistakesStore = defineStore('mistakes', {
       }
     },
 
-    /** 读取某个逻辑日期的错题（软删除的不算）。 */
-    async load(date: string): Promise<void> {
+    /** 读取全部日期的错题（软删除的不算）。 */
+    async load(date = ''): Promise<void> {
       this.loading = true;
       this.date = date;
       try {
-        const rows = await listAliveByDate('mistakes', date);
+        const rows = await listAlive('mistakes');
         this.items = rows.filter((row) => isAlive(row)).sort((a, b) => b.created_at - a.created_at);
         this.loaded = true;
       } finally {
@@ -121,12 +124,13 @@ export const useMistakesStore = defineStore('mistakes', {
     async create(input: MistakeInput): Promise<Mistake | null> {
       const questionText = input.questionText.trim();
       const correctionText = input.correctionText.trim();
-      // 题目和订正都空 => 没有内容可存，直接忽略（不写空卡片）
-      if (questionText === '' && correctionText === '') return null;
+      // 支持纯照片录题；文字和两组图片都为空才忽略。
+      if (questionText === '' && correctionText === '' && !input.questionImages?.length && !input.correctionImages?.length) return null;
       const created = await this.runWithSaveStatus(() =>
         createRecord('mistakes', {
           date: input.date,
           subject_name: emptyToNull(input.subjectName ?? ''),
+          knowledge_point: emptyToNull(input.knowledgePoint ?? ''),
           question_text: emptyToNull(questionText),
           question_images: [...(input.questionImages ?? [])].slice(0, MISTAKE_IMAGE_LIMIT),
           correction_text: emptyToNull(correctionText),
@@ -139,7 +143,7 @@ export const useMistakesStore = defineStore('mistakes', {
           mastered: input.mastered,
         }),
       );
-      if (this.date === input.date) this.items = [created, ...this.items];
+      this.items = [created, ...this.items];
       return created;
     },
 
@@ -149,6 +153,7 @@ export const useMistakesStore = defineStore('mistakes', {
         updateRecord('mistakes', id, {
           date: input.date,
           subject_name: emptyToNull(input.subjectName ?? ''),
+          knowledge_point: emptyToNull(input.knowledgePoint ?? ''),
           question_text: emptyToNull(input.questionText),
           correction_text: emptyToNull(input.correctionText),
           question_images: [...(input.questionImages ?? [])].slice(0, MISTAKE_IMAGE_LIMIT),

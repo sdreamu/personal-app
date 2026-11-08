@@ -6,6 +6,7 @@ import { createRecord, listAliveByDate, resetDbForTests, type Mistake } from '@/
 import { useDateStore } from '@/stores/date';
 import { useToastStore } from '@/stores/toast';
 import { useMistakesStore } from '@/stores/mistakes';
+import { useLibraryStore } from '@/stores/library';
 import MistakesView from './MistakesView.vue';
 
 const BASE = new Date('2026-06-01T10:00:00').getTime();
@@ -25,7 +26,7 @@ const FakeImageInput = defineComponent({
     max: { type: Number, default: 4 },
   },
   emits: ['update:modelValue'],
-  setup(props, { emit }) {
+  setup(props, { emit, slots }) {
     return () =>
       h(
         'button',
@@ -35,7 +36,7 @@ const FakeImageInput = defineComponent({
           'data-test': 'fake-image-add-' + String(props.testKey),
           onClick: () => emit('update:modelValue', [...(props.modelValue as string[]), 'data:image/jpeg;base64,FAKE']),
         },
-        String(props.label),
+        [String(props.label), slots.default?.()],
       );
   },
 });
@@ -55,11 +56,14 @@ async function mountPage(): Promise<VueWrapper> {
 
 /** 走一遍「记一道错题」表单：题目 + 原因 + 难度。 */
 async function fillCreateForm(title: string, reason = '概念不清', level = 4): Promise<void> {
+  const library = useLibraryStore();
+  await library.createMistakeSubject('数学');
+  await library.loadSubjects();
   await wrapper.find('[data-test="add-mistake-btn"]').trigger('click');
   await flushPromises();
   await wrapper.find('[data-test="mistake-form-question"]').setValue(title);
   await wrapper.find('[data-test="mistake-form-correction"]').setValue(title + ' 的订正');
-  await wrapper.find('[data-test="mistake-form-subject"]').setValue('数学');
+  await wrapper.findAll('[data-test="mistake-form-subject"] button').find(button => button.text() === '数学')!.trigger('click');
   await wrapper.find('[data-test="mistake-reason-' + reason + '"]').trigger('click');
   await wrapper.find('[data-test="mistake-difficulty-' + level + '"]').trigger('click');
   await wrapper.find('[data-test="mistake-form-save"]').trigger('click');
@@ -78,12 +82,37 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
 enableAutoUnmount(afterEach);
 
 describe('错题本页 #/mistakes（M9）', () => {
+  it('加载失败保留重试入口，重试后显示空态', async () => {
+    vi.spyOn(useMistakesStore(), 'load').mockRejectedValueOnce(new Error('read failed'));
+    wrapper = mount(MistakesView, { global: { plugins: [pinia], stubs: { Teleport: true, ImageInput: FakeImageInput } } });
+    await flushPromises();
+    expect(wrapper.find('[role="alert"]').text()).toContain('错题未能加载');
+    await wrapper.find('[role="alert"] button').trigger('click');
+    await vi.waitFor(() => expect(wrapper.find('[data-test="mistakes-empty"]').exists()).toBe(true), WAIT_OPTS);
+  });
+
+  it('分类保存失败显示原因，保留输入以便重试', async () => {
+    wrapper = await mountPage();
+    const failure = vi.spyOn(useLibraryStore(), 'createMistakeSubject').mockRejectedValueOnce(new Error('write failed'));
+    await wrapper.find('[data-test="add-mistake-subject"]').trigger('click');
+    await wrapper.find('[data-test="category-subject"]').setValue('数学');
+    await wrapper.find('#mistake-category-form').trigger('submit');
+    await flushPromises();
+    expect(wrapper.find('[role="alert"]').text()).toContain('保存分类失败');
+    expect((wrapper.find('[data-test="category-subject"]').element as HTMLInputElement).value).toBe('数学');
+    failure.mockRestore();
+    await wrapper.find('#mistake-category-form').trigger('submit');
+    await vi.waitFor(() => expect(wrapper.find('#mistake-category-form').exists()).toBe(false), WAIT_OPTS);
+    expect(wrapper.find('[data-test="mistakes-subject-filter"]').text()).toContain('数学');
+  });
+
   it('空态给出引导；新增一道错题后落库 1 行、卡片显示题目/订正/原因/难度', async () => {
     wrapper = await mountPage();
     expect(wrapper.find('[data-test="mistakes-empty"]').exists()).toBe(true);
@@ -207,7 +236,7 @@ describe('错题本页 #/mistakes（M9）', () => {
     }, WAIT_OPTS);
   });
 
-  it('跟着日期走：切到明天显示明天的错题，新增也落在明天', async () => {
+  it('独立于全局日期：切换日期后仍显示全部错题', async () => {
     wrapper = await mountPage();
     await fillCreateForm('今天的一题');
     await vi.waitFor(() => {
@@ -215,17 +244,14 @@ describe('错题本页 #/mistakes（M9）', () => {
     }, WAIT_OPTS);
 
     useDateStore().$patch({ selectedDate: TOMORROW });
-    await vi.waitFor(() => {
-      if (wrapper.find('[data-test="mistakes-progress"]').text().indexOf(TOMORROW) === -1) {
-        throw new Error('日期没跟上');
-      }
-      if (wrapper.findAll('[data-test="mistake-card"]').length !== 0) throw new Error('明天的错题不该有');
-    }, WAIT_OPTS);
+    await flushPromises();
+    expect(wrapper.findAll('[data-test="mistake-card"]')).toHaveLength(1);
+    expect(wrapper.find('[data-test="mistakes-progress"]').text()).not.toContain(TOMORROW);
 
     await fillCreateForm('明天的一题');
     await vi.waitFor(async () => {
-      const rows = await listAliveByDate('mistakes', TOMORROW);
-      if (rows.length !== 1) throw new Error('新增未落在明天');
+      const rows = await listAliveByDate('mistakes', TODAY);
+      if (rows.length !== 2) throw new Error('新增应使用今天，不使用日程所选日期');
     }, WAIT_OPTS);
   });
 

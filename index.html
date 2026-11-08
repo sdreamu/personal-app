@@ -2,8 +2,8 @@
 <html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#12352A" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0065D1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- 静态 HTML 里拿不到 src/config/app.ts 的 APP_NAME，标题与下方启动占位都与之保持一致 -->
     <title>个人生活助手</title>
@@ -26,18 +26,20 @@
         justify-content: center;
         gap: 10px;
         font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-        background: #EAF0E7;
+        background: #edf2f9;
         color: #12352A;
       }
       .boot-splash-mark {
         font-size: 20px;
         font-weight: 700;
-        letter-spacing: 0.16em;
+        letter-spacing: -0.02em;
       }
       .boot-splash-text {
         font-size: 13px;
-        color: #4A5C50;
+        color: #62626b;
       }
+    [data-theme='dark'] .boot-splash { background: #060c16; color: #f5f5f7; }
+      [data-theme='dark'] .boot-splash-text { color: #a5a5b0; }
     </style>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -4,11 +4,13 @@ import type { Book } from '@/db';
 import type { BookStatus } from '@/stores/library';
 
 const props = withDefaults(
-  defineProps<{ book: Book; canMoveUp?: boolean; canMoveDown?: boolean }>(),
-  { canMoveUp: true, canMoveDown: true },
+  defineProps<{ book: Book; canMoveUp?: boolean; canMoveDown?: boolean; sorting?: boolean }>(),
+  { canMoveUp: true, canMoveDown: true, sorting: false },
 );
+const touchDevice = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
 const emit = defineEmits<{
   (e: 'open'): void;
+  (e: 'sort-start', event: PointerEvent): void;
   (e: 'edit'): void;
   (e: 'delete'): void;
   (e: 'status-change', status: BookStatus): void;
@@ -55,12 +57,14 @@ const percent = computed(() => {
 <template>
   <article
     class="book-card"
+    :class="{ sorting }"
     data-test="book-card"
-    draggable="true"
+    :draggable="!sorting && !touchDevice"
     @click="emit('open')"
     @dragstart="onDragStart"
     @dragend="emit('drag-end')"
   >
+    <button v-if="sorting" class="sort-handle" data-test="sort-handle" type="button" aria-label="拖动排序" @pointerdown.stop="emit('sort-start', $event)" @click.stop @contextmenu.prevent>⠿</button>
     <div class="cover" :style="{ background: book.color }" data-test="book-cover">
       <span class="cover-char">{{ book.title.slice(0, 1) }}</span>
     </div>
@@ -73,7 +77,7 @@ const percent = computed(() => {
       <p class="book-pages" data-test="book-pages">{{ book.current_page }}/{{ book.total_pages }} 页（{{ percent }}%）</p>
       <div class="page-quick" data-test="book-page-quick">
         <!-- 只有真正可交互的控件吃掉点击，其它空白仍然点开详情（卡片中心的点击不能失灵） -->
-        <label class="page-quick-label" :for="pageInputId">改到第</label>
+        <label class="page-quick-label" :for="pageInputId" @click.stop>改到第</label>
         <input
           :id="pageInputId"
           class="page-quick-input num"
@@ -92,6 +96,7 @@ const percent = computed(() => {
       <div class="book-ops" @click.stop>
         <select
           class="book-status"
+          :aria-label="`《${book.title}》的阅读状态`"
           :value="book.status"
           data-test="book-status"
           @change="emit('status-change', ($event.target as HTMLSelectElement).value as BookStatus)"
@@ -136,6 +141,10 @@ const percent = computed(() => {
   border-radius: var(--radius-card);
   padding: 12px;
   cursor: pointer;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .book-card:hover { border-color: var(--accent); }
 .cover {
@@ -151,7 +160,7 @@ const percent = computed(() => {
   font-weight: 700;
 }
 .book-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.book-title { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book-title { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: normal; overflow-wrap: anywhere; }
 .book-author { margin: 0; color: var(--muted); font-size: 13px; }
 .progress-track {
   height: 6px;
@@ -183,7 +192,7 @@ const percent = computed(() => {
   outline-offset: 1px;
   background: var(--panel);
 }
-.book-ops { display: flex; align-items: center; gap: 6px; margin-top: auto; flex-wrap: nowrap; }
+.book-ops { display: flex; align-items: center; gap: 6px; margin-top: auto; flex-wrap: wrap; }
 /* 上移 / 下移做成紧凑按钮：一行放得下，不会把卡片撑高（撑高会挤掉"点卡片开详情"的可点区域） */
 .book-move {
   padding: 3px 7px;
@@ -198,4 +207,18 @@ const percent = computed(() => {
   font-size: 13px;
 }
 .book-ops .ghost-btn, .book-ops .danger-btn { padding: 3px 8px; font-size: 12px; }
+.book-author, .book-pages { overflow-wrap: anywhere; }
+.sort-handle { position: absolute; top: 4px; left: 4px; width: 44px; height: 44px; z-index: 1; touch-action: none; cursor: grab; background: var(--panel); border: 1px solid var(--border); font-size: 24px; }
+.page-quick-input { user-select: text; -webkit-user-select: text; }
+@media (max-width: 768px) {
+  .cover { width: 52px; height: 76px; font-size: 26px; }
+  .book-card { padding: 12px; gap: 10px; }
+  .book-main { gap: 8px; }
+  .book-ops { gap: 8px; }
+  .book-ops button, .book-status, .page-quick-input { min-height: 44px; }
+  .book-move { min-width: 44px; }
+  .book-card:not(.sorting) .book-move { display: none; }
+  .page-quick { justify-content: flex-start; flex-wrap: wrap; }
+  .book-ops .book-status { max-width: 100%; font-size: 16px; }
+}
 </style>

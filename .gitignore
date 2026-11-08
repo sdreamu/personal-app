@@ -4,6 +4,8 @@ dist/
 tools/
 downloads/
 test-results/
+# electron-builder 的产物目录（安装包 / 解包目录），体积大，不入库；用 pnpm dist:win 重新生成
+release/
 *.tmp-*
 .dsh/
 .tmp-*

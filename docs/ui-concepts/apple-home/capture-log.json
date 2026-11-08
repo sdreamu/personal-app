@@ -1,0 +1,86 @@
+{
+  "checks": "pass",
+  "variants": 4,
+  "renderedEvidence": [
+    {
+      "viewport": "320x844",
+      "artifact": "screenshots/solid-light-320.png",
+      "observation": "solid-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/solid-light-390.png",
+      "observation": "solid-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "430x844",
+      "artifact": "screenshots/solid-light-430.png",
+      "observation": "solid-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/solid-light-1440.png",
+      "observation": "solid-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "320x844",
+      "artifact": "screenshots/solid-dark-320.png",
+      "observation": "solid-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/solid-dark-390.png",
+      "observation": "solid-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "430x844",
+      "artifact": "screenshots/solid-dark-430.png",
+      "observation": "solid-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/solid-dark-1440.png",
+      "observation": "solid-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "320x844",
+      "artifact": "screenshots/glass-light-320.png",
+      "observation": "glass-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-light-390.png",
+      "observation": "glass-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "430x844",
+      "artifact": "screenshots/glass-light-430.png",
+      "observation": "glass-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/glass-light-1440.png",
+      "observation": "glass-light: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "320x844",
+      "artifact": "screenshots/glass-dark-320.png",
+      "observation": "glass-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "screenshots/glass-dark-390.png",
+      "observation": "glass-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "430x844",
+      "artifact": "screenshots/glass-dark-430.png",
+      "observation": "glass-dark: unchanged content; viewport layout captured for visual inspection."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "screenshots/glass-dark-1440.png",
+      "observation": "glass-dark: unchanged content; viewport layout captured for visual inspection."
+    }
+  ]
+}

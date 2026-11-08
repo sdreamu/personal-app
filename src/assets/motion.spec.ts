@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
  * 1) 单次过渡/动画时长不得超过 300ms，且不允许无限循环的装饰动效；
  * 2) 必须尊重 prefers-reduced-motion: reduce（整块归零）；
  * 3) 主按钮/卡片要有按下手感（:active 位移 + 阴影消失）；
- * 4) 路由层要有 page-fade 过渡。
+ * 4) 路由层不能先退场露底，再显示下一页。
  */
 const ROOT = process.cwd();
 const MAIN_CSS = readFileSync(join(ROOT, 'src/assets/main.css'), 'utf8');
@@ -70,7 +70,7 @@ describe('N4 动效纪律（AC-74）', () => {
     expect(block).toContain('animation-iteration-count: 1 !important');
   });
 
-  it('按下手感：主按钮/卡片有 :active 位移 2px 且阴影消失', () => {
+  it('按下手感：主按钮/卡片有轻微缩放与透明反馈', () => {
     for (const selector of [
       '.primary-btn:active',
       '.ghost-btn:active',
@@ -84,8 +84,8 @@ describe('N4 动效纪律（AC-74）', () => {
       MAIN_CSS.indexOf('.primary-btn:active'),
       MAIN_CSS.indexOf('/* 完成反馈'),
     );
-    expect(activeBlock).toContain('transform: translate(2px, 2px)');
-    expect(activeBlock).toContain('box-shadow: none');
+    expect(activeBlock).toContain('transform: scale(0.985)');
+    expect(activeBlock).toContain('opacity: 0.75');
   });
 
   it('按下过渡 90ms（远低于 300ms 上限）', () => {
@@ -99,12 +99,10 @@ describe('N4 动效纪律（AC-74）', () => {
     expect(crossCheck.length).toBeGreaterThan(0);
   });
 
-  it('路由层有 page-fade 过渡（140ms 淡入 + 4px 位移）', () => {
+  it('路由切换直接交接内容，避免先退场导致空白帧', () => {
     const app = readFileSync(join(ROOT, 'src/App.vue'), 'utf8');
-    expect(app).toContain('<Transition name="page-fade"');
     expect(app).toContain(':key="route.path"');
-    expect(MAIN_CSS).toContain('.page-fade-enter-active');
-    expect(MAIN_CSS).toMatch(/\.page-fade-enter-active[\s\S]{0,120}transition: opacity 140ms/);
-    expect(MAIN_CSS).toMatch(/\.page-fade-enter-from[\s\S]{0,120}translateY\(4px\)/);
+    expect(app).not.toContain('mode="out-in"');
+    expect(MAIN_CSS).not.toContain('.page-fade-leave-to');
   });
 });

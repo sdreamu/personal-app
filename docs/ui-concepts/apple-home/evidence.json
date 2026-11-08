@@ -1,0 +1,29 @@
+{
+  "contract": "README.md: populated offline mobile home visual concepts; preserve existing modules and their order; compare solid/glass in light/dark using identical fixtures. This is not a production state-machine implementation.",
+  "targetViewports": ["320x844", "390x844", "430x844", "1440x900"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "verify.mjs passed: visible buttons at least 44px high; Tab/Enter visible focus; dialog confirmation and Escape dismissal; reduced-motion transitions disabled; core text color pairs >=4.5:1, with composited backgrounds for glass. Manually inspected four-way comparison and 320px dark glass capture for legibility. Native dialog used for preview-only feedback; production assistive-technology behavior is outside this concept scope."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "All four variants have no horizontal overflow at 320, 390, 430, 1440px; rendered screenshots saved for every combination. Four-way 390px comparison, 320px dark-glass capture and full-length light-solid/dark-glass captures inspected: metrics fit, section ordering preserved, bottom padding keeps final content accessible. Desktop intentionally centers the mobile concept."
+  },
+  "contentStates": {
+    "loading": {"status":"not-applicable","reason":"Fixed local fixture with no asynchronous data loading. Production loading states are outside this visual-example deliverable."},
+    "empty": {"status":"not-applicable","reason":"This concept deliberately previews the same populated fixture in all four styles; no empty database is connected. Production empty states remain for implementation."},
+    "error": {"status":"not-applicable","reason":"No data requests, mutations or fallible product operations exist in the static preview. Error recovery is not represented or claimed."},
+    "partial": {"status":"not-applicable","reason":"No data acquisition or aggregation occurs; every module is drawn from the complete local demonstration fixture. Production partial-data states are not implemented here."},
+    "success": {"status":"pass","evidence":"Clicking a preview action or pressing Enter opens an explicitly labeled example dialog; confirmation or Escape dismisses it and returns focus. This confirms preview feedback only, not successful production saves."},
+    "permission": {"status":"not-applicable","reason":"The static file requests no device permissions, does not access application storage and has no authentication or remote services."}
+  },
+  "renderedEvidence": [
+    {"viewport":"390x844","artifact":"screenshots/solid-light.png","observation":"Neutral gray and white grouped goals, apple-blue progress; greeting, date, timeline, reminder and next-section heading visible at fold. Full content in solid-light-full.png inspected."},
+    {"viewport":"390x844","artifact":"screenshots/solid-dark.png","observation":"Identical composition using black background and charcoal surfaces. Core numbers and blue actions remain readable in four-way comparison."},
+    {"viewport":"390x844","artifact":"screenshots/glass-light.png","observation":"Identical content using soft blue backdrop, translucent pale surfaces and floating navigation; all four metric values fit."},
+    {"viewport":"390x844","artifact":"screenshots/glass-dark.png","observation":"Identical content using navy translucency, subdued borders and floating navigation; complete module order inspected in glass-dark-full.png."},
+    {"viewport":"320x844","artifact":"screenshots/glass-dark-320.png","observation":"Narrow rendering inspected: title, four goal values, date, reminder and MIT action fit; script checked all four variants for overflow and button target size."},
+    {"viewport":"430x844","artifact":"screenshots/solid-light-430.png","observation":"430px capture produced; automated viewport and 44px control checks pass for all variants."},
+    {"viewport":"1440x900","artifact":"screenshots/solid-light-1440.png","observation":"Wide viewport capture produced; mobile concept stays constrained to 540px and centered, with no horizontal page overflow. This is not a desktop redesign."}
+  ]
+}

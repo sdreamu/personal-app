@@ -97,7 +97,7 @@ async function saveForm(): Promise<void> {
       <button class="primary-btn" data-test="open-form-btn" @click="openAdd">手动补记</button>
     </div>
 
-    <p v-if="playStore.loading" class="hint" data-test="list-loading">正在加载…</p>
+    <p v-if="playStore.loading && playStore.loadedDate === null" class="hint" data-test="list-loading">正在加载…</p>
     <p v-else-if="records.length === 0" class="hint" data-test="list-empty">当天暂无娱乐记录。</p>
     <ul v-else class="record-list" data-test="record-list">
       <li v-for="record in records" :key="record.id" class="record-row" data-test="play-record">

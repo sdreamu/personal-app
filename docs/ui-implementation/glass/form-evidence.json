@@ -1,0 +1,32 @@
+{
+  "contract": "contract.md 中的录题表单复核：选择科目、文字与照片一体录入、44px多选和整行开关；以用户五条浏览器批注及当前通透苹果蓝为参考。",
+  "targetViewports": ["320x812", "390x844", "614x547", "1440x900"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Chrome验证错误原因aria-pressed、掌握开关role=switch/aria-checked，Space可切换且焦点可见；表单文字及文件输入带名称；原因和开关高度至少44px；样式令牌对比度与减少动态测试通过。未做屏幕阅读器实测。"
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "两套主题、四种视口检查实际弹层顶部及底部，长科目选项换行，无弹层横向溢出。手机使用底部弹层，保存按钮始终处于固定页脚。"
+  },
+  "contentStates": {
+    "loading": {"status": "pass", "evidence": "隔离Chrome延迟图片解码，照片操作和保存禁用，显示照片处理中；释放测试延迟后可保存。screenshots/mistake-form-photo-loading.png。"},
+    "empty": {"status": "pass", "evidence": "无科目时可选未分类或原地新建，无图片时提供拍照与上传；空内容保存显示添加文字或照片的提示。"},
+    "error": {"status": "pass", "evidence": "实际上传损坏PNG，显示换一张再试；随后选择有效PNG成功，输入仍保留。screenshots/mistake-form-photo-error.png。"},
+    "partial": {"status": "pass", "evidence": "纯题目照片及纯订正照片分别可保存并重新加载；浏览器编辑删除题目照片后订正照片仍保留。知识点、原因和备注可不填。"},
+    "success": {"status": "pass", "evidence": "科目在表单内新增后被选中；纯照片错题保存、刷新，题目/订正照片、错误原因和掌握开关均恢复。已有文字录题、压缩和餐食拍照回归通过。"},
+    "permission": {"status": "not-applicable", "reason": "表单未引入应用自行管理的授权流程，复用已有浏览器原生文件选择和capture输入；系统相机及权限提示的手机实机行为未验证，见limitations。"}
+  },
+  "renderedEvidence": [
+    {"viewport":"320x812","artifact":"screenshots/mistake-form-light-320-top.png","observation":"长科目按钮换行，题目照片入口与文字位于同一区域。"},
+    {"viewport":"320x812","artifact":"screenshots/mistake-form-light-320-bottom.png","observation":"圆角多选原因与整行开关，保存固定在页脚。"},
+    {"viewport":"390x844","artifact":"screenshots/mistake-form-light-390-top.png","observation":"题目和订正各自组合文字、拍照及上传，未将照片分离到后方。"},
+    {"viewport":"390x844","artifact":"screenshots/mistake-form-photo-error.png","observation":"图片读取失败提示靠近所属录入区，提供重试说明。"},
+    {"viewport":"390x844","artifact":"screenshots/mistake-form-photo-loading.png","observation":"处理照片时禁用保存，保持页面结构稳定。"},
+    {"viewport":"614x547","artifact":"screenshots/mistake-form-dark-614-top.png","observation":"用户批注视口下的深色表单，科目选择、相机与上传入口。"},
+    {"viewport":"614x547","artifact":"screenshots/mistake-form-dark-614-bottom.png","observation":"滚动后可访问原因、难度、备注和掌握开关，页脚保持可用。"},
+    {"viewport":"1440x900","artifact":"screenshots/mistake-form-light-1440-top.png","observation":"桌面居中弹层，限制表单宽度，两个照片录入区与原因选项可见。"}
+  ],
+  "validation": ["51项相关单元测试通过", "9项浏览器测试通过（8项错题及1项共享餐食照片回归）", "TypeScript检查及Vite生产构建成功"],
+  "limitations": ["浏览器使用文件模拟相机输入，并验证capture属性；未完成iOS/Android相机硬件及权限弹窗实测。", "照片保存在本地，不进行OCR或上传远程服务。"]
+}

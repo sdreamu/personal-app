@@ -76,7 +76,7 @@ export const navItems: readonly NavItem[] = [
 
 /**
  * 沉在侧边栏底部的两个入口（复盘 / 设置）：单独一组，和上面的导航拉开距离。
- * 手机端 复盘 仍在底部导航里，设置由侧栏与顶栏进入。
+ * 手机端 复盘 仍在底部导航里，设置由侧栏与顶栏齿轮进入。
  */
 export const navFooter: readonly NavLinkItem[] = navItems.filter(
   (item): item is NavLinkItem => item.kind === 'link' && (item.key === 'review' || item.key === 'settings'),
@@ -87,7 +87,7 @@ export const navMain: readonly NavItem[] = navItems.filter(
   (item) => !navFooter.some((footer) => footer.key === item.key),
 );
 
-/** 手机底部导航的 5 个一级入口；设置留在侧边栏之外由顶栏/首页进入。 */
+/** 手机底部导航的 5 个一级入口；设置由顶栏齿轮进入。 */
 export const bottomTabs: readonly NavItem[] = navItems.filter((item) => item.key !== 'settings');
 
 /**
@@ -112,8 +112,8 @@ export function isItemActive(currentPath: string, item: NavItem): boolean {
 }
 
 /**
- * 顶栏日期控件（前一天 / 日期标签 / 后一天 / 回到今天）的显示范围唯一来源。
- * 只有“和日期有关”的页面显示：计划、饮食、健身、娱乐、复盘；
+ * 页面内容区日期控件（前一天 / 日期标签 / 后一天 / 回到今天）的显示范围唯一来源。
+ * 顶部已移除日期控件；仅在“和日期有关”的页面内容区显示：计划、饮食、健身、娱乐；
  * 首页、读书/书详情、科目、计时器、设置不显示。快捷键不受此限制，仍全局生效。
  */
 export const dateSwitchPaths: readonly string[] = [
@@ -121,8 +121,6 @@ export const dateSwitchPaths: readonly string[] = [
   '/life/diet',
   '/life/workout',
   '/life/play',
-  '/mistakes',
-  '/review',
 ];
 
 /** 当前路由是否显示顶栏日期控件（子路由按 isActivePath 规则归属）。 */

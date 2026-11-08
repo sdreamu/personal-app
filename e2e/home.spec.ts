@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearApp, gotoHash, addPlan, seedBook, seedSubject, startStudyTimer } from './helpers';
+import { clearApp, gotoHash, addDays, logicalToday, addPlan, seedBook, seedSubject, startStudyTimer } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await clearApp(page);
@@ -48,12 +48,12 @@ test('AC-19 首页提示条最多2条且按优先级', async ({ page }) => {
 test('AC-20 昨天MIT今天显示并防重复加入', async ({ page }) => {
   // 日期控件只在日期相关页面显示：先到复盘页再切到昨天。
   await gotoHash(page, 'review');
-  await page.click('[data-test="prev-day"]');
+  await page.locator('[data-test="history-open-date"]').fill(addDays(logicalToday(), -1));
+  await expect(page.locator('[data-test="review-date"]')).toHaveText(addDays(logicalToday(), -1));
   await page.locator('[data-test="rating-star"]').nth(4).click();
   await page.fill('[data-test="review-mit"]', 'AC20最重要的一件事');
-  await page.click('[data-test="review-confirm"]');
-  await expect(page.locator('[data-test="review-confirm"]')).toBeDisabled();
-  await page.click('[data-test="go-today"]');
+  await expect(page.locator('[data-test="review-save-status"]')).toHaveText('已自动保存');
+  await page.click('[data-test="review-today"]');
 
   await gotoHash(page, 'home');
   const mitBar = page.locator('[data-test="mit-bar"]');
